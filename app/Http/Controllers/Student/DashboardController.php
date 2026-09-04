@@ -7,6 +7,7 @@ use App\Models\SchoolClass;
 use App\Models\User;
 use App\Services\CharacterPersonaService;
 use App\Services\StudentSheetService;
+use App\Support\ArenaUrl;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -84,9 +85,9 @@ class DashboardController extends Controller
                 'viewerIsTeacher' => false,
                 'classes' => $student->classes()->orderBy('name')->get(),
                 'notifications' => $student->unreadNotifications()->latest()->limit(8)->get(),
-                'notifyUrl' => route('student.notifications'),
-                'markReadUrl' => route('student.notifications.read'),
-                'rankingUrl' => route('ranking.live', $class),
+                'notifyUrl' => ArenaUrl::route('student.notifications'),
+                'markReadUrl' => ArenaUrl::route('student.notifications.read'),
+                'rankingUrl' => ArenaUrl::route('ranking.live', $class),
             ],
         ));
     }
@@ -113,7 +114,7 @@ class DashboardController extends Controller
             'type' => $n->data['type'] ?? 'info',
             'title' => $n->data['title'] ?? '',
             'message' => $n->data['message'] ?? '',
-            'payload' => $n->data['payload'] ?? [],
+            'payload' => ArenaUrl::localizePayload($n->data['payload'] ?? []),
             'created_at' => $n->created_at?->toIso8601String(),
         ]);
 
@@ -125,7 +126,22 @@ class DashboardController extends Controller
 
     public function markRead(Request $request): JsonResponse
     {
-        $request->user()->unreadNotifications->markAsRead();
+        $data = $request->validate([
+            'ids' => ['sometimes', 'array'],
+            'ids.*' => ['required', 'uuid'],
+        ]);
+
+        $unread = $request->user()->unreadNotifications();
+
+        if (array_key_exists('ids', $data)) {
+            if ($data['ids'] === []) {
+                return response()->json(['ok' => true]);
+            }
+
+            $unread->whereIn('id', $data['ids']);
+        }
+
+        $unread->update(['read_at' => now()]);
 
         return response()->json(['ok' => true]);
     }

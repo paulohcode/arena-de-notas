@@ -1,18 +1,21 @@
+import { toLocalPath } from './urls';
+
 export function showToast(title, message, type = 'info', url = null) {
     const stack = document.querySelector('[data-toast-stack]') || createStack();
-    const el = document.createElement(url ? 'a' : 'div');
+    const path = toLocalPath(url);
+    const el = document.createElement(path ? 'a' : 'div');
     el.className = 'toast';
     if (type === 'warn') {
         el.classList.add('toast--warn');
     }
-    if (url) {
-        el.href = url;
+    if (path) {
+        el.href = path;
         el.classList.add('toast--link');
     }
     el.innerHTML = `<p class="font-display text-sm text-gold">${escapeHtml(title)}</p><p class="text-sm text-purple-100/80">${escapeHtml(message)}</p>`;
     stack.appendChild(el);
     playOptionalSound(type);
-    setTimeout(() => el.remove(), url ? 8000 : 4500);
+    setTimeout(() => el.remove(), path ? 8000 : 4500);
 }
 
 function createStack() {

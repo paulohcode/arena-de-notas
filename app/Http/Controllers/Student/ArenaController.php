@@ -7,6 +7,7 @@ use App\Models\Duel;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Services\DuelService;
+use App\Support\ArenaUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -81,8 +82,8 @@ class ArenaController extends Controller
             'opponentNotices' => $canChallenge
                 ? $this->duels->challengeNotices($class, $student, $opponents)
                 : [],
-            'notifyUrl' => route('student.notifications'),
-            'markReadUrl' => route('student.notifications.read'),
+            'notifyUrl' => ArenaUrl::route('student.notifications'),
+            'markReadUrl' => ArenaUrl::route('student.notifications.read'),
         ]);
     }
 
@@ -135,9 +136,9 @@ class ArenaController extends Controller
             'class' => $class,
             'student' => $student,
             'duel' => $duel,
-            'statusUrl' => route('student.arena.status', $duel),
-            'notifyUrl' => route('student.notifications'),
-            'markReadUrl' => route('student.notifications.read'),
+            'statusUrl' => ArenaUrl::route('student.arena.status', $duel),
+            'notifyUrl' => ArenaUrl::route('student.notifications'),
+            'markReadUrl' => ArenaUrl::route('student.notifications.read'),
         ]);
     }
 
@@ -152,8 +153,8 @@ class ArenaController extends Controller
         return response()->json([
             'status' => $duel->status,
             'redirect' => match ($duel->status) {
-                Duel::STATUS_RESOLVED => route('student.arena.show', $duel),
-                Duel::STATUS_DECLINED, Duel::STATUS_EXPIRED => route('student.arena.index'),
+                Duel::STATUS_RESOLVED => ArenaUrl::route('student.arena.show', $duel),
+                Duel::STATUS_DECLINED, Duel::STATUS_EXPIRED => ArenaUrl::route('student.arena.index'),
                 default => null,
             },
         ]);
@@ -177,9 +178,9 @@ class ArenaController extends Controller
                     'challenger_name' => $duel->challenger->name,
                     'challenger_arena' => $duel->challenger->arenaName(),
                     'message' => "{$challengerLabel} te desafiou para um duelo. Aceita a batalha?",
-                    'accept_url' => route('student.arena.accept', $duel),
-                    'decline_url' => route('student.arena.decline', $duel),
-                    'show_url' => route('student.arena.show', $duel),
+                    'accept_url' => ArenaUrl::route('student.arena.accept', $duel),
+                    'decline_url' => ArenaUrl::route('student.arena.decline', $duel),
+                    'show_url' => ArenaUrl::route('student.arena.show', $duel),
                 ];
             })
             ->values();
@@ -206,7 +207,7 @@ class ArenaController extends Controller
                 ->withErrors($exception->errors());
         }
 
-        $battleUrl = route('student.arena.show', $resolved);
+        $battleUrl = ArenaUrl::route('student.arena.show', $resolved);
 
         if ($this->wantsArenaJson($request)) {
             return response()->json([

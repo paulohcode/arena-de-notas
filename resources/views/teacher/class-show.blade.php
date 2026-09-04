@@ -131,6 +131,7 @@
 
     <div x-show="tab === 'alunos'" x-cloak class="grid lg:grid-cols-2 gap-6">
         <form method="POST" action="{{ route('teacher.students.store', $class) }}" class="game-card p-5 space-y-3">
+            @csrf
             <h2 class="font-display text-xl text-amber-200">Novo aluno</h2>
             <input class="game-input" name="name" placeholder="Nome" required>
             <input class="game-input" type="email" name="email" placeholder="E-mail" required>

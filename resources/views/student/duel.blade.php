@@ -55,7 +55,7 @@
             statusUrl: {{ \Illuminate\Support\Js::from($statusUrl) }},
             async poll() {
                 try {
-                    const response = await fetch(this.statusUrl, { headers: { Accept: 'application/json' } });
+                    const response = await fetch(this.statusUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
                     if (! response.ok) return;
                     const data = await response.json();
                     if (data.redirect) {

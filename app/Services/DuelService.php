@@ -7,6 +7,7 @@ use App\Models\Enrollment;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Notifications\GameAlert;
+use App\Support\ArenaUrl;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -58,9 +59,9 @@ class DuelService
                 'challenger_id' => $challenger->id,
                 'challenger_name' => $challenger->name,
                 'challenger_arena' => $challenger->arenaName(),
-                'accept_url' => route('student.arena.accept', $duel),
-                'decline_url' => route('student.arena.decline', $duel),
-                'url' => route('student.arena.index'),
+                'accept_url' => ArenaUrl::route('student.arena.accept', $duel),
+                'decline_url' => ArenaUrl::route('student.arena.decline', $duel),
+                'url' => ArenaUrl::route('student.arena.index'),
             ],
         ));
 
@@ -134,7 +135,7 @@ class DuelService
                 [
                     'duel_id' => $locked->id,
                     'class_id' => $class->id,
-                    'url' => route('student.arena.show', $locked),
+                    'url' => ArenaUrl::route('student.arena.show', $locked),
                 ],
             ));
 
@@ -147,7 +148,7 @@ class DuelService
                 [
                     'duel_id' => $locked->id,
                     'class_id' => $class->id,
-                    'url' => route('student.arena.show', $locked),
+                    'url' => ArenaUrl::route('student.arena.show', $locked),
                 ],
             ));
 
@@ -186,7 +187,7 @@ class DuelService
             [
                 'duel_id' => $duel->id,
                 'class_id' => $duel->class_id,
-                'url' => route('student.arena.index'),
+                'url' => ArenaUrl::route('student.arena.index'),
             ],
         ));
 

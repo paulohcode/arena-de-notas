@@ -170,7 +170,7 @@ class ArenaDuelTest extends TestCase
             ->assertOk()
             ->assertJson([
                 'status' => Duel::STATUS_RESOLVED,
-                'redirect' => route('student.arena.show', $duel),
+                'redirect' => route('student.arena.show', $duel, absolute: false),
             ]);
 
         $this->actingAs($challenger)
@@ -193,8 +193,8 @@ class ArenaDuelTest extends TestCase
             ->getJson(route('student.arena.pending'))
             ->assertOk()
             ->assertJsonPath('challenges.0.duel_id', $duel->id)
-            ->assertJsonPath('challenges.0.accept_url', route('student.arena.accept', $duel))
-            ->assertJsonPath('challenges.0.decline_url', route('student.arena.decline', $duel));
+            ->assertJsonPath('challenges.0.accept_url', route('student.arena.accept', $duel, absolute: false))
+            ->assertJsonPath('challenges.0.decline_url', route('student.arena.decline', $duel, absolute: false));
     }
 
     public function test_json_accept_from_modal_goes_to_battle(): void
@@ -211,7 +211,7 @@ class ArenaDuelTest extends TestCase
             ->assertOk()
             ->assertJson([
                 'ok' => true,
-                'redirect' => route('student.arena.show', $duel),
+                'redirect' => route('student.arena.show', $duel, absolute: false),
             ]);
 
         $this->assertSame(Duel::STATUS_RESOLVED, $duel->fresh()->status);

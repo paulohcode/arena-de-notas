@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Arena das Notas')</title>
-    @fonts
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=cinzel:600,700|outfit:400,500,600,700" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="game-body min-h-screen font-sans antialiased"
@@ -13,9 +14,9 @@
       data-csrf="{{ csrf_token() }}"
       @auth
           @if(auth()->user()->isStudent())
-              data-notify-url="{{ route('student.notifications') }}"
-              data-mark-read-url="{{ route('student.notifications.read') }}"
-              data-challenge-poll-url="{{ route('student.arena.pending') }}"
+              data-notify-url="{{ route('student.notifications', absolute: false) }}"
+              data-mark-read-url="{{ route('student.notifications.read', absolute: false) }}"
+              data-challenge-poll-url="{{ route('student.arena.pending', absolute: false) }}"
           @endif
       @endauth
       @isset($notifyUrl) data-notify-url="{{ $notifyUrl }}" @endisset

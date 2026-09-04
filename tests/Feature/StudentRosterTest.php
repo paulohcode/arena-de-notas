@@ -13,6 +13,56 @@ class StudentRosterTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_new_student_form_includes_csrf_token(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertOk()
+            ->getContent();
+
+        $action = preg_quote(e(route('teacher.students.store', $class)), '/');
+        $this->assertSame(1, preg_match(
+            '/<form[^>]*action="'.$action.'"[^>]*>([\s\S]*?)<\/form>/',
+            $html,
+            $matches
+        ));
+        $this->assertStringContainsString('name="_token"', $matches[1]);
+    }
+
+    public function test_teacher_can_register_a_student(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->post(route('teacher.students.store', $class), [
+                'name' => 'Maria Silva',
+                'email' => 'maria@example.com',
+            ])
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('users', [
+            'name' => 'Maria Silva',
+            'email' => 'maria@example.com',
+            'role' => 'student',
+            'must_change_password' => true,
+        ]);
+
+        $student = User::query()->where('email', 'maria@example.com')->firstOrFail();
+
+        $this->assertDatabaseHas('enrollments', [
+            'class_id' => $class->id,
+            'student_id' => $student->id,
+            'ranking_visible' => false,
+            'xp' => 0,
+        ]);
+    }
+
     public function test_teacher_can_transfer_student_to_another_class(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);

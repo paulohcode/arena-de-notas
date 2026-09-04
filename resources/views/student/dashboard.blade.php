@@ -45,7 +45,7 @@
             <button type="button" class="game-btn-ghost" @click="open = !open" data-mark-read>🔔 <span data-bell-count class="{{ $notifications->isEmpty() ? 'hidden' : '' }}">{{ $notifications->count() }}</span></button>
             <div x-show="open" x-cloak class="absolute right-0 mt-2 w-80 game-card p-4 z-20 space-y-2">
                 @forelse($notifications as $note)
-                    @php $noteUrl = $note->data['payload']['url'] ?? null; @endphp
+                    @php $noteUrl = \App\Support\ArenaUrl::toLocalPath($note->data['payload']['url'] ?? null); @endphp
                     <div>
                         @if($noteUrl)
                             <a href="{{ $noteUrl }}" class="block hover:opacity-90">

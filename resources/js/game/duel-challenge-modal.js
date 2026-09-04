@@ -1,6 +1,10 @@
+import { csrfToken, toLocalPath } from './urls';
+
 /**
  * Modal global de desafio: aparece em qualquer tela do aluno.
  */
+let challengeTimer = null;
+
 export function startChallengePolling(url, csrf) {
     if (!url) {
         return;
@@ -9,11 +13,19 @@ export function startChallengePolling(url, csrf) {
     const shown = new Set();
     let busy = false;
     let queue = [];
+    const token = csrfToken(csrf);
+
+    if (challengeTimer) {
+        clearInterval(challengeTimer);
+    }
 
     const pull = async () => {
         try {
-            const response = await fetch(url, {
-                headers: { Accept: 'application/json' },
+            const response = await fetch(toLocalPath(url) || url, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
                 credentials: 'same-origin',
             });
             if (! response.ok) {
@@ -22,10 +34,11 @@ export function startChallengePolling(url, csrf) {
 
             const data = await response.json();
             (data.challenges || []).forEach((challenge) => {
-                if (shown.has(challenge.duel_id)) {
+                const duelId = String(challenge.duel_id);
+                if (shown.has(duelId)) {
                     return;
                 }
-                shown.add(challenge.duel_id);
+                shown.add(duelId);
                 queue.push(challenge);
             });
 
@@ -42,14 +55,14 @@ export function startChallengePolling(url, csrf) {
 
         busy = true;
         const challenge = queue.shift();
-        openChallengeModal(challenge, csrf, () => {
+        openChallengeModal(challenge, token, () => {
             busy = false;
             maybeShowNext();
         });
     };
 
     pull();
-    setInterval(pull, 2500);
+    challengeTimer = setInterval(pull, 2500);
 }
 
 function openChallengeModal(challenge, csrf, onDone) {
@@ -109,7 +122,7 @@ function openChallengeModal(challenge, csrf, onDone) {
 
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = challenge.accept_url;
+        form.action = toLocalPath(challenge.accept_url) || challenge.accept_url;
         form.style.display = 'none';
 
         const token = document.createElement('input');
@@ -125,7 +138,7 @@ function openChallengeModal(challenge, csrf, onDone) {
     declineBtn.addEventListener('click', async () => {
         setLoading(true, 'Recusando…');
         try {
-            const response = await fetch(challenge.decline_url, {
+            const response = await fetch(toLocalPath(challenge.decline_url) || challenge.decline_url, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': csrf,
