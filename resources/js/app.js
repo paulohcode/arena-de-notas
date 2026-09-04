@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.querySelectorAll('[data-flash-toast]').forEach((el) => {
-        showToast(el.dataset.flashTitle || 'Arena', el.dataset.flashToast);
+        const tone = el.dataset.flashTone === 'warn' ? 'warn' : 'info';
+        showToast(el.dataset.flashTitle || 'Arena', el.dataset.flashToast, tone);
     });
 
     const soundToggle = document.querySelector('[data-sound-toggle]');

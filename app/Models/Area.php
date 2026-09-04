@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
-#[Fillable(['name', 'slug', 'description', 'color', 'emblem', 'map_x', 'map_y', 'is_active'])]
 class Area extends Model
 {
+    protected $fillable = ['name', 'slug', 'description', 'color', 'emblem', 'map_x', 'map_y', 'is_active'];
+
     /**
      * @var array<string, string>
      */

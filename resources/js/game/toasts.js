@@ -2,6 +2,9 @@ export function showToast(title, message, type = 'info', url = null) {
     const stack = document.querySelector('[data-toast-stack]') || createStack();
     const el = document.createElement(url ? 'a' : 'div');
     el.className = 'toast';
+    if (type === 'warn') {
+        el.classList.add('toast--warn');
+    }
     if (url) {
         el.href = url;
         el.classList.add('toast--link');

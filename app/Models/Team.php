@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['class_id', 'name', 'color', 'emblem'])]
 class Team extends Model
 {
+    protected $fillable = ['class_id', 'name', 'color', 'emblem'];
+
     public const EMBLEMS = [
         'shield' => '🛡️',
         'sword' => '⚔️',

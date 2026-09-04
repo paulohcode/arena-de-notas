@@ -4,7 +4,7 @@ Sistema de notas em formato de game (RPG) para o curso técnico de sistemas. Lar
 
 ## Requisitos
 
-- PHP 8.3+
+- PHP 8.2+
 - Composer
 - Node.js 20+
 - MySQL / MariaDB

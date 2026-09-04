@@ -2,25 +2,25 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable([
-    'teacher_id',
-    'area_id',
-    'name',
-    'year',
-    'score_mode',
-    'team_grade_weight',
-    'behavior_grade_weight',
-    'arena_open',
-])]
 class SchoolClass extends Model
 {
     protected $table = 'classes';
+
+    protected $fillable = [
+        'teacher_id',
+        'area_id',
+        'name',
+        'year',
+        'score_mode',
+        'team_grade_weight',
+        'behavior_grade_weight',
+        'arena_open',
+    ];
 
     protected function casts(): array
     {

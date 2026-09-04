@@ -30,7 +30,7 @@ class RankingService
         $students = $class->students()
             ->orderBy('name')
             ->withCount([
-                'badges as badge_count' => fn ($q) => $q->wherePivot('class_id', $class->id),
+                'badges as badge_count' => fn ($q) => $q->where('user_badges.class_id', $class->id),
             ])
             ->get();
 

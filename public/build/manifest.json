@@ -1,0 +1,69 @@
+{
+  "_cinzel-600-normal-CH_LB4su.woff": {
+    "file": "assets/cinzel-600-normal-CH_LB4su.woff",
+    "src": "_cinzel-600-normal-CH_LB4su.woff"
+  },
+  "_cinzel-600-normal-Dd5YO2UX.woff2": {
+    "file": "assets/cinzel-600-normal-Dd5YO2UX.woff2",
+    "src": "_cinzel-600-normal-Dd5YO2UX.woff2"
+  },
+  "_cinzel-700-normal-C-gK7hA8.woff": {
+    "file": "assets/cinzel-700-normal-C-gK7hA8.woff",
+    "src": "_cinzel-700-normal-C-gK7hA8.woff"
+  },
+  "_cinzel-700-normal-Dkw14w9r.woff2": {
+    "file": "assets/cinzel-700-normal-Dkw14w9r.woff2",
+    "src": "_cinzel-700-normal-Dkw14w9r.woff2"
+  },
+  "_fonts-DF-GMa6v.css": {
+    "file": "assets/fonts-DF-GMa6v.css",
+    "src": "_fonts-DF-GMa6v.css"
+  },
+  "_outfit-400-normal-BGsTXAXT.woff2": {
+    "file": "assets/outfit-400-normal-BGsTXAXT.woff2",
+    "src": "_outfit-400-normal-BGsTXAXT.woff2"
+  },
+  "_outfit-400-normal-DMwTpYkH.woff": {
+    "file": "assets/outfit-400-normal-DMwTpYkH.woff",
+    "src": "_outfit-400-normal-DMwTpYkH.woff"
+  },
+  "_outfit-500-normal-ClnHRwRh.woff": {
+    "file": "assets/outfit-500-normal-ClnHRwRh.woff",
+    "src": "_outfit-500-normal-ClnHRwRh.woff"
+  },
+  "_outfit-500-normal-DKnIMDSk.woff2": {
+    "file": "assets/outfit-500-normal-DKnIMDSk.woff2",
+    "src": "_outfit-500-normal-DKnIMDSk.woff2"
+  },
+  "_outfit-600-normal-B7SfZ07L.woff2": {
+    "file": "assets/outfit-600-normal-B7SfZ07L.woff2",
+    "src": "_outfit-600-normal-B7SfZ07L.woff2"
+  },
+  "_outfit-600-normal-BEfTtDA7.woff": {
+    "file": "assets/outfit-600-normal-BEfTtDA7.woff",
+    "src": "_outfit-600-normal-BEfTtDA7.woff"
+  },
+  "_outfit-700-normal-Cu9v6i1X.woff2": {
+    "file": "assets/outfit-700-normal-Cu9v6i1X.woff2",
+    "src": "_outfit-700-normal-Cu9v6i1X.woff2"
+  },
+  "_outfit-700-normal-D4itBLBr.woff": {
+    "file": "assets/outfit-700-normal-D4itBLBr.woff",
+    "src": "_outfit-700-normal-D4itBLBr.woff"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-CHKl6Lac.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-DL0RINbm.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  }
+}

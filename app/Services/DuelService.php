@@ -33,10 +33,11 @@ class DuelService
             ]);
         }
 
-        $this->assertDailyResolvedLimit($class, $challenger);
-        $this->assertCooldown($class, $challenger);
-        $this->assertNoDuplicateToday($class, $challenger, $opponent);
-        $this->assertNoPendingBetween($class, $challenger, $opponent);
+        if ($reason = $this->challengeRestriction($class, $challenger, $opponent)) {
+            throw ValidationException::withMessages([
+                'opponent_id' => $reason,
+            ]);
+        }
 
         $duel = Duel::query()->create([
             'class_id' => $class->id,
@@ -243,6 +244,35 @@ class DuelService
     }
 
     /**
+     * Motivo pelo qual este desafio não pode ser enviado agora.
+     */
+    public function challengeRestriction(SchoolClass $class, User $challenger, User $opponent): ?string
+    {
+        return $this->pendingBetweenReason($class, $challenger, $opponent)
+            ?? $this->duplicateTodayReason($class, $challenger, $opponent)
+            ?? $this->dailyLimitReason($class, $challenger)
+            ?? $this->cooldownReason($class, $challenger);
+    }
+
+    /**
+     * @param  iterable<int, User>  $opponents
+     * @return array<int, string>
+     */
+    public function challengeNotices(SchoolClass $class, User $challenger, iterable $opponents): array
+    {
+        $notices = [];
+
+        foreach ($opponents as $opponent) {
+            $reason = $this->challengeRestriction($class, $challenger, $opponent);
+            if ($reason !== null) {
+                $notices[$opponent->id] = $reason;
+            }
+        }
+
+        return $notices;
+    }
+
+    /**
      * Contagem de duelos resolvidos hoje envolvendo o aluno.
      */
     public function resolvedTodayCount(SchoolClass $class, User $student): int
@@ -319,14 +349,23 @@ class DuelService
 
     private function assertDailyResolvedLimit(SchoolClass $class, User $student): void
     {
-        if ($this->resolvedTodayCount($class, $student) >= Duel::DAILY_RESOLVED_LIMIT) {
+        if ($reason = $this->dailyLimitReason($class, $student)) {
             throw ValidationException::withMessages([
-                'opponent_id' => 'Limite de '.Duel::DAILY_RESOLVED_LIMIT.' duelos resolvidos por dia atingido.',
+                'opponent_id' => $reason,
             ]);
         }
     }
 
-    private function assertCooldown(SchoolClass $class, User $challenger): void
+    private function dailyLimitReason(SchoolClass $class, User $student): ?string
+    {
+        if ($this->resolvedTodayCount($class, $student) >= Duel::DAILY_RESOLVED_LIMIT) {
+            return 'Você já fez '.Duel::DAILY_RESOLVED_LIMIT.' duelos hoje. Só pode duelar de novo amanhã.';
+        }
+
+        return null;
+    }
+
+    private function cooldownReason(SchoolClass $class, User $challenger): ?string
     {
         $since = now()->subHours(Duel::CHALLENGE_COOLDOWN_HOURS);
 
@@ -338,52 +377,57 @@ class DuelService
             ->exists();
 
         if ($recent) {
-            throw ValidationException::withMessages([
-                'opponent_id' => 'Aguarde '.Duel::CHALLENGE_COOLDOWN_HOURS.' horas entre desafios.',
-            ]);
+            return 'Aguarde '.Duel::CHALLENGE_COOLDOWN_HOURS.' horas entre um desafio e outro.';
         }
+
+        return null;
     }
 
-    private function assertNoDuplicateToday(SchoolClass $class, User $a, User $b): void
+    private function duplicateTodayReason(SchoolClass $class, User $challenger, User $opponent): ?string
     {
         $exists = Duel::query()
             ->where('class_id', $class->id)
             ->whereDate('created_at', Carbon::today())
-            ->where(function ($query) use ($a, $b) {
-                $query->where(function ($inner) use ($a, $b) {
-                    $inner->where('challenger_id', $a->id)->where('opponent_id', $b->id);
-                })->orWhere(function ($inner) use ($a, $b) {
-                    $inner->where('challenger_id', $b->id)->where('opponent_id', $a->id);
+            ->where(function ($query) use ($challenger, $opponent) {
+                $query->where(function ($inner) use ($challenger, $opponent) {
+                    $inner->where('challenger_id', $challenger->id)->where('opponent_id', $opponent->id);
+                })->orWhere(function ($inner) use ($challenger, $opponent) {
+                    $inner->where('challenger_id', $opponent->id)->where('opponent_id', $challenger->id);
                 });
             })
             ->whereIn('status', [Duel::STATUS_PENDING, Duel::STATUS_RESOLVED])
             ->exists();
 
         if ($exists) {
-            throw ValidationException::withMessages([
-                'opponent_id' => 'Vocês já duelaram (ou têm um desafio) hoje.',
-            ]);
+            return 'Você já desafiou '.$this->fighterLabel($opponent).' hoje. Só pode duelar de novo amanhã.';
         }
+
+        return null;
     }
 
-    private function assertNoPendingBetween(SchoolClass $class, User $a, User $b): void
+    private function pendingBetweenReason(SchoolClass $class, User $challenger, User $opponent): ?string
     {
         $exists = Duel::query()
             ->where('class_id', $class->id)
             ->where('status', Duel::STATUS_PENDING)
-            ->where(function ($query) use ($a, $b) {
-                $query->where(function ($inner) use ($a, $b) {
-                    $inner->where('challenger_id', $a->id)->where('opponent_id', $b->id);
-                })->orWhere(function ($inner) use ($a, $b) {
-                    $inner->where('challenger_id', $b->id)->where('opponent_id', $a->id);
+            ->where(function ($query) use ($challenger, $opponent) {
+                $query->where(function ($inner) use ($challenger, $opponent) {
+                    $inner->where('challenger_id', $challenger->id)->where('opponent_id', $opponent->id);
+                })->orWhere(function ($inner) use ($challenger, $opponent) {
+                    $inner->where('challenger_id', $opponent->id)->where('opponent_id', $challenger->id);
                 });
             })
             ->exists();
 
         if ($exists) {
-            throw ValidationException::withMessages([
-                'opponent_id' => 'Já existe um desafio pendente entre vocês.',
-            ]);
+            return 'Já existe um desafio pendente com '.$this->fighterLabel($opponent).'. Aguarde a resposta.';
         }
+
+        return null;
+    }
+
+    private function fighterLabel(User $student): string
+    {
+        return $student->arenaName() ?: $student->name;
     }
 }

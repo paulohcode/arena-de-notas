@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['class_id', 'activity_id', 'student_id', 'team_id', 'created_by', 'type', 'raw_score', 'delta', 'reason'])]
 class LedgerEntry extends Model
 {
+    protected $fillable = ['class_id', 'activity_id', 'student_id', 'team_id', 'created_by', 'type', 'raw_score', 'delta', 'reason'];
+
     protected function casts(): array
     {
         return [

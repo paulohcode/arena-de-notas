@@ -63,6 +63,7 @@ class ArenaController extends Controller
             ->get();
 
         $enrollment = $student->enrollmentIn($class);
+        $canChallenge = $class->isArenaOpen() && $student->hasApprovedPersona();
 
         return view('student.arena', [
             'class' => $class,
@@ -75,7 +76,11 @@ class ArenaController extends Controller
             'hall' => $this->duels->hall($class, publicOnly: true),
             'resolvedToday' => $this->duels->resolvedTodayCount($class, $student),
             'dailyLimit' => Duel::DAILY_RESOLVED_LIMIT,
-            'canChallenge' => $class->isArenaOpen() && $student->hasApprovedPersona(),
+            'cooldownHours' => Duel::CHALLENGE_COOLDOWN_HOURS,
+            'canChallenge' => $canChallenge,
+            'opponentNotices' => $canChallenge
+                ? $this->duels->challengeNotices($class, $student, $opponents)
+                : [],
             'notifyUrl' => route('student.notifications'),
             'markReadUrl' => route('student.notifications.read'),
         ]);
@@ -92,7 +97,14 @@ class ArenaController extends Controller
         ]);
 
         $opponent = User::query()->findOrFail($data['opponent_id']);
-        $duel = $this->duels->challenge($class, $request->user(), $opponent);
+
+        try {
+            $duel = $this->duels->challenge($class, $request->user(), $opponent);
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('student.arena.index')
+                ->withErrors($exception->errors());
+        }
 
         return redirect()
             ->route('student.arena.show', $duel)

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Badge;
 use App\Models\SchoolClass;
 use App\Models\Team;
 use App\Models\User;
@@ -60,6 +61,41 @@ class RankingVisibilityTest extends TestCase
             ->getJson(route('ranking.live', $class))
             ->assertOk()
             ->assertJsonMissing(['name' => $hidden->name]);
+    }
+
+    public function test_ranking_counts_only_badges_earned_in_that_class(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher, ['name' => 'Turma Medalhas']);
+        $otherClass = $this->createClassForTeacher($teacher, ['name' => 'Outra Turma Medalhas']);
+
+        $student = User::factory()->create([
+            'role' => 'student',
+            'name' => 'Aluno Com Medalhas',
+            'must_change_password' => false,
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => true, 'xp' => 0]);
+        $otherClass->students()->attach($student->id, ['ranking_visible' => true, 'xp' => 0]);
+
+        $classBadge = Badge::query()->create([
+            'slug' => 'podio-turma',
+            'name' => 'Pódio',
+            'description' => 'Entrou no top 3.',
+            'icon' => '🏆',
+        ]);
+        $otherBadge = Badge::query()->create([
+            'slug' => 'excelencia-outra',
+            'name' => 'Excelência',
+            'description' => 'Média alta em outra turma.',
+            'icon' => '🥇',
+        ]);
+        $student->badges()->attach($classBadge->id, ['class_id' => $class->id]);
+        $student->badges()->attach($otherBadge->id, ['class_id' => $otherClass->id]);
+
+        $this->getJson(route('ranking.live', $class))
+            ->assertOk()
+            ->assertJsonPath('players.0.name', 'Aluno Com Medalhas')
+            ->assertJsonPath('players.0.badge_count', 1);
     }
 
     public function test_guild_hides_member_name_from_other_area_teacher(): void

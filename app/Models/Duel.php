@@ -2,24 +2,24 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable([
-    'class_id',
-    'challenger_id',
-    'opponent_id',
-    'status',
-    'seed',
-    'log',
-    'winner_id',
-    'glory_winner',
-    'glory_loser',
-    'resolved_at',
-])]
 class Duel extends Model
 {
+    protected $fillable = [
+        'class_id',
+        'challenger_id',
+        'opponent_id',
+        'status',
+        'seed',
+        'log',
+        'winner_id',
+        'glory_winner',
+        'glory_loser',
+        'resolved_at',
+    ];
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_ACCEPTED = 'accepted';

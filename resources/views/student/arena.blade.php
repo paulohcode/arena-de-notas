@@ -58,18 +58,16 @@
 
 <div class="grid lg:grid-cols-2 gap-6 mb-8">
     <div class="game-card p-5">
-        <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center justify-between gap-3 mb-3">
             <h2 class="font-display text-xl text-amber-200">Desafiar colega</h2>
             <p class="text-xs text-amber-100/50">{{ $resolvedToday }}/{{ $dailyLimit }} duelos hoje</p>
         </div>
 
-        @if($errors->any())
-            <div class="mb-4 text-sm text-rose-300">
-                @foreach($errors->all() as $error)
-                    <p>{{ $error }}</p>
-                @endforeach
-            </div>
-        @endif
+        <div class="mb-4 rounded-lg border border-amber-400/25 bg-amber-950/20 p-3 text-xs text-amber-100/75 space-y-1">
+            <p>A mesma pessoa só pode ser desafiada <strong class="text-amber-200">uma vez por dia</strong>.</p>
+            <p>Espere <strong class="text-amber-200">{{ $cooldownHours }} horas</strong> entre um desafio e outro.</p>
+            <p>Limite de <strong class="text-amber-200">{{ $dailyLimit }} duelos resolvidos</strong> por dia.</p>
+        </div>
 
         @forelse($opponents as $peer)
             <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/40">
@@ -84,7 +82,9 @@
                         <p class="text-xs text-amber-100/50">{{ $peer->characterClassLabel() }}</p>
                     </div>
                 </div>
-                @if($canChallenge)
+                @if(! empty($opponentNotices[$peer->id]))
+                    <p class="text-xs text-amber-200/90 max-w-56 text-right leading-snug">{{ $opponentNotices[$peer->id] }}</p>
+                @elseif($canChallenge)
                     <form method="POST" action="{{ route('student.arena.challenge') }}">
                         @csrf
                         <input type="hidden" name="opponent_id" value="{{ $peer->id }}">

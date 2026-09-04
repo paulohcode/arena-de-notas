@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Arena das Notas')</title>
     @fonts
-
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="game-body min-h-screen font-sans antialiased"
       data-game-root
@@ -58,8 +58,10 @@
         @endif
 
         @if($errors->any())
-            <div class="game-card p-4 mb-6 border-red-400/40 text-red-200 reveal">
-                {{ $errors->first() }}
+            <div class="hidden" data-flash-toast="{{ $errors->first() }}" data-flash-title="Atenção" data-flash-tone="warn"></div>
+            <div class="game-card p-4 mb-6 border-amber-400/50 text-amber-100 reveal" role="alert">
+                <p class="font-semibold text-amber-200">Atenção</p>
+                <p class="text-sm mt-1">{{ $errors->first() }}</p>
             </div>
         @endif
 

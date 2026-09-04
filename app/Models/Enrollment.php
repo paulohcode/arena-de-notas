@@ -2,22 +2,22 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable([
-    'class_id',
-    'student_id',
-    'ranking_visible',
-    'xp',
-    'glory',
-    'arena_wins',
-    'arena_losses',
-    'behavior_score',
-])]
 class Enrollment extends Model
 {
+    protected $fillable = [
+        'class_id',
+        'student_id',
+        'ranking_visible',
+        'xp',
+        'glory',
+        'arena_wins',
+        'arena_losses',
+        'behavior_score',
+    ];
+
     protected function casts(): array
     {
         return [

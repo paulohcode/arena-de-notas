@@ -1440,6 +1440,11 @@ label.class-aura:has(:checked):hover {
     40% { filter: drop-shadow(0 0 14px rgba(52, 211, 153, 0.7)); }
 }
 
+.toast--warn {
+    border-color: rgba(251, 191, 36, 0.65);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 18px rgba(245, 158, 11, 0.22);
+}
+
 .toast--link {
     text-decoration: none;
     display: block;

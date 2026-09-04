@@ -3,33 +3,36 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable([
-    'name',
-    'email',
-    'password',
-    'role',
-    'must_change_password',
-    'character_class',
-    'character_name',
-    'character_avatar',
-    'pending_character_name',
-    'pending_character_avatar',
-    'character_approval_status',
-    'character_rejection_reason',
-])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+        'must_change_password',
+        'character_class',
+        'character_name',
+        'character_avatar',
+        'pending_character_name',
+        'pending_character_avatar',
+        'character_approval_status',
+        'character_rejection_reason',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     /**
      * Classes de personagem disponíveis para os alunos.

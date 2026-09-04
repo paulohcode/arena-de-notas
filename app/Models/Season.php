@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['area_id', 'name', 'description', 'created_by'])]
 class Season extends Model
 {
+    protected $fillable = ['area_id', 'name', 'description', 'created_by'];
+
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class);

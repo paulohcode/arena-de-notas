@@ -8,6 +8,7 @@ use App\Models\SchoolClass;
 use App\Models\User;
 use App\Notifications\GameAlert;
 use App\Services\ArenaCombatService;
+use App\Services\DuelService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -245,10 +246,52 @@ class ArenaDuelTest extends TestCase
             ->assertRedirect();
 
         $this->actingAs($challenger)
+            ->get(route('student.arena.index'))
+            ->assertOk()
+            ->assertSee('Já existe um desafio pendente com Heroi Bruno Lima');
+
+        $this->actingAs($challenger)
             ->from(route('student.arena.index'))
             ->post(route('student.arena.challenge'), ['opponent_id' => $opponent->id])
-            ->assertRedirect()
-            ->assertSessionHasErrors(['opponent_id']);
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors([
+                'opponent_id' => 'Já existe um desafio pendente com Heroi Bruno Lima. Aguarde a resposta.',
+            ]);
+
+        $this->actingAs($challenger)
+            ->get(route('student.arena.index'))
+            ->assertOk()
+            ->assertSee('Já existe um desafio pendente com Heroi Bruno Lima. Aguarde a resposta.');
+    }
+
+    public function test_cannot_challenge_same_opponent_again_after_dueling_today(): void
+    {
+        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.challenge'), ['opponent_id' => $opponent->id]);
+
+        $duel = Duel::query()->firstOrFail();
+
+        $this->actingAs($opponent)
+            ->post(route('student.arena.accept', $duel))
+            ->assertRedirect();
+
+        $this->travel(Duel::CHALLENGE_COOLDOWN_HOURS + 1)->hours();
+
+        $this->actingAs($challenger)
+            ->from(route('student.arena.index'))
+            ->post(route('student.arena.challenge'), ['opponent_id' => $opponent->id])
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors([
+                'opponent_id' => 'Você já desafiou Heroi Bruno Lima hoje. Só pode duelar de novo amanhã.',
+            ]);
+
+        $this->actingAs($challenger)
+            ->get(route('student.arena.index'))
+            ->assertOk()
+            ->assertSee('Você já desafiou Heroi Bruno Lima hoje. Só pode duelar de novo amanhã.')
+            ->assertDontSee('>Desafiar</button>', false);
     }
 
     public function test_challenge_cooldown_blocks_a_second_challenge_too_soon(): void
@@ -263,8 +306,10 @@ class ArenaDuelTest extends TestCase
         $this->actingAs($challenger)
             ->from(route('student.arena.index'))
             ->post(route('student.arena.challenge'), ['opponent_id' => $third->id])
-            ->assertRedirect()
-            ->assertSessionHasErrors(['opponent_id']);
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors([
+                'opponent_id' => 'Aguarde '.Duel::CHALLENGE_COOLDOWN_HOURS.' horas entre um desafio e outro.',
+            ]);
     }
 
     public function test_daily_resolved_limit_blocks_further_accepts(): void
@@ -288,7 +333,7 @@ class ArenaDuelTest extends TestCase
             ]);
         }
 
-        $this->assertSame(3, app(\App\Services\DuelService::class)->resolvedTodayCount($class, $challenger));
+        $this->assertSame(3, app(DuelService::class)->resolvedTodayCount($class, $challenger));
 
         $extra = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
 
@@ -301,8 +346,10 @@ class ArenaDuelTest extends TestCase
         $this->actingAs($challenger)
             ->from(route('student.arena.index'))
             ->post(route('student.arena.accept', $duel))
-            ->assertRedirect()
-            ->assertSessionHasErrors(['opponent_id']);
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors([
+                'opponent_id' => 'Você já fez '.Duel::DAILY_RESOLVED_LIMIT.' duelos hoje. Só pode duelar de novo amanhã.',
+            ]);
     }
 
     public function test_combat_with_same_seed_is_reproducible(): void
