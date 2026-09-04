@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Arena das Notas')</title>
     @fonts
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
 </head>
 <body class="game-body min-h-screen font-sans antialiased"
       data-game-root
