@@ -1,0 +1,102 @@
+@extends('layouts.game')
+
+@section('title', 'Ficha de '.$student->name.' — '.$class->name)
+
+@section('content')
+<div class="flex flex-wrap items-start justify-between gap-4 mb-6 reveal">
+    <div class="game-card {{ $student->characterAuraClass() }} p-5 flex items-start gap-4 min-w-0 flex-1">
+        @include('partials.class-fx', ['characterClass' => $student->character_class])
+        @include('partials.player-avatar', [
+            'student' => $student,
+            'size' => 'lg',
+            'avatarKey' => $student->pending_character_avatar ?? $student->character_avatar,
+        ])
+        <div class="min-w-0">
+            <p class="hero-kicker !mb-1">Ficha do aluno</p>
+            <h1 class="font-display text-4xl text-amber-300">{{ $student->name }}</h1>
+            @if($student->arenaName())
+                <p class="font-display text-xl text-amber-200 mt-1">{{ $student->arenaName() }}</p>
+            @endif
+            <p class="text-amber-100/65 mt-2 flex flex-wrap items-center gap-2">
+                @include('partials.class-badge', ['student' => $student])
+                <span>· {{ $class->name }} · {{ $student->email }}</span>
+            </p>
+            @if($student->isPersonaPending())
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <form method="POST" action="{{ route('teacher.characters.approve', [$class, $student]) }}">
+                        @csrf
+                        <button class="game-btn !py-1 !px-3 text-sm" type="submit">Aprovar personagem</button>
+                    </form>
+                    <form method="POST" action="{{ route('teacher.characters.reject', [$class, $student]) }}" class="flex gap-2">
+                        @csrf
+                        <input class="game-input !py-1" name="reason" placeholder="Motivo (opcional)" maxlength="200">
+                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Recusar</button>
+                    </form>
+                </div>
+            @endif
+        </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <a class="game-btn-ghost" href="{{ route('ranking.show', $class) }}">Voltar ao ranking</a>
+        <a class="game-btn-ghost" href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']) }}">Voltar à turma</a>
+    </div>
+</div>
+
+<form method="POST" action="{{ route('teacher.characters.update', [$class, $student]) }}" class="game-card p-6 mb-8 space-y-6 reveal">
+    @csrf
+    @method('PUT')
+    <div>
+        <h2 class="font-display text-xl text-amber-200">Identidade do aluno</h2>
+        <p class="text-sm text-amber-100/60 mt-1">Altere o nome, o avatar e a classe. A mudança entra na arena na hora, sem pedido de aprovação.</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-4">
+        <label class="space-y-1">
+            <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome do aluno</span>
+            <input class="game-input" name="name" value="{{ old('name', $student->name) }}" required maxlength="120">
+        </label>
+        <label class="space-y-1">
+            <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome de jogo</span>
+            <input class="game-input" name="character_name" value="{{ old('character_name', $student->pending_character_name ?? $student->character_name) }}" required minlength="2" maxlength="24" placeholder="Ex: Lobo Noturno">
+        </label>
+    </div>
+
+    <section class="space-y-3">
+        <h3 class="font-display text-lg text-amber-200">Avatar</h3>
+        <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+            @foreach(\App\Models\User::CHARACTER_AVATARS as $key => $meta)
+                <label class="game-card game-card-glow choice-card p-3 cursor-pointer text-center">
+                    <input type="radio" name="character_avatar" value="{{ $key }}" class="sr-only"
+                           @checked(old('character_avatar', $student->pending_character_avatar ?? $student->character_avatar) === $key) required>
+                    <span class="hero-portrait mx-auto hero-portrait--sm" style="--portrait-tone: {{ $meta['tone'] }}">{{ $meta['icon'] }}</span>
+                    <span class="block text-xs text-amber-100/70 mt-2">{{ $meta['name'] }}</span>
+                </label>
+            @endforeach
+        </div>
+    </section>
+
+    <section class="space-y-3">
+        <h3 class="font-display text-lg text-amber-200">Classe</h3>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            @foreach(\App\Models\User::CHARACTER_CLASSES as $key => $meta)
+                <label class="game-card game-card-glow choice-card class-aura class-aura--{{ $key }} p-4 cursor-pointer block">
+                    @include('partials.class-fx', ['characterClass' => $key])
+                    <input type="radio" name="character_class" value="{{ $key }}" class="sr-only"
+                           @checked(old('character_class', $student->character_class) === $key) required>
+                    <div class="flex items-start gap-3">
+                        <span class="rank-badge !min-w-10 !h-10 text-lg">{{ $meta['icon'] }}</span>
+                        <div>
+                            <p class="font-display text-lg text-amber-200">{{ $meta['name'] }}</p>
+                            <p class="text-xs text-amber-100/60 mt-1">{{ $meta['blurb'] }}</p>
+                        </div>
+                    </div>
+                </label>
+            @endforeach
+        </div>
+    </section>
+
+    <button class="game-btn" type="submit">Salvar identidade</button>
+</form>
+
+@include('student.sheet')
+@endsection
