@@ -22,7 +22,9 @@ class AreaIsolationTest extends TestCase
             ->assertOk()
             ->assertSee('Escolha seu reino')
             ->assertSee('Mecânica')
-            ->assertSee('images/kingdom-map.png', false);
+            ->assertSee('images/kingdom-map.png', false)
+            ->assertSee('rel="icon"', false)
+            ->assertSee('favicon-32x32.png', false);
     }
 
     public function test_area_page_lists_only_its_classes(): void
