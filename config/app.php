@@ -69,6 +69,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Dates shown to teachers and admins, such as a student's last access,
+    | are converted from UTC to this timezone. Brasília does not observe DST.
+    |
+    */
+
+    'display_timezone' => 'America/Sao_Paulo',
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

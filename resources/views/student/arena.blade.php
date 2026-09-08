@@ -7,7 +7,7 @@
     <div>
         <p class="hero-kicker !mb-1">Campo de duelos</p>
         <h1 class="font-display text-4xl text-amber-300">Arena da turma</h1>
-        <p class="text-amber-100/60 mt-1">{{ $class->name }} · Glória {{ $enrollment?->glory ?? 0 }} · Relíquias {{ $enrollment?->relics ?? 0 }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
+        <p class="text-amber-100/60 mt-1">{{ $class->name }} · Glória {{ $enrollment?->glory ?? 0 }} · Relíquias {{ $enrollment?->relics ?? 0 }} · Selos {{ $enrollment?->seals ?? 0 }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
         <a class="game-btn-ghost" href="{{ route('student.shop.index') }}">Loja</a>

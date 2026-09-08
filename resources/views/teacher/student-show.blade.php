@@ -22,7 +22,11 @@
                     <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome do aluno</span>
                     <input class="game-input" name="name" value="{{ old('name', $student->name) }}" required maxlength="120">
                 </label>
-                <button class="game-btn !py-1 !px-3 text-sm" type="submit">Salvar nome</button>
+                <label class="space-y-1 min-w-56">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">E-mail de acesso</span>
+                    <input class="game-input" type="email" name="email" value="{{ old('email', $student->email) }}" required maxlength="180">
+                </label>
+                <button class="game-btn !py-1 !px-3 text-sm" type="submit">Salvar cadastro</button>
             </form>
             @if($student->arenaName())
                 <p class="font-display text-xl text-amber-200 mt-1">{{ $student->arenaName() }}</p>
@@ -32,8 +36,9 @@
             @endif
             <p class="text-amber-100/65 mt-2 flex flex-wrap items-center gap-2">
                 @include('partials.class-badge', ['student' => $student])
-                <span>· {{ $class->name }} · {{ $student->email }}</span>
+                <span>· {{ $class->name }}</span>
             </p>
+            <p class="text-amber-100/45 text-xs mt-2">Último acesso: {{ $student->lastAccessedLabel() ?? 'Nunca acessou' }}</p>
             @if($student->isPersonaPending())
                 <div class="mt-3 flex flex-wrap gap-2">
                     <form method="POST" action="{{ route('teacher.characters.approve', [$class, $student]) }}">

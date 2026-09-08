@@ -11,7 +11,7 @@
     </div>
 </div>
 
-<div class="grid sm:grid-cols-3 gap-4 mb-8">
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
     <a href="{{ route('admin.areas.index') }}" class="game-card game-card-glow p-6 block reveal">
         <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Reinos</p>
         <h2 class="font-display text-3xl text-amber-200">{{ $areasCount }}</h2>
@@ -26,6 +26,11 @@
         <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Operação</p>
         <h2 class="font-display text-3xl text-amber-200">Turmas</h2>
         <p class="text-sm text-amber-100/60 mt-2">Operar qualquer turma do sistema →</p>
+    </a>
+    <a href="{{ route('admin.shop.index') }}" class="game-card game-card-glow p-6 block reveal reveal-delay-4">
+        <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Loja</p>
+        <h2 class="font-display text-3xl text-amber-200">Cosméticos</h2>
+        <p class="text-sm text-amber-100/60 mt-2">Estoque, donos e mercado da turma →</p>
     </a>
 </div>
 

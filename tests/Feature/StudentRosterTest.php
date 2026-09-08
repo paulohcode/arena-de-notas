@@ -73,7 +73,7 @@ class StudentRosterTest extends TestCase
         $html = $this->actingAs($teacher)
             ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
             ->assertOk()
-            ->assertSee('Editar nome')
+            ->assertSee('Editar cadastro')
             ->getContent();
 
         $this->assertStringContainsString(
@@ -82,6 +82,7 @@ class StudentRosterTest extends TestCase
         );
         $this->assertStringContainsString('name="_token"', $html);
         $this->assertStringContainsString('name="_method" value="PUT"', $html);
+        $this->assertStringContainsString('name="email"', $html);
     }
 
     public function test_teacher_can_rename_a_student(): void
@@ -99,6 +100,7 @@ class StudentRosterTest extends TestCase
             ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
             ->put(route('teacher.students.update', [$class, $student]), [
                 'name' => 'João Pedro da Silva',
+                'email' => 'joao@example.com',
             ])
             ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
             ->assertSessionHas('success');
@@ -110,7 +112,50 @@ class StudentRosterTest extends TestCase
         $this->assertSame('student', $student->role);
     }
 
-    public function test_rename_ignores_email_and_role_in_the_payload(): void
+    public function test_teacher_can_change_student_login_email(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'name' => 'João da Silva',
+            'email' => 'joao@example.com',
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->put(route('teacher.students.update', [$class, $student]), [
+                'name' => 'João da Silva',
+                'email' => 'joao.novo@example.com',
+            ])
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $student->id,
+            'email' => 'joao.novo@example.com',
+            'role' => 'student',
+        ]);
+        $this->assertDatabaseMissing('users', [
+            'id' => $student->id,
+            'email' => 'joao@example.com',
+        ]);
+
+        $this->post(route('logout'));
+
+        $this->post(route('login'), [
+            'email' => 'joao@example.com',
+            'password' => 'password',
+        ])->assertSessionHasErrors('email');
+
+        $this->post(route('login'), [
+            'email' => 'joao.novo@example.com',
+            'password' => 'password',
+        ])->assertRedirect(route('student.dashboard'));
+    }
+
+    public function test_update_applies_email_and_ignores_role_in_the_payload(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
         $class = $this->createClassForTeacher($teacher);
@@ -124,7 +169,7 @@ class StudentRosterTest extends TestCase
         $this->actingAs($teacher)
             ->put(route('teacher.students.update', [$class, $student]), [
                 'name' => 'Aluno Novo',
-                'email' => 'hacked@example.com',
+                'email' => 'aluno.novo@example.com',
                 'role' => 'admin',
             ])
             ->assertRedirect()
@@ -133,7 +178,7 @@ class StudentRosterTest extends TestCase
         $student->refresh();
 
         $this->assertSame('Aluno Novo', $student->name);
-        $this->assertSame('aluno@example.com', $student->email);
+        $this->assertSame('aluno.novo@example.com', $student->email);
         $this->assertSame('student', $student->role);
     }
 
@@ -149,11 +194,15 @@ class StudentRosterTest extends TestCase
             ->from(route('teacher.students.show', [$class, $student]))
             ->put(route('teacher.students.update', [$class, $student]), [
                 'name' => 'Aluno Admin',
+                'email' => 'aluno.admin@example.com',
             ])
             ->assertRedirectToRoute('teacher.students.show', [$class, $student])
             ->assertSessionHas('success');
 
-        $this->assertSame('Aluno Admin', $student->fresh()->name);
+        $student->refresh();
+
+        $this->assertSame('Aluno Admin', $student->name);
+        $this->assertSame('aluno.admin@example.com', $student->email);
     }
 
     public function test_unauthenticated_rename_redirects_to_login(): void
@@ -163,11 +212,17 @@ class StudentRosterTest extends TestCase
         $student = User::factory()->create(['role' => 'student', 'name' => 'Aluno Login']);
         $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
 
+        $originalEmail = $student->email;
+
         $this->put(route('teacher.students.update', [$class, $student]), [
             'name' => 'Nome Novo',
+            'email' => 'novo@example.com',
         ])->assertRedirectToRoute('login');
 
-        $this->assertSame('Aluno Login', $student->fresh()->name);
+        $student->refresh();
+
+        $this->assertSame('Aluno Login', $student->name);
+        $this->assertSame($originalEmail, $student->email);
     }
 
     public function test_student_is_redirected_away_from_rename(): void
@@ -181,13 +236,19 @@ class StudentRosterTest extends TestCase
         ]);
         $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
 
+        $originalEmail = $student->email;
+
         $this->actingAs($student)
             ->put(route('teacher.students.update', [$class, $student]), [
                 'name' => 'Nome Inválido',
+                'email' => 'hacked@example.com',
             ])
             ->assertRedirect(route('student.dashboard'));
 
-        $this->assertSame('Aluno Próprio', $student->fresh()->name);
+        $student->refresh();
+
+        $this->assertSame('Aluno Próprio', $student->name);
+        $this->assertSame($originalEmail, $student->email);
     }
 
     public function test_forbids_another_teacher_from_renaming_a_student(): void
@@ -198,13 +259,19 @@ class StudentRosterTest extends TestCase
         $student = User::factory()->create(['role' => 'student', 'name' => 'Aluno Protegido']);
         $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
 
+        $originalEmail = $student->email;
+
         $this->actingAs($other)
             ->put(route('teacher.students.update', [$class, $student]), [
                 'name' => 'Nome Alheio',
+                'email' => 'alheio@example.com',
             ])
             ->assertForbidden();
 
-        $this->assertSame('Aluno Protegido', $student->fresh()->name);
+        $student->refresh();
+
+        $this->assertSame('Aluno Protegido', $student->name);
+        $this->assertSame($originalEmail, $student->email);
     }
 
     public function test_student_from_another_class_returns_404_when_renaming(): void
@@ -215,13 +282,19 @@ class StudentRosterTest extends TestCase
         $foreignStudent = User::factory()->create(['role' => 'student', 'name' => 'Aluno de Fora']);
         $otherClass->students()->attach($foreignStudent->id, ['ranking_visible' => false, 'xp' => 0]);
 
+        $originalEmail = $foreignStudent->email;
+
         $this->actingAs($teacher)
             ->put(route('teacher.students.update', [$class, $foreignStudent]), [
                 'name' => 'Nome Infiltrado',
+                'email' => 'infiltrado@example.com',
             ])
             ->assertNotFound();
 
-        $this->assertSame('Aluno de Fora', $foreignStudent->fresh()->name);
+        $foreignStudent->refresh();
+
+        $this->assertSame('Aluno de Fora', $foreignStudent->name);
+        $this->assertSame($originalEmail, $foreignStudent->email);
     }
 
     public function test_empty_name_is_rejected(): void
@@ -235,6 +308,7 @@ class StudentRosterTest extends TestCase
             ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
             ->put(route('teacher.students.update', [$class, $student]), [
                 'name' => '',
+                'email' => $student->email,
             ])
             ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
             ->assertSessionHasErrors('name');
@@ -253,10 +327,101 @@ class StudentRosterTest extends TestCase
             ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
             ->put(route('teacher.students.update', [$class, $student]), [
                 'name' => str_repeat('A', 121),
+                'email' => $student->email,
             ])
             ->assertSessionHasErrors('name');
 
         $this->assertSame('Nome Curto', $student->fresh()->name);
+    }
+
+    public function test_empty_email_is_rejected(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'name' => 'Nome Válido',
+            'email' => 'aluno@example.com',
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->put(route('teacher.students.update', [$class, $student]), [
+                'name' => 'Nome Válido',
+                'email' => '',
+            ])
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertSessionHasErrors('email');
+
+        $this->assertSame('aluno@example.com', $student->fresh()->email);
+    }
+
+    public function test_invalid_email_is_rejected(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'email' => 'aluno@example.com',
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->put(route('teacher.students.update', [$class, $student]), [
+                'name' => $student->name,
+                'email' => 'nao-e-email',
+            ])
+            ->assertSessionHasErrors('email');
+
+        $this->assertSame('aluno@example.com', $student->fresh()->email);
+    }
+
+    public function test_duplicate_email_is_rejected(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'email' => 'aluno@example.com',
+        ]);
+        User::factory()->create([
+            'role' => 'student',
+            'email' => 'ocupado@example.com',
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->put(route('teacher.students.update', [$class, $student]), [
+                'name' => $student->name,
+                'email' => 'ocupado@example.com',
+            ])
+            ->assertSessionHasErrors('email');
+
+        $this->assertSame('aluno@example.com', $student->fresh()->email);
+    }
+
+    public function test_email_longer_than_180_characters_is_rejected(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'email' => 'aluno@example.com',
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->put(route('teacher.students.update', [$class, $student]), [
+                'name' => $student->name,
+                'email' => str_repeat('a', 169).'@example.com',
+            ])
+            ->assertSessionHasErrors('email');
+
+        $this->assertSame('aluno@example.com', $student->fresh()->email);
     }
 
     public function test_profile_shows_the_rename_form(): void
@@ -269,7 +434,8 @@ class StudentRosterTest extends TestCase
         $this->actingAs($teacher)
             ->get(route('teacher.students.show', [$class, $student]))
             ->assertOk()
-            ->assertSee('Salvar nome')
+            ->assertSee('Salvar cadastro')
+            ->assertSee('E-mail de acesso')
             ->assertSee(route('teacher.students.update', [$class, $student]), false);
     }
 
@@ -290,6 +456,25 @@ class StudentRosterTest extends TestCase
 
         $this->assertStringContainsString('&lt;script&gt;', $html);
         $this->assertStringNotContainsString("<script>alert('xss')</script>", $html);
+    }
+
+    public function test_escapes_student_email_in_the_roster_form(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'email' => 'xss"><script>alert(1)</script>@example.com',
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
     }
 
     public function test_teacher_can_transfer_student_to_another_class(): void

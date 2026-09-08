@@ -31,6 +31,7 @@ class LoginController extends Controller
         $request->session()->regenerate();
 
         $user = $request->user();
+        $user->recordAccess(force: true);
 
         if ($user->must_change_password) {
             return redirect()->route('password.edit');

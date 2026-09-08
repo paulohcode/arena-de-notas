@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class SchoolClass extends Model
 {
@@ -19,6 +20,7 @@ class SchoolClass extends Model
         'score_mode',
         'team_grade_weight',
         'behavior_grade_weight',
+        'attendance_grade_weight',
         'arena_open',
     ];
 
@@ -28,6 +30,7 @@ class SchoolClass extends Model
             'arena_open' => 'boolean',
             'team_grade_weight' => 'integer',
             'behavior_grade_weight' => 'integer',
+            'attendance_grade_weight' => 'integer',
         ];
     }
 
@@ -54,6 +57,7 @@ class SchoolClass extends Model
                 'xp',
                 'glory',
                 'relics',
+                'seals',
                 'arena_wins',
                 'arena_losses',
                 'behavior_score',
@@ -63,6 +67,11 @@ class SchoolClass extends Model
                 'equipped_aura',
             ])
             ->withTimestamps();
+    }
+
+    public function attendanceSessions(): HasMany
+    {
+        return $this->hasMany(AttendanceSession::class, 'class_id');
     }
 
     public function teams(): HasMany
@@ -83,6 +92,26 @@ class SchoolClass extends Model
     public function duels(): HasMany
     {
         return $this->hasMany(Duel::class, 'class_id');
+    }
+
+    public function cosmeticStocks(): HasMany
+    {
+        return $this->hasMany(ClassCosmeticStock::class, 'class_id');
+    }
+
+    public function cosmeticListings(): HasMany
+    {
+        return $this->hasMany(CosmeticListing::class, 'class_id');
+    }
+
+    public function cosmetics(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            EnrollmentCosmetic::class,
+            Enrollment::class,
+            'class_id',
+            'enrollment_id',
+        );
     }
 
     public function isArenaOpen(): bool

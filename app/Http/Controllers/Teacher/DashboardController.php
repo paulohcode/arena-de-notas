@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceSession;
 use App\Models\Duel;
 use App\Models\LedgerEntry;
 use App\Models\SchoolClass;
@@ -118,6 +119,26 @@ class DashboardController extends Controller
             ->limit(20)
             ->get();
 
+        $attendanceSessions = AttendanceSession::query()
+            ->with(['records'])
+            ->where('class_id', $schoolClass->id)
+            ->orderByDesc('held_on')
+            ->orderByDesc('id')
+            ->get();
+
+        $activeAttendanceSession = null;
+        $requestedSessionId = (int) $request->query('session', 0);
+        if ($requestedSessionId > 0) {
+            $activeAttendanceSession = $attendanceSessions->firstWhere('id', $requestedSessionId);
+        }
+        if (! $activeAttendanceSession && $attendanceSessions->isNotEmpty() && $request->query('tab') === 'chamada') {
+            $activeAttendanceSession = $attendanceSessions->first();
+        }
+
+        if ($activeAttendanceSession) {
+            $activeAttendanceSession->load(['records.student']);
+        }
+
         return view('teacher.class-show', [
             'class' => $schoolClass,
             'players' => $players,
@@ -134,6 +155,8 @@ class DashboardController extends Controller
             'pendingDuels' => $pendingDuels,
             'recentDuels' => $recentDuels,
             'arenaHall' => $this->duels->hall($schoolClass),
+            'attendanceSessions' => $attendanceSessions,
+            'activeAttendanceSession' => $activeAttendanceSession,
         ]);
     }
 }

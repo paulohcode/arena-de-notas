@@ -47,6 +47,7 @@ class ActivityController extends Controller
             'weights.*' => ['integer', 'min:1', 'max:10'],
             'team_grade_weight' => ['required', 'integer', 'min:1', 'max:10'],
             'behavior_grade_weight' => ['required', 'integer', 'min:1', 'max:10'],
+            'attendance_grade_weight' => ['required', 'integer', 'min:1', 'max:10'],
         ]);
 
         foreach ($data['weights'] as $id => $weight) {
@@ -56,6 +57,7 @@ class ActivityController extends Controller
         $schoolClass->update([
             'team_grade_weight' => $data['team_grade_weight'],
             'behavior_grade_weight' => $data['behavior_grade_weight'],
+            'attendance_grade_weight' => $data['attendance_grade_weight'],
         ]);
 
         return back()->with('success', 'Pesos atualizados.');

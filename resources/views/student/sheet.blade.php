@@ -9,7 +9,7 @@
             <div class="text-right">
                 <p class="font-display text-2xl text-amber-300">{{ $level['name'] }}</p>
                 <p class="text-sm text-purple-200/70">{{ $enrollment?->xp ?? 0 }} XP</p>
-                <p class="text-sm text-cyan-300/80">{{ $enrollment?->glory ?? 0 }} Glória · {{ $enrollment?->relics ?? 0 }} Relíquias · {{ $enrollment?->arena_wins ?? 0 }}V–{{ $enrollment?->arena_losses ?? 0 }}D</p>
+                <p class="text-sm text-cyan-300/80">{{ $enrollment?->glory ?? 0 }} Glória · {{ $enrollment?->relics ?? 0 }} Relíquias · {{ $enrollment?->seals ?? 0 }} Selos · {{ $enrollment?->arena_wins ?? 0 }}V–{{ $enrollment?->arena_losses ?? 0 }}D</p>
                 <p class="text-sm">Jogador: {{ $position ? $position.'º' : '—' }} · Guilda: {{ $guildPosition ? $guildPosition.'º' : '—' }}</p>
             </div>
         </div>

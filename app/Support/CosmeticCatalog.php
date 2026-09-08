@@ -12,6 +12,10 @@ class CosmeticCatalog
 
     public const SLOT_AURA = 'aura';
 
+    public const CURRENCY_RELICS = 'relics';
+
+    public const CURRENCY_SEALS = 'seals';
+
     /**
      * @var array<string, string>
      */
@@ -25,7 +29,7 @@ class CosmeticCatalog
     /**
      * Catálogo curado de cosméticos (só visual).
      *
-     * @var array<string, array{slot: string, name: string, price: int, rarity: string, icon?: string, css?: string, label?: string}>
+     * @var array<string, array{slot: string, name: string, price: int, rarity: string, currency?: string, icon?: string, css?: string, label?: string}>
      */
     public const ITEMS = [
         'frame_bronze' => [
@@ -55,6 +59,14 @@ class CosmeticCatalog
             'price' => 140,
             'rarity' => 'epic',
             'css' => 'rune',
+        ],
+        'frame_aurora' => [
+            'slot' => self::SLOT_FRAME,
+            'name' => 'Anel da Aurora',
+            'price' => 12,
+            'rarity' => 'rare',
+            'currency' => self::CURRENCY_SEALS,
+            'css' => 'aurora',
         ],
         'acc_crown' => [
             'slot' => self::SLOT_ACCESSORY,
@@ -91,6 +103,14 @@ class CosmeticCatalog
             'rarity' => 'uncommon',
             'icon' => '💠',
         ],
+        'acc_seal' => [
+            'slot' => self::SLOT_ACCESSORY,
+            'name' => 'Selo do Guardião',
+            'price' => 8,
+            'rarity' => 'uncommon',
+            'currency' => self::CURRENCY_SEALS,
+            'icon' => '🔏',
+        ],
         'title_duelist' => [
             'slot' => self::SLOT_TITLE,
             'name' => 'Duelista',
@@ -111,6 +131,14 @@ class CosmeticCatalog
             'price' => 150,
             'rarity' => 'epic',
             'label' => 'Lenda',
+        ],
+        'title_assiduous' => [
+            'slot' => self::SLOT_TITLE,
+            'name' => 'Assíduo',
+            'price' => 10,
+            'rarity' => 'rare',
+            'currency' => self::CURRENCY_SEALS,
+            'label' => 'Assíduo',
         ],
         'aura_ember' => [
             'slot' => self::SLOT_AURA,
@@ -133,10 +161,18 @@ class CosmeticCatalog
             'rarity' => 'epic',
             'css' => 'storm',
         ],
+        'aura_vigil' => [
+            'slot' => self::SLOT_AURA,
+            'name' => 'Aura da Vigília',
+            'price' => 15,
+            'rarity' => 'epic',
+            'currency' => self::CURRENCY_SEALS,
+            'css' => 'vigil',
+        ],
     ];
 
     /**
-     * @return array{slot: string, name: string, price: int, rarity: string, icon?: string, css?: string, label?: string}|null
+     * @return array{slot: string, name: string, price: int, rarity: string, currency?: string, icon?: string, css?: string, label?: string}|null
      */
     public static function item(string $key): ?array
     {
@@ -146,6 +182,26 @@ class CosmeticCatalog
     public static function has(string $key): bool
     {
         return isset(self::ITEMS[$key]);
+    }
+
+    public static function currency(string $key): string
+    {
+        $item = self::item($key);
+
+        return $item['currency'] ?? self::CURRENCY_RELICS;
+    }
+
+    public static function usesSeals(string $key): bool
+    {
+        return self::currency($key) === self::CURRENCY_SEALS;
+    }
+
+    public static function currencyLabel(string $currency): string
+    {
+        return match ($currency) {
+            self::CURRENCY_SEALS => 'Selos',
+            default => 'Relíquias',
+        };
     }
 
     public static function slotColumn(string $slot): ?string

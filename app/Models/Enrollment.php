@@ -16,6 +16,7 @@ class Enrollment extends Model
         'xp',
         'glory',
         'relics',
+        'seals',
         'arena_wins',
         'arena_losses',
         'behavior_score',
@@ -32,6 +33,7 @@ class Enrollment extends Model
             'xp' => 'integer',
             'glory' => 'integer',
             'relics' => 'integer',
+            'seals' => 'integer',
             'arena_wins' => 'integer',
             'arena_losses' => 'integer',
             'behavior_score' => 'float',
@@ -51,6 +53,11 @@ class Enrollment extends Model
     public function cosmetics(): HasMany
     {
         return $this->hasMany(EnrollmentCosmetic::class);
+    }
+
+    public function listings(): HasMany
+    {
+        return $this->hasMany(CosmeticListing::class);
     }
 
     /**

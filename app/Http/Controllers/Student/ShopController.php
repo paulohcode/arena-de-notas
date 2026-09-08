@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
+use App\Models\CosmeticListing;
 use App\Models\SchoolClass;
 use App\Services\CosmeticShopService;
 use App\Support\CosmeticCatalog;
@@ -34,6 +35,7 @@ class ShopController extends Controller
             'enrollment' => $data['enrollment'],
             'catalog' => $data['catalog'],
             'loadout' => $data['loadout'],
+            'listings' => $data['listings'],
             'slots' => CosmeticCatalog::SLOTS,
         ]);
     }
@@ -61,6 +63,75 @@ class ShopController extends Controller
         return redirect()
             ->route('student.shop.index')
             ->with('success', ($item['name'] ?? 'Item').' adquirido! Equipe na loja quando quiser.');
+    }
+
+    public function list(Request $request): RedirectResponse
+    {
+        $class = $this->currentClass($request);
+        abort_unless($class, 404);
+        $this->authorize('viewAsStudent', $class);
+
+        $data = $request->validate([
+            'item' => ['required', 'string', Rule::in(array_keys(CosmeticCatalog::ITEMS))],
+            'price' => ['required', 'integer', 'min:1', 'max:9999'],
+        ]);
+
+        try {
+            $this->shop->listForSale($request->user(), $class, $data['item'], $data['price']);
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('student.shop.index')
+                ->withErrors($exception->errors());
+        }
+
+        return redirect()
+            ->route('student.shop.index')
+            ->with('success', 'Item anunciado no mercado da turma.');
+    }
+
+    public function unlist(Request $request): RedirectResponse
+    {
+        $class = $this->currentClass($request);
+        abort_unless($class, 404);
+        $this->authorize('viewAsStudent', $class);
+
+        $data = $request->validate([
+            'item' => ['required', 'string', Rule::in(array_keys(CosmeticCatalog::ITEMS))],
+        ]);
+
+        try {
+            $this->shop->cancelListing($request->user(), $class, $data['item']);
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('student.shop.index')
+                ->withErrors($exception->errors());
+        }
+
+        return redirect()
+            ->route('student.shop.index')
+            ->with('success', 'Anúncio removido.');
+    }
+
+    public function buyListing(Request $request, CosmeticListing $listing): RedirectResponse
+    {
+        $class = $this->currentClass($request);
+        abort_unless($class, 404);
+        $this->authorize('viewAsStudent', $class);
+        abort_unless((int) $listing->class_id === (int) $class->id, 404);
+
+        try {
+            $this->shop->buyListing($request->user(), $class, $listing);
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('student.shop.index')
+                ->withErrors($exception->errors());
+        }
+
+        $item = CosmeticCatalog::item($listing->item_key);
+
+        return redirect()
+            ->route('student.shop.index')
+            ->with('success', ($item['name'] ?? 'Item').' negociado! Equipe quando quiser.');
     }
 
     public function equip(Request $request): RedirectResponse

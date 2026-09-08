@@ -5,6 +5,7 @@ namespace Tests;
 use App\Models\Area;
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Services\CosmeticShopService;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
@@ -47,7 +48,7 @@ abstract class TestCase extends BaseTestCase
         $area = $overrides['area'] ?? $this->createAreaForTeacher($teacher);
         unset($overrides['area']);
 
-        return SchoolClass::query()->create(array_merge([
+        $class = SchoolClass::query()->create(array_merge([
             'teacher_id' => $teacher->id,
             'area_id' => $area->id,
             'name' => 'Turma Teste',
@@ -55,6 +56,11 @@ abstract class TestCase extends BaseTestCase
             'score_mode' => 'up_from_zero',
             'team_grade_weight' => 1,
             'behavior_grade_weight' => 1,
+            'attendance_grade_weight' => 1,
         ], $overrides));
+
+        app(CosmeticShopService::class)->seedDefaultStock($class);
+
+        return $class;
     }
 }

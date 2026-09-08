@@ -62,6 +62,10 @@
             <span class="text-sm">Peso da nota “Comportamento”</span>
             <input class="game-input mt-1" type="number" min="1" max="10" name="behavior_grade_weight" value="{{ old('behavior_grade_weight', $class->behavior_grade_weight ?: 1) }}">
         </label>
+        <label class="block">
+            <span class="text-sm">Peso da nota “Frequência”</span>
+            <input class="game-input mt-1" type="number" min="1" max="10" name="attendance_grade_weight" value="{{ old('attendance_grade_weight', $class->attendance_grade_weight ?: 1) }}">
+        </label>
         <button class="game-btn" type="submit">Salvar</button>
     </form>
 </div>

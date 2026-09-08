@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Services\CosmeticShopService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,12 +16,15 @@ use Illuminate\View\View;
 
 class ClassController extends Controller
 {
+    public function __construct(private CosmeticShopService $shop) {}
+
     public function create(Request $request): View
     {
         return view('teacher.class-form', $this->formData($request, new SchoolClass([
             'score_mode' => 'up_from_zero',
             'team_grade_weight' => 1,
             'behavior_grade_weight' => 1,
+            'attendance_grade_weight' => 1,
         ])));
     }
 
@@ -32,6 +36,7 @@ class ClassController extends Controller
             : $request->user()->id;
 
         $class = SchoolClass::create($data);
+        $this->shop->seedDefaultStock($class);
 
         return redirect()->route('teacher.classes.show', $class)->with('success', 'Turma criada.');
     }
@@ -105,6 +110,7 @@ class ClassController extends Controller
             'score_mode' => ['required', 'in:up_from_zero,down_from_hundred'],
             'team_grade_weight' => ['required', 'integer', 'min:1', 'max:10'],
             'behavior_grade_weight' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'attendance_grade_weight' => ['nullable', 'integer', 'min:1', 'max:10'],
         ];
 
         if ($user->isAdmin()) {

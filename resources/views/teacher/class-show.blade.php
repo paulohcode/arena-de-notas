@@ -10,12 +10,13 @@
     </div>
     <div class="flex gap-2">
         <a class="game-btn-ghost" href="{{ route('ranking.show', $class) }}">Ver ranking</a>
+        <a class="game-btn-ghost" href="{{ route('teacher.shop.show', $class) }}">Loja</a>
         <a class="game-btn-ghost" href="{{ route('teacher.classes.edit', $class) }}">Editar turma</a>
     </div>
 </div>
 
 @php
-    $allowedTabs = ['visao', 'alunos', 'guildas', 'atividades', 'notas', 'pesos', 'personagens', 'arena'];
+    $allowedTabs = ['visao', 'alunos', 'guildas', 'atividades', 'notas', 'chamada', 'pesos', 'personagens', 'arena'];
     $currentTab = request('tab', old('tab', 'visao'));
     $currentTab = in_array($currentTab, $allowedTabs, true) ? $currentTab : 'visao';
     $editingActivity = $class->activities->firstWhere('id', (int) request('activity'));
@@ -25,7 +26,7 @@
 @endphp
 <div x-data="{ tab: {{ \Illuminate\Support\Js::from($currentTab) }} }">
     <div class="flex flex-wrap gap-2 mb-6">
-        @foreach(['visao' => 'Visão', 'alunos' => 'Alunos', 'guildas' => 'Guildas', 'atividades' => 'Atividades', 'notas' => 'Lançar notas', 'pesos' => 'Pesos', 'personagens' => 'Personagens', 'arena' => 'Arena'] as $key => $label)
+        @foreach(['visao' => 'Visão', 'alunos' => 'Alunos', 'guildas' => 'Guildas', 'atividades' => 'Atividades', 'notas' => 'Lançar notas', 'chamada' => 'Chamada', 'pesos' => 'Pesos', 'personagens' => 'Personagens', 'arena' => 'Arena'] as $key => $label)
             <button type="button" class="tab-btn game-btn-ghost" :data-active="tab === '{{ $key }}'" @click="tab = '{{ $key }}'">
                 {{ $label }}
                 @if($key === 'personagens' && $pendingPersonas->isNotEmpty())
@@ -54,6 +55,13 @@
             </div>
             <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" @click="tab = 'arena'">Gerenciar arena</button>
         </div>
+        <a href="{{ route('teacher.shop.show', $class) }}" class="game-card p-4 flex flex-wrap items-center justify-between gap-3 border-amber-400/20">
+            <div>
+                <p class="font-semibold text-amber-100">Loja de cosméticos</p>
+                <p class="text-sm text-amber-100/55">Estoque à venda, quem já comprou e o mercado entre alunos.</p>
+            </div>
+            <span class="game-btn-ghost !py-1 !px-3 text-sm">Administrar</span>
+        </a>
         <div class="grid lg:grid-cols-2 gap-4">
             <div class="game-card p-5">
                 <h2 class="font-display text-xl text-amber-200 mb-3">Jogadores</h2>
@@ -142,9 +150,12 @@
         </form>
 
         <div>
-            <div class="mb-3">
-                <h2 class="font-display text-xl text-amber-200">Turma</h2>
-                <p class="text-xs text-amber-100/50">Comportamento inicia em 100. Use − / + para ajustar rápido.</p>
+            <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="font-display text-xl text-amber-200">Turma</h2>
+                    <p class="text-xs text-amber-100/50">Comportamento inicia em 100. Use − / + para ajustar rápido.</p>
+                </div>
+                <a class="game-btn-ghost !px-3 !py-1 text-sm" href="{{ route('teacher.students.export', $class) }}">Exportar PDF</a>
             </div>
             @if($class->students->isEmpty())
                 <div class="game-card p-8 text-center text-amber-100/60">Nenhum aluno cadastrado ainda.</div>
@@ -153,9 +164,9 @@
                     @foreach($class->students as $student)
                         @php
                             $behavior = (float) ($student->pivot->behavior_score ?? 100);
-                            $editingName = (int) old('edited_student_id') === (int) $student->id;
+                            $editingStudent = (int) old('edited_student_id') === (int) $student->id;
                         @endphp
-                        <div class="game-card p-4 flex flex-col gap-2 min-w-0" x-data="{ editing: {{ $editingName ? 'true' : 'false' }} }">
+                        <div class="game-card p-4 flex flex-col gap-2 min-w-0" x-data="{ editing: {{ $editingStudent ? 'true' : 'false' }} }">
                             <div class="min-w-0">
                                 <div x-show="!editing">
                                     <a class="font-display text-lg leading-tight text-amber-200 hover:text-amber-300 block" href="{{ route('teacher.students.show', [$class, $student]) }}">{{ $student->name }}</a>
@@ -180,21 +191,33 @@
                                 <input
                                     class="game-input"
                                     name="name"
-                                    value="{{ $editingName ? old('name', $student->name) : $student->name }}"
+                                    value="{{ $editingStudent ? old('name', $student->name) : $student->name }}"
                                     required
                                     maxlength="120"
                                 >
                             </label>
+                            <label>
+                                <span class="sr-only">E-mail de acesso</span>
+                                <input
+                                    class="game-input"
+                                    type="email"
+                                    name="email"
+                                    value="{{ $editingStudent ? old('email', $student->email) : $student->email }}"
+                                    required
+                                    maxlength="180"
+                                >
+                            </label>
                             <div class="flex flex-wrap gap-2">
-                                <button class="game-btn !px-3 !py-1 text-xs" type="submit">Salvar nome</button>
+                                <button class="game-btn !px-3 !py-1 text-xs" type="submit">Salvar cadastro</button>
                                 <button class="game-btn-ghost !px-2 !py-1 text-xs" type="button" @click="editing = false">Cancelar</button>
                             </div>
                         </form>
-                        <p class="text-amber-100/60 text-sm truncate">{{ $student->email }}</p>
+                        <p class="text-amber-100/60 text-sm truncate" x-show="!editing">{{ $student->email }}</p>
+                        <p class="text-amber-100/45 text-xs">Último acesso: {{ $student->lastAccessedLabel() ?? 'Nunca acessou' }}</p>
                     </div>
                     <div class="mt-auto flex flex-col gap-2">
                         <div class="flex flex-wrap items-center gap-2">
-                            <button class="game-btn-ghost !px-2 !py-1 text-xs" type="button" @click="editing = true">Editar nome</button>
+                            <button class="game-btn-ghost !px-2 !py-1 text-xs" type="button" @click="editing = true">Editar cadastro</button>
                             <a class="game-btn-ghost !px-2 !py-1 text-xs" href="{{ route('teacher.students.show', [$class, $student]) }}">Ficha</a>
                         </div>
                         <div class="flex flex-wrap items-center gap-1">
@@ -580,6 +603,112 @@
         </form>
     </div>
 
+    <div x-show="tab === 'chamada'" x-cloak class="space-y-6"
+         x-data="{
+            statuses: {{ \Illuminate\Support\Js::from(
+                ($activeAttendanceSession?->records ?? collect())
+                    ->mapWithKeys(fn ($r) => [(string) $r->student_id => $r->status])
+                    ->all()
+            ) }},
+            markAll(status) {
+                Object.keys(this.statuses).forEach((id) => { this.statuses[id] = status; });
+            }
+         }">
+        <div class="game-card p-5 space-y-4">
+            <div>
+                <h2 class="font-display text-xl text-amber-200">Chamada</h2>
+                <p class="text-sm text-amber-100/60 mt-1">
+                    Escolha a data, gere a lista e marque Presente, Ausente ou Falta justificada.
+                    Só o Presente gera Selos para a loja. Justificada conta na nota de frequência.
+                </p>
+            </div>
+            <form method="POST" action="{{ route('teacher.attendance.store', $class) }}" class="flex flex-wrap items-end gap-3">
+                @csrf
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Data</span>
+                    <input class="game-input" type="date" name="held_on" value="{{ old('held_on', now()->toDateString()) }}" required>
+                </label>
+                <button class="game-btn" type="submit">Gerar chamada</button>
+            </form>
+        </div>
+
+        @if($attendanceSessions->isNotEmpty())
+            <div class="game-card p-5">
+                <h3 class="font-display text-lg text-amber-200 mb-3">Histórico</h3>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($attendanceSessions as $session)
+                        <a
+                            class="game-btn-ghost !py-1 !px-3 text-sm {{ $activeAttendanceSession && $activeAttendanceSession->id === $session->id ? 'border-amber-400/50' : '' }}"
+                            href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'chamada', 'session' => $session->id]) }}"
+                        >
+                            {{ $session->held_on->format('d/m/Y') }}
+                            @if($session->records->whereNotNull('status')->isEmpty())
+                                <span class="text-amber-100/40">· rascunho</span>
+                            @endif
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        @if($activeAttendanceSession)
+            @php
+                $sessionStudents = $class->students->sortBy('name')->values();
+                $recordsByStudent = $activeAttendanceSession->records->keyBy('student_id');
+            @endphp
+            <form method="POST" action="{{ route('teacher.attendance.update', [$class, $activeAttendanceSession]) }}" class="game-card p-5 space-y-4">
+                @csrf
+                @method('PUT')
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h3 class="font-display text-lg text-amber-200">{{ $activeAttendanceSession->held_on->format('d/m/Y') }}</h3>
+                        <p class="text-xs text-amber-100/50">Marque todos os alunos e salve para atualizar a média e os Selos.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" class="game-btn-ghost !py-1 !px-3 text-xs" @click="markAll('present')">Todos presentes</button>
+                        <button type="button" class="game-btn-ghost !py-1 !px-3 text-xs" @click="markAll('absent')">Todos ausentes</button>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    @foreach($sessionStudents as $student)
+                        @php
+                            $currentStatus = old('statuses.'.$student->id, $recordsByStudent->get($student->id)?->status);
+                        @endphp
+                        <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/40">
+                            <div class="min-w-0">
+                                <p class="font-semibold truncate">{{ $student->name }}</p>
+                                @if($student->arenaName())
+                                    <p class="text-xs text-amber-100/45">{{ $student->arenaName() }}</p>
+                                @endif
+                            </div>
+                            <div class="flex flex-wrap gap-2" x-init="statuses['{{ $student->id }}'] = statuses['{{ $student->id }}'] ?? {{ \Illuminate\Support\Js::from($currentStatus) }}">
+                                <input type="hidden" :name="'statuses[{{ $student->id }}]'" :value="statuses['{{ $student->id }}']">
+                                <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="statuses['{{ $student->id }}'] === 'present' && 'border-emerald-400/60 text-emerald-300'" @click="statuses['{{ $student->id }}'] = 'present'">Presente</button>
+                                <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="statuses['{{ $student->id }}'] === 'absent' && 'border-rose-400/60 text-rose-300'" @click="statuses['{{ $student->id }}'] = 'absent'">Ausente</button>
+                                <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="statuses['{{ $student->id }}'] === 'justified' && 'border-cyan-400/60 text-cyan-300'" @click="statuses['{{ $student->id }}'] = 'justified'">Justificada</button>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 pt-2">
+                    <button class="game-btn" type="submit">Salvar chamada</button>
+                </div>
+            </form>
+
+            <form method="POST" action="{{ route('teacher.attendance.destroy', [$class, $activeAttendanceSession]) }}" onsubmit="return confirm('Remover a chamada deste dia? Os Selos de presença serão revertidos.')">
+                @csrf
+                @method('DELETE')
+                <button class="game-btn-ghost !py-1 !px-3 text-sm text-rose-300" type="submit">Excluir esta chamada</button>
+            </form>
+        @elseif($attendanceSessions->isEmpty())
+            <div class="game-card p-5 text-sm text-amber-100/55">
+                Nenhuma chamada ainda. Escolha a data e clique em Gerar chamada.
+            </div>
+        @endif
+    </div>
+
     <div x-show="tab === 'pesos'" x-cloak>
         <form method="POST" action="{{ route('teacher.activities.weights', $class) }}" class="game-card p-5 space-y-3">
             @csrf @method('PUT')
@@ -596,6 +725,10 @@
             <label class="flex items-center justify-between gap-4">
                 <span>Peso da nota “Comportamento”</span>
                 <input class="game-input w-24" type="number" name="behavior_grade_weight" value="{{ $class->behavior_grade_weight ?? 1 }}" min="1" max="10">
+            </label>
+            <label class="flex items-center justify-between gap-4">
+                <span>Peso da nota “Frequência”</span>
+                <input class="game-input w-24" type="number" name="attendance_grade_weight" value="{{ $class->attendance_grade_weight ?? 1 }}" min="1" max="10">
             </label>
             <button class="game-btn" type="submit">Salvar pesos</button>
         </form>

@@ -199,6 +199,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'last_accessed_at' => 'datetime',
             'password' => 'hashed',
             'must_change_password' => 'boolean',
         ];
@@ -217,6 +218,35 @@ class User extends Authenticatable
     public function isStudent(): bool
     {
         return $this->role === 'student';
+    }
+
+    public function recordAccess(bool $force = false): void
+    {
+        if (! $this->isStudent()) {
+            return;
+        }
+
+        if (! $force && $this->last_accessed_at !== null && $this->last_accessed_at->gte(now()->subMinute())) {
+            return;
+        }
+
+        $this->last_accessed_at = now();
+        $this->save();
+    }
+
+    /**
+     * Último acesso no horário de Brasília, ou null se o aluno nunca entrou.
+     */
+    public function lastAccessedLabel(): ?string
+    {
+        if ($this->last_accessed_at === null) {
+            return null;
+        }
+
+        return $this->last_accessed_at
+            ->copy()
+            ->timezone(config('app.display_timezone'))
+            ->format('d/m/Y H:i');
     }
 
     public function homeRoute(): string

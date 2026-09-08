@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Activity;
+use App\Models\AttendanceRecord;
+use App\Models\AttendanceSession;
 use App\Models\LedgerEntry;
 use App\Models\SchoolClass;
 use App\Models\Team;
@@ -85,6 +87,12 @@ class GradeCalculator
         $sum += $this->behaviorScore($student, $class) * $behaviorWeight;
         $weightSum += $behaviorWeight;
 
+        if ($this->hasGradedAttendance($class)) {
+            $attendanceWeight = max(1, (int) ($class->attendance_grade_weight ?? 1));
+            $sum += $this->attendanceScore($student, $class) * $attendanceWeight;
+            $weightSum += $attendanceWeight;
+        }
+
         $team = $student->teamInClass($class);
         if ($includeTeamScore && $team && $class->activities()->where('type', 'team')->exists()) {
             $weight = max(1, (int) $class->team_grade_weight);
@@ -104,7 +112,7 @@ class GradeCalculator
     }
 
     /**
-     * Média do aluno considerando apenas atividades individuais + comportamento + ajustes.
+     * Média do aluno considerando apenas atividades individuais + comportamento + frequência + ajustes.
      * Usado para a ponderação do ranking de guildas (evita loop com a "nota equipe").
      */
     public function studentAverageIndividual(User $student, SchoolClass $class): float
@@ -125,6 +133,12 @@ class GradeCalculator
         $sum += $this->behaviorScore($student, $class) * $behaviorWeight;
         $weightSum += $behaviorWeight;
 
+        if ($this->hasGradedAttendance($class)) {
+            $attendanceWeight = max(1, (int) ($class->attendance_grade_weight ?? 1));
+            $sum += $this->attendanceScore($student, $class) * $attendanceWeight;
+            $weightSum += $attendanceWeight;
+        }
+
         $average = $weightSum > 0 ? $sum / $weightSum : $this->defaultScore($class);
         $adjustments = $this->adjustmentsSum($class, student: $student);
 
@@ -136,6 +150,35 @@ class GradeCalculator
         $enrollment = $student->enrollmentIn($class);
 
         return $this->clamp((float) ($enrollment?->behavior_score ?? 100));
+    }
+
+    public function hasGradedAttendance(SchoolClass $class): bool
+    {
+        return AttendanceRecord::query()
+            ->whereNotNull('status')
+            ->whereHas('session', fn ($q) => $q->where('class_id', $class->id))
+            ->exists();
+    }
+
+    public function attendanceScore(User $student, SchoolClass $class): float
+    {
+        $sessionIds = AttendanceSession::query()
+            ->where('class_id', $class->id)
+            ->whereHas('records', fn ($q) => $q->whereNotNull('status'))
+            ->pluck('id');
+
+        $total = $sessionIds->count();
+        if ($total === 0) {
+            return $this->defaultScore($class);
+        }
+
+        $credited = AttendanceRecord::query()
+            ->whereIn('attendance_session_id', $sessionIds)
+            ->where('student_id', $student->id)
+            ->whereIn('status', [AttendanceRecord::STATUS_PRESENT, AttendanceRecord::STATUS_JUSTIFIED])
+            ->count();
+
+        return $this->clamp(($credited / $total) * 100);
     }
 
     /**
@@ -163,6 +206,16 @@ class GradeCalculator
             'kind' => 'behavior',
             'graded' => true,
         ];
+
+        if ($this->hasGradedAttendance($class)) {
+            $lines[] = [
+                'label' => 'Frequência',
+                'score' => $this->attendanceScore($student, $class),
+                'weight' => max(1, (int) ($class->attendance_grade_weight ?? 1)),
+                'kind' => 'attendance',
+                'graded' => true,
+            ];
+        }
 
         $team = $student->teamInClass($class);
         if ($team && $class->activities()->where('type', 'team')->exists()) {

@@ -39,6 +39,7 @@
                 @auth
                     @if(auth()->user()->isAdmin())
                         <a class="game-btn-ghost" href="{{ route('admin.dashboard') }}">Admin</a>
+                        <a class="game-btn-ghost" href="{{ route('admin.shop.index') }}">Loja</a>
                         <a class="game-btn-ghost" href="{{ route('teacher.dashboard') }}">Turmas</a>
                         <a class="game-btn-ghost" href="{{ route('teacher.seasons.index') }}">Campanhas</a>
                     @elseif(auth()->user()->isTeacher())

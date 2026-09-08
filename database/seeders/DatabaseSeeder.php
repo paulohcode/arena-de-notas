@@ -83,6 +83,7 @@ class DatabaseSeeder extends Seeder
                 'score_mode' => 'up_from_zero',
                 'team_grade_weight' => 1,
                 'behavior_grade_weight' => 1,
+                'attendance_grade_weight' => 1,
             ]
         );
 

@@ -7,9 +7,11 @@ use App\Models\Duel;
 use App\Models\LedgerEntry;
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Services\ClassAccessPdfService;
 use App\Services\StudentSheetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -18,7 +20,10 @@ use Illuminate\View\View;
 
 class StudentController extends Controller
 {
-    public function __construct(private StudentSheetService $sheet) {}
+    public function __construct(
+        private StudentSheetService $sheet,
+        private ClassAccessPdfService $accessPdf,
+    ) {}
 
     public function show(SchoolClass $schoolClass, User $student): View
     {
@@ -35,6 +40,24 @@ class StudentController extends Controller
         ));
     }
 
+    public function export(SchoolClass $schoolClass): Response
+    {
+        $this->authorize('manage', $schoolClass);
+
+        $schoolClass->load('area');
+        $students = $schoolClass->students()
+            ->orderBy('name')
+            ->orderBy('users.id')
+            ->get();
+
+        $pdf = $this->accessPdf->render($schoolClass, $students, route('login'));
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$this->accessPdf->filename($schoolClass).'"',
+        ]);
+    }
+
     public function store(Request $request, SchoolClass $schoolClass): RedirectResponse
     {
         $this->authorize('manage', $schoolClass);
@@ -47,7 +70,7 @@ class StudentController extends Controller
         $student = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make('aluno123'),
+            'password' => Hash::make(ClassAccessPdfService::INITIAL_PASSWORD),
             'role' => 'student',
             'must_change_password' => true,
         ]);
@@ -56,7 +79,7 @@ class StudentController extends Controller
 
         return back()
             ->withInput(['tab' => 'alunos'])
-            ->with('success', 'Aluno cadastrado. Senha inicial: aluno123');
+            ->with('success', 'Aluno cadastrado. Senha inicial: '.ClassAccessPdfService::INITIAL_PASSWORD);
     }
 
     public function update(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse
@@ -67,15 +90,22 @@ class StudentController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'email' => [
+                'required',
+                'email',
+                'max:180',
+                Rule::unique('users', 'email')->ignore($student->id),
+            ],
         ]);
 
         $student->update([
             'name' => $data['name'],
+            'email' => $data['email'],
         ]);
 
         return back()
             ->withInput(['tab' => 'alunos'])
-            ->with('success', "Nome atualizado para {$student->name}.");
+            ->with('success', "Cadastro de {$student->name} atualizado.");
     }
 
     public function attach(Request $request, SchoolClass $schoolClass): RedirectResponse

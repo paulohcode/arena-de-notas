@@ -181,6 +181,27 @@ class GameLoopService
     }
 
     /**
+     * Recalcula XP, ranking e medalhas após uma mutação que altera médias.
+     *
+     * @param  callable(): mixed  $persist
+     */
+    public function refreshProgress(SchoolClass $class, callable $persist): mixed
+    {
+        $beforePlayers = $this->snapshotPlayers($class);
+        $beforeGuilds = $this->snapshotGuilds($class);
+
+        $result = DB::transaction(function () use ($persist) {
+            return $persist();
+        });
+
+        $this->applyXpAndLevels($class, $beforePlayers);
+        $this->notifyRankChanges($class, $beforePlayers, $beforeGuilds);
+        $this->awardBadges($class);
+
+        return $result;
+    }
+
+    /**
      * @param  callable(): LedgerEntry  $persist
      * @param  array{kind: string, score?: float, delta?: float, label: string}  $event
      */

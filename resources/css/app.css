@@ -554,6 +554,15 @@ body.game-body::after {
         inset 0 0 10px color-mix(in srgb, #a855f7 35%, transparent);
 }
 
+.cosmetic-frame--aurora {
+    --frame-tone: #34d399;
+    border-color: #a7f3d0;
+    box-shadow:
+        0 0 0 2px color-mix(in srgb, #34d399 75%, transparent),
+        0 0 18px color-mix(in srgb, #059669 50%, transparent),
+        0 0 8px color-mix(in srgb, #fde68a 35%, transparent);
+}
+
 .cosmetic-aura::before {
     content: '';
     position: absolute;
@@ -577,6 +586,13 @@ body.game-body::after {
 .cosmetic-aura--storm::before {
     background: radial-gradient(circle, rgba(167, 139, 250, 0.45), transparent 70%);
     box-shadow: 0 0 20px rgba(129, 140, 248, 0.55);
+}
+
+.cosmetic-aura--vigil::before {
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.42), transparent 70%);
+    box-shadow:
+        0 0 18px rgba(16, 185, 129, 0.5),
+        0 0 6px rgba(253, 230, 138, 0.35);
 }
 
 .cosmetic-title {

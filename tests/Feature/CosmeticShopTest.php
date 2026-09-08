@@ -187,6 +187,94 @@ class CosmeticShopTest extends TestCase
         $this->assertSame(0, (int) $enrollmentB->relics);
     }
 
+    public function test_student_can_list_owned_item_and_classmate_can_buy(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $seller = $this->enrollStudent($class, 'Ana Souza', relics: 100);
+        $buyer = $this->enrollStudent($class, 'Bruno Lima', relics: 80);
+
+        $this->actingAs($seller)
+            ->post(route('student.shop.purchase'), ['item' => 'acc_star']);
+
+        $this->actingAs($seller)
+            ->post(route('student.shop.equip'), ['item' => 'acc_star']);
+
+        $this->actingAs($seller)
+            ->post(route('student.shop.list'), ['item' => 'acc_star', 'price' => 40])
+            ->assertRedirect(route('student.shop.index'))
+            ->assertSessionHas('success');
+
+        $listing = $seller->enrollmentIn($class)->listings()->firstOrFail();
+
+        $this->actingAs($buyer)
+            ->post(route('student.shop.listings.buy', $listing))
+            ->assertRedirect(route('student.shop.index'))
+            ->assertSessionHas('success');
+
+        $sellerEnrollment = $seller->enrollmentIn($class)->fresh();
+        $buyerEnrollment = $buyer->enrollmentIn($class)->fresh();
+        $price = CosmeticCatalog::item('acc_star')['price'];
+
+        $this->assertFalse($sellerEnrollment->ownsCosmetic('acc_star'));
+        $this->assertNull($sellerEnrollment->equipped_accessory);
+        $this->assertSame(100 - $price + 40, (int) $sellerEnrollment->relics);
+        $this->assertTrue($buyerEnrollment->ownsCosmetic('acc_star'));
+        $this->assertSame(80 - 40, (int) $buyerEnrollment->relics);
+        $this->assertSame(0, $sellerEnrollment->listings()->count());
+    }
+
+    public function test_cannot_buy_own_listing(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $seller = $this->enrollStudent($class, 'Ana Souza', relics: 100);
+
+        $this->actingAs($seller)
+            ->post(route('student.shop.purchase'), ['item' => 'acc_star']);
+
+        $this->actingAs($seller)
+            ->post(route('student.shop.list'), ['item' => 'acc_star', 'price' => 40]);
+
+        $listing = $seller->enrollmentIn($class)->listings()->firstOrFail();
+
+        $this->actingAs($seller)
+            ->from(route('student.shop.index'))
+            ->post(route('student.shop.listings.buy', $listing))
+            ->assertRedirect(route('student.shop.index'))
+            ->assertSessionHasErrors('listing');
+
+        $this->assertTrue($seller->enrollmentIn($class)->ownsCosmetic('acc_star'));
+    }
+
+    public function test_cannot_buy_listing_from_another_class(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $classA = $this->createClassForTeacher($teacher, ['name' => 'Turma A']);
+        $classB = $this->createClassForTeacher($teacher, ['area' => $classA->area, 'name' => 'Turma B']);
+        $seller = $this->enrollStudent($classA, 'Ana Souza', relics: 100);
+        $buyer = $this->enrollStudent($classB, 'Bruno Lima', relics: 80);
+
+        $this->actingAs($seller)
+            ->withSession(['current_class_id' => $classA->id])
+            ->post(route('student.shop.purchase'), ['item' => 'acc_star']);
+
+        $this->actingAs($seller)
+            ->withSession(['current_class_id' => $classA->id])
+            ->post(route('student.shop.list'), ['item' => 'acc_star', 'price' => 40]);
+
+        $listing = $seller->enrollmentIn($classA)->listings()->firstOrFail();
+
+        $this->actingAs($buyer)
+            ->withSession(['current_class_id' => $classB->id])
+            ->post(route('student.shop.listings.buy', $listing))
+            ->assertNotFound();
+
+        $this->assertTrue($seller->enrollmentIn($classA)->ownsCosmetic('acc_star'));
+        $this->assertFalse($buyer->enrollmentIn($classB)->ownsCosmetic('acc_star'));
+        $this->assertSame(80, (int) $buyer->enrollmentIn($classB)->fresh()->relics);
+    }
+
     public function test_shop_page_shows_relic_balance(): void
     {
         [$class, $student] = $this->readyStudent(relics: 42);
@@ -196,7 +284,59 @@ class CosmeticShopTest extends TestCase
             ->assertOk()
             ->assertSee('Loja de cosméticos')
             ->assertSee('42 Relíquias')
-            ->assertSee('Anel de Bronze');
+            ->assertSee('Anel de Bronze')
+            ->assertSee('Mercado da turma')
+            ->assertSee('Assíduo')
+            ->assertSee('Selos');
+    }
+
+    public function test_student_can_purchase_seal_item_with_seals(): void
+    {
+        [$class, $student] = $this->readyStudent(relics: 100, seals: 20);
+        $itemKey = 'title_assiduous';
+        $price = CosmeticCatalog::item($itemKey)['price'];
+
+        $this->actingAs($student)
+            ->post(route('student.shop.purchase'), ['item' => $itemKey])
+            ->assertRedirect(route('student.shop.index'))
+            ->assertSessionHas('success');
+
+        $enrollment = $student->enrollmentIn($class)->fresh();
+        $this->assertSame(20 - $price, (int) $enrollment->seals);
+        $this->assertSame(100, (int) $enrollment->relics);
+        $this->assertTrue($enrollment->ownsCosmetic($itemKey));
+    }
+
+    public function test_seal_item_rejects_purchase_without_seals_even_with_relics(): void
+    {
+        [$class, $student] = $this->readyStudent(relics: 999, seals: 0);
+
+        $this->actingAs($student)
+            ->from(route('student.shop.index'))
+            ->post(route('student.shop.purchase'), ['item' => 'frame_aurora'])
+            ->assertRedirect(route('student.shop.index'))
+            ->assertSessionHasErrors('item');
+
+        $this->assertFalse($student->enrollmentIn($class)->ownsCosmetic('frame_aurora'));
+        $this->assertSame(999, (int) $student->enrollmentIn($class)->fresh()->relics);
+    }
+
+    public function test_cannot_list_seal_item_on_peer_market(): void
+    {
+        [$class, $student] = $this->readyStudent(relics: 0, seals: 50);
+        $itemKey = 'acc_seal';
+
+        $this->actingAs($student)
+            ->post(route('student.shop.purchase'), ['item' => $itemKey])
+            ->assertSessionHas('success');
+
+        $this->actingAs($student)
+            ->from(route('student.shop.index'))
+            ->post(route('student.shop.list'), ['item' => $itemKey, 'price' => 5])
+            ->assertRedirect(route('student.shop.index'))
+            ->assertSessionHasErrors('item');
+
+        $this->assertSame(0, $student->enrollmentIn($class)->listings()->count());
     }
 
     /**
@@ -215,11 +355,11 @@ class CosmeticShopTest extends TestCase
     /**
      * @return array{0: SchoolClass, 1: User}
      */
-    private function readyStudent(int $relics = 0): array
+    private function readyStudent(int $relics = 0, int $seals = 0): array
     {
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
         $class = $this->createClassForTeacher($teacher);
-        $student = $this->enrollStudent($class, 'Ana Souza', relics: $relics);
+        $student = $this->enrollStudent($class, 'Ana Souza', relics: $relics, seals: $seals);
 
         return [$class, $student];
     }
@@ -229,6 +369,7 @@ class CosmeticShopTest extends TestCase
         string $name,
         string $characterClass = 'guerreiro',
         int $relics = 0,
+        int $seals = 0,
     ): User {
         $student = User::factory()->create([
             'name' => $name,
@@ -240,10 +381,10 @@ class CosmeticShopTest extends TestCase
             'character_approval_status' => 'approved',
         ]);
 
-        return $this->enrollExisting($class, $student, $relics);
+        return $this->enrollExisting($class, $student, $relics, $seals);
     }
 
-    private function enrollExisting(SchoolClass $class, User $student, int $relics = 0): User
+    private function enrollExisting(SchoolClass $class, User $student, int $relics = 0, int $seals = 0): User
     {
         $class->students()->syncWithoutDetaching([
             $student->id => [
@@ -251,6 +392,7 @@ class CosmeticShopTest extends TestCase
                 'xp' => 0,
                 'glory' => 0,
                 'relics' => $relics,
+                'seals' => $seals,
                 'arena_wins' => 0,
                 'arena_losses' => 0,
                 'behavior_score' => 100,
