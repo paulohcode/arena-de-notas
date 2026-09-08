@@ -287,7 +287,9 @@ class CosmeticShopTest extends TestCase
             ->assertSee('Anel de Bronze')
             ->assertSee('Mercado da turma')
             ->assertSee('Assíduo')
-            ->assertSee('Selos');
+            ->assertSee('Selos')
+            ->assertSee('🟤')
+            ->assertSee('📅');
     }
 
     public function test_student_can_purchase_seal_item_with_seals(): void

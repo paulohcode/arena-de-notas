@@ -53,23 +53,34 @@
     @else
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($listings as $listing)
-                <div class="game-card p-4 flex flex-col gap-3">
-                    <div>
-                        <p class="font-semibold text-amber-100">{{ $listing['name'] }}</p>
-                        <p class="text-xs text-purple-200/60">{{ $listing['rarity_label'] }} · {{ $listing['seller_name'] }}</p>
-                        <p class="text-sm text-cyan-300 mt-1">{{ $listing['price'] }} Relíquias</p>
+                <article class="game-card shop-item-card">
+                    @include('partials.shop-item-art', [
+                        'icon' => $listing['icon'],
+                        'rarity' => $listing['rarity'],
+                        'css' => $listing['css'] ?? null,
+                        'slot' => $listing['slot'],
+                    ])
+                    <div class="shop-item-card__body">
+                        <div>
+                            <p class="font-display text-lg text-amber-100">{{ $listing['name'] }}</p>
+                            <div class="shop-item-card__meta mt-2">
+                                <span class="shop-item-card__badge">{{ $listing['rarity_label'] }}</span>
+                            </div>
+                            <p class="text-xs text-purple-200/60 mt-2">{{ $listing['seller_name'] }}</p>
+                            <p class="text-sm text-cyan-300 mt-1">{{ $listing['price'] }} Relíquias</p>
+                        </div>
+                        <form method="POST" action="{{ route('student.shop.listings.buy', $listing['id']) }}" class="mt-auto">
+                            @csrf
+                            <button
+                                type="submit"
+                                class="game-btn !py-1 !px-3 text-sm w-full"
+                                @disabled($listing['already_owned'] || $enrollment->relics < $listing['price'])
+                            >
+                                {{ $listing['already_owned'] ? 'Você já tem este item' : 'Comprar de colega' }}
+                            </button>
+                        </form>
                     </div>
-                    <form method="POST" action="{{ route('student.shop.listings.buy', $listing['id']) }}" class="mt-auto">
-                        @csrf
-                        <button
-                            type="submit"
-                            class="game-btn !py-1 !px-3 text-sm"
-                            @disabled($listing['already_owned'] || $enrollment->relics < $listing['price'])
-                        >
-                            {{ $listing['already_owned'] ? 'Você já tem este item' : 'Comprar de colega' }}
-                        </button>
-                    </form>
-                </div>
+                </article>
             @endforeach
         </div>
     @endif
@@ -90,101 +101,90 @@
                 </form>
             @endif
         </div>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             @foreach($catalog[$slot] as $item)
-                <div class="game-card p-4 flex flex-col gap-3 {{ $item['equipped'] ? 'border-amber-400/50' : '' }}">
-                    <div class="flex items-start gap-3">
-                        <div class="shop-item-preview" aria-hidden="true">
-                            @if($slot === 'frame')
-                                <span class="hero-portrait hero-portrait--sm cosmetic-frame cosmetic-frame--{{ $item['css'] }}">
-                                    <span>{{ $student->avatarIcon() }}</span>
-                                </span>
-                            @elseif($slot === 'accessory')
-                                <span class="hero-portrait hero-portrait--sm">
-                                    <span>{{ $student->avatarIcon() }}</span>
-                                    <span class="cosmetic-accessory">{{ $item['icon'] }}</span>
-                                </span>
-                            @elseif($slot === 'title')
-                                <span class="cosmetic-title">{{ $item['label'] }}</span>
-                            @else
-                                <span class="hero-portrait hero-portrait--sm cosmetic-aura cosmetic-aura--{{ $item['css'] }}">
-                                    <span>{{ $student->avatarIcon() }}</span>
-                                </span>
-                            @endif
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="font-semibold text-amber-100 truncate">{{ $item['name'] }}</p>
-                            <p class="text-xs text-purple-200/60">
-                                {{ $item['rarity_label'] }}
+                <article class="game-card shop-item-card {{ $item['equipped'] ? 'is-equipped' : '' }}">
+                    @include('partials.shop-item-art', [
+                        'icon' => $item['icon'],
+                        'rarity' => $item['rarity'],
+                        'css' => $item['css'] ?? null,
+                        'slot' => $item['slot'],
+                    ])
+                    <div class="shop-item-card__body">
+                        <div>
+                            <p class="font-display text-lg text-amber-100">{{ $item['name'] }}</p>
+                            <div class="shop-item-card__meta mt-2">
+                                <span class="shop-item-card__badge">{{ $item['rarity_label'] }}</span>
                                 @if(($item['currency'] ?? 'relics') === 'seals')
-                                    · <span class="text-emerald-300/80">só presença</span>
+                                    <span class="shop-item-card__badge shop-item-card__badge--seals">só presença</span>
                                 @endif
-                            </p>
-                            <p class="text-sm mt-1 {{ ($item['currency'] ?? 'relics') === 'seals' ? 'text-emerald-300' : 'text-cyan-300' }}">
+                            </div>
+                            <p class="text-sm mt-3 {{ ($item['currency'] ?? 'relics') === 'seals' ? 'text-emerald-300' : 'text-cyan-300' }}">
                                 {{ $item['price'] }} {{ $item['currency_label'] ?? 'Relíquias' }}
                             </p>
                             <p class="text-xs mt-1 {{ $item['stock'] > 0 ? 'text-amber-100/50' : 'text-rose-300/70' }}">
                                 {{ $item['stock'] > 0 ? 'Restam '.$item['stock'].' na loja' : 'Esgotado na loja' }}
                             </p>
                         </div>
-                    </div>
-                    <div class="mt-auto flex flex-col gap-2">
-                        @if($item['owned'])
-                            <div class="flex flex-wrap gap-2">
-                                @if($item['equipped'])
-                                    <span class="text-xs text-emerald-300 self-center">Equipado</span>
-                                @else
-                                    <form method="POST" action="{{ route('student.shop.equip') }}">
-                                        @csrf
-                                        <input type="hidden" name="item" value="{{ $item['key'] }}">
-                                        <button type="submit" class="game-btn !py-1 !px-3 text-sm">Equipar</button>
-                                    </form>
-                                @endif
-                            </div>
-                            @if($item['tradable'] ?? true)
-                                @if($item['listed_price'] !== null)
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <span class="text-xs text-violet-200">À venda por {{ $item['listed_price'] }}</span>
-                                        <form method="POST" action="{{ route('student.shop.unlist') }}">
+
+                        <div class="mt-auto flex flex-col gap-2">
+                            @if($item['owned'])
+                                <div class="flex flex-wrap gap-2">
+                                    @if($item['equipped'])
+                                        <span class="text-xs text-emerald-300 self-center">Equipado</span>
+                                    @else
+                                        <form method="POST" action="{{ route('student.shop.equip') }}">
                                             @csrf
                                             <input type="hidden" name="item" value="{{ $item['key'] }}">
-                                            <button type="submit" class="game-btn-ghost !py-1 !px-3 text-xs">Tirar do mercado</button>
+                                            <button type="submit" class="game-btn !py-1 !px-3 text-sm">Equipar</button>
                                         </form>
-                                    </div>
+                                    @endif
+                                </div>
+                                @if($item['tradable'] ?? true)
+                                    @if($item['listed_price'] !== null)
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="text-xs text-violet-200">À venda por {{ $item['listed_price'] }}</span>
+                                            <form method="POST" action="{{ route('student.shop.unlist') }}">
+                                                @csrf
+                                                <input type="hidden" name="item" value="{{ $item['key'] }}">
+                                                <button type="submit" class="game-btn-ghost !py-1 !px-3 text-xs">Tirar do mercado</button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <form method="POST" action="{{ route('student.shop.list') }}" class="flex flex-wrap items-end gap-2">
+                                            @csrf
+                                            <input type="hidden" name="item" value="{{ $item['key'] }}">
+                                            <label class="space-y-1">
+                                                <span class="text-xs uppercase tracking-wide text-purple-200/70">Preço</span>
+                                                <input class="game-input w-24 !py-1" type="number" name="price" min="1" max="9999" value="{{ $item['price'] }}" required>
+                                            </label>
+                                            <button type="submit" class="game-btn-ghost !py-1 !px-3 text-sm">Anunciar</button>
+                                        </form>
+                                    @endif
                                 @else
-                                    <form method="POST" action="{{ route('student.shop.list') }}" class="flex flex-wrap items-end gap-2">
-                                        @csrf
-                                        <input type="hidden" name="item" value="{{ $item['key'] }}">
-                                        <label class="space-y-1">
-                                            <span class="text-xs uppercase tracking-wide text-purple-200/70">Preço</span>
-                                            <input class="game-input w-24 !py-1" type="number" name="price" min="1" max="9999" value="{{ $item['price'] }}" required>
-                                        </label>
-                                        <button type="submit" class="game-btn-ghost !py-1 !px-3 text-sm">Anunciar</button>
-                                    </form>
+                                    <p class="text-xs text-emerald-200/60">Item de presença — não pode ser negociado.</p>
                                 @endif
                             @else
-                                <p class="text-xs text-emerald-200/60">Item de presença — não pode ser negociado.</p>
+                                @php
+                                    $canAfford = ($item['currency'] ?? 'relics') === 'seals'
+                                        ? $enrollment->seals >= $item['price']
+                                        : $enrollment->relics >= $item['price'];
+                                @endphp
+                                <form method="POST" action="{{ route('student.shop.purchase') }}">
+                                    @csrf
+                                    <input type="hidden" name="item" value="{{ $item['key'] }}">
+                                    <button
+                                        type="submit"
+                                        class="game-btn !py-1 !px-3 text-sm w-full"
+                                        @disabled($item['stock'] < 1 || ! $canAfford)
+                                    >
+                                        Comprar na loja
+                                    </button>
+                                </form>
                             @endif
-                        @else
-                            @php
-                                $canAfford = ($item['currency'] ?? 'relics') === 'seals'
-                                    ? $enrollment->seals >= $item['price']
-                                    : $enrollment->relics >= $item['price'];
-                            @endphp
-                            <form method="POST" action="{{ route('student.shop.purchase') }}">
-                                @csrf
-                                <input type="hidden" name="item" value="{{ $item['key'] }}">
-                                <button
-                                    type="submit"
-                                    class="game-btn !py-1 !px-3 text-sm"
-                                    @disabled($item['stock'] < 1 || ! $canAfford)
-                                >
-                                    Comprar na loja
-                                </button>
-                            </form>
-                        @endif
+                        </div>
                     </div>
-                </div>
+                </article>
             @endforeach
         </div>
     </section>

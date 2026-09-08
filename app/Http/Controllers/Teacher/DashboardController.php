@@ -7,9 +7,12 @@ use App\Models\AttendanceSession;
 use App\Models\Duel;
 use App\Models\LedgerEntry;
 use App\Models\SchoolClass;
+use App\Models\Team;
+use App\Models\User;
 use App\Services\DuelService;
 use App\Services\RankingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -41,7 +44,14 @@ class DashboardController extends Controller
     public function show(Request $request, SchoolClass $schoolClass): View
     {
         $this->authorize('manage', $schoolClass);
-        $schoolClass->load(['students', 'teams.members', 'activities', 'area', 'teacher']);
+        $schoolClass->load([
+            'students' => fn ($query) => $query->orderBy('name')->orderBy('users.id'),
+            'teams' => fn ($query) => $query->orderBy('name'),
+            'teams.members',
+            'activities',
+            'area',
+            'teacher',
+        ]);
 
         $players = $this->ranking->players($schoolClass);
         $guilds = $this->ranking->guilds($schoolClass);
@@ -99,6 +109,8 @@ class DashboardController extends Controller
             }
         }
 
+        $rosterGroups = $this->rosterGroups($schoolClass->students, $schoolClass->teams, $guildMemberships);
+
         $pendingPersonas = $schoolClass->students
             ->filter(fn ($student) => $student->isPersonaPending())
             ->sortBy('name')
@@ -151,6 +163,7 @@ class DashboardController extends Controller
             'teamScoresByActivity' => $teamScoresByActivity,
             'transferClasses' => $transferClasses,
             'guildMemberships' => $guildMemberships,
+            'rosterGroups' => $rosterGroups,
             'pendingPersonas' => $pendingPersonas,
             'pendingDuels' => $pendingDuels,
             'recentDuels' => $recentDuels,
@@ -158,5 +171,48 @@ class DashboardController extends Controller
             'attendanceSessions' => $attendanceSessions,
             'activeAttendanceSession' => $activeAttendanceSession,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, User>  $students
+     * @param  Collection<int, Team>  $teams
+     * @param  array<int, string>  $guildMemberships
+     * @return Collection<int, array{key: string, title: string, emblem: string|null, students: Collection<int, User>}>
+     */
+    private function rosterGroups(Collection $students, Collection $teams, array $guildMemberships): Collection
+    {
+        $studentsByName = $students->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
+
+        $groups = $teams
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->map(function (Team $team) use ($studentsByName): array {
+                $memberIds = $team->members->pluck('id');
+
+                return [
+                    'key' => 'team-'.$team->id,
+                    'title' => $team->name,
+                    'emblem' => $team->emblemIcon(),
+                    'students' => $studentsByName
+                        ->filter(fn (User $student) => $memberIds->contains($student->id))
+                        ->values(),
+                ];
+            })
+            ->filter(fn (array $group) => $group['students']->isNotEmpty())
+            ->values();
+
+        $unguilded = $studentsByName
+            ->reject(fn (User $student) => isset($guildMemberships[$student->id]))
+            ->values();
+
+        if ($unguilded->isNotEmpty()) {
+            $groups->push([
+                'key' => 'unguilded',
+                'title' => 'Sem guilda',
+                'emblem' => null,
+                'students' => $unguilded,
+            ]);
+        }
+
+        return $groups;
     }
 }

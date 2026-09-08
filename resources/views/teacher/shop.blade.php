@@ -20,17 +20,31 @@
 @foreach($slots as $slot => $slotLabel)
     <section class="mb-8 reveal">
         <h2 class="font-display text-xl text-amber-200 mb-3">{{ $slotLabel }}</h2>
-        <div class="space-y-3">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($catalog[$slot] as $item)
-                <div class="game-card p-4">
-                    <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div class="min-w-0">
-                            <p class="font-semibold text-amber-100">{{ $item['name'] }}</p>
-                            <p class="text-xs text-purple-200/60">{{ $item['rarity_label'] }} · {{ $item['price'] }} {{ $item['currency_label'] ?? 'Relíquias' }} na loja@if(! ($item['tradable'] ?? true)) · só presença@endif</p>
-                            <p class="text-sm mt-2 {{ $item['stock'] > 0 ? 'text-cyan-300' : 'text-rose-300/80' }}">
+                <article class="game-card shop-item-card">
+                    @include('partials.shop-item-art', [
+                        'icon' => $item['icon'],
+                        'rarity' => $item['rarity'],
+                        'css' => $item['css'] ?? null,
+                        'slot' => $item['slot'],
+                    ])
+                    <div class="shop-item-card__body">
+                        <div>
+                            <p class="font-display text-lg text-amber-100">{{ $item['name'] }}</p>
+                            <div class="shop-item-card__meta mt-2">
+                                <span class="shop-item-card__badge">{{ $item['rarity_label'] }}</span>
+                                @if(! ($item['tradable'] ?? true))
+                                    <span class="shop-item-card__badge shop-item-card__badge--seals">só presença</span>
+                                @endif
+                            </div>
+                            <p class="text-sm mt-3 {{ ($item['currency'] ?? 'relics') === 'seals' ? 'text-emerald-300' : 'text-cyan-300' }}">
+                                {{ $item['price'] }} {{ $item['currency_label'] ?? 'Relíquias' }}
+                            </p>
+                            <p class="text-sm mt-1 {{ $item['stock'] > 0 ? 'text-cyan-300/80' : 'text-rose-300/80' }}">
                                 {{ $item['stock'] > 0 ? $item['stock'].' à venda na loja' : 'Esgotado na loja' }}
                             </p>
-                            <p class="text-sm text-amber-100/70 mt-2">
+                            <p class="text-sm text-amber-100/70 mt-3">
                                 @if(count($item['owners']) === 0)
                                     Ninguém comprou ainda.
                                 @else
@@ -63,7 +77,7 @@
                                 </p>
                             @endif
                         </div>
-                        <form method="POST" action="{{ route('teacher.shop.restock', $class) }}" class="flex flex-wrap items-end gap-2">
+                        <form method="POST" action="{{ route('teacher.shop.restock', $class) }}" class="mt-auto flex flex-wrap items-end gap-2">
                             @csrf
                             <input type="hidden" name="item" value="{{ $item['key'] }}">
                             <label class="space-y-1">
@@ -73,7 +87,7 @@
                             <button class="game-btn !py-1 !px-3 text-sm" type="submit">Atualizar</button>
                         </form>
                     </div>
-                </div>
+                </article>
             @endforeach
         </div>
     </section>

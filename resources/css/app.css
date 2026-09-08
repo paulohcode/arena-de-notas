@@ -618,6 +618,189 @@ body.game-body::after {
     min-height: 3rem;
 }
 
+.shop-item-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    padding: 0;
+    transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.shop-item-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(245, 197, 107, 0.42);
+    box-shadow:
+        0 0 0 1px rgba(155, 34, 38, 0.16),
+        0 22px 44px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 220, 160, 0.08);
+}
+
+.shop-item-card.is-equipped {
+    border-color: rgba(251, 191, 36, 0.55);
+}
+
+.shop-item-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    flex: 1;
+}
+
+.shop-item-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.shop-item-card__badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid rgba(245, 197, 107, 0.25);
+    color: rgba(253, 230, 138, 0.85);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.shop-item-card__badge--seals {
+    border-color: rgba(52, 211, 153, 0.35);
+    color: rgba(167, 243, 208, 0.95);
+    background: rgba(16, 185, 129, 0.12);
+}
+
+.shop-item-art {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    aspect-ratio: 1.35 / 1;
+    background:
+        radial-gradient(circle at 50% 40%, rgba(245, 197, 107, 0.14), transparent 55%),
+        linear-gradient(165deg, rgba(62, 36, 28, 0.95), rgba(18, 12, 20, 0.98));
+    border-bottom: 1px solid rgba(245, 197, 107, 0.18);
+    overflow: hidden;
+}
+
+.shop-item-art--sm {
+    aspect-ratio: 1 / 1;
+    width: 4.25rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(245, 197, 107, 0.2);
+    border-bottom: 1px solid rgba(245, 197, 107, 0.2);
+    flex-shrink: 0;
+}
+
+.shop-item-art__glow {
+    position: absolute;
+    inset: 18% 22%;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(253, 230, 138, 0.22), transparent 70%);
+    filter: blur(8px);
+    pointer-events: none;
+}
+
+.shop-item-art__icon {
+    position: relative;
+    z-index: 1;
+    font-size: 2.75rem;
+    line-height: 1;
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.55));
+}
+
+.shop-item-art--sm .shop-item-art__icon {
+    font-size: 1.7rem;
+}
+
+.shop-item-art--common .shop-item-art__glow {
+    background: radial-gradient(circle, rgba(226, 232, 240, 0.18), transparent 70%);
+}
+
+.shop-item-art--uncommon .shop-item-art__glow {
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.28), transparent 70%);
+}
+
+.shop-item-art--rare .shop-item-art__glow {
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.3), transparent 70%);
+}
+
+.shop-item-art--epic .shop-item-art__glow {
+    background: radial-gradient(circle, rgba(192, 132, 252, 0.35), transparent 70%);
+}
+
+.shop-item-art--tone-bronze {
+    background:
+        radial-gradient(circle at 50% 40%, rgba(180, 83, 9, 0.28), transparent 58%),
+        linear-gradient(165deg, rgba(62, 36, 28, 0.95), rgba(18, 12, 20, 0.98));
+}
+
+.shop-item-art--tone-silver {
+    background:
+        radial-gradient(circle at 50% 40%, rgba(148, 163, 184, 0.28), transparent 58%),
+        linear-gradient(165deg, rgba(40, 48, 62, 0.95), rgba(14, 12, 18, 0.98));
+}
+
+.shop-item-art--tone-gold {
+    background:
+        radial-gradient(circle at 50% 40%, rgba(245, 158, 11, 0.32), transparent 58%),
+        linear-gradient(165deg, rgba(62, 42, 18, 0.95), rgba(18, 12, 14, 0.98));
+}
+
+.shop-item-art--tone-rune {
+    background:
+        radial-gradient(circle at 50% 40%, rgba(168, 85, 247, 0.34), transparent 58%),
+        linear-gradient(165deg, rgba(48, 28, 72, 0.95), rgba(14, 10, 22, 0.98));
+}
+
+.shop-item-art--tone-aurora {
+    background:
+        radial-gradient(circle at 50% 40%, rgba(52, 211, 153, 0.3), transparent 55%),
+        radial-gradient(circle at 70% 70%, rgba(253, 230, 138, 0.18), transparent 50%),
+        linear-gradient(165deg, rgba(28, 52, 42, 0.95), rgba(14, 12, 18, 0.98));
+}
+
+.shop-item-art--tone-ember {
+    background:
+        radial-gradient(circle at 50% 45%, rgba(249, 115, 22, 0.35), transparent 58%),
+        linear-gradient(165deg, rgba(72, 28, 16, 0.95), rgba(16, 10, 14, 0.98));
+}
+
+.shop-item-art--tone-frost {
+    background:
+        radial-gradient(circle at 50% 45%, rgba(56, 189, 248, 0.32), transparent 58%),
+        linear-gradient(165deg, rgba(22, 42, 62, 0.95), rgba(12, 14, 22, 0.98));
+}
+
+.shop-item-art--tone-storm {
+    background:
+        radial-gradient(circle at 50% 45%, rgba(167, 139, 250, 0.35), transparent 58%),
+        linear-gradient(165deg, rgba(36, 28, 72, 0.95), rgba(12, 10, 22, 0.98));
+}
+
+.shop-item-art--tone-vigil {
+    background:
+        radial-gradient(circle at 50% 45%, rgba(52, 211, 153, 0.28), transparent 55%),
+        radial-gradient(circle at 30% 70%, rgba(253, 230, 138, 0.16), transparent 45%),
+        linear-gradient(165deg, rgba(22, 48, 38, 0.95), rgba(12, 12, 18, 0.98));
+}
+
+.shop-item-art--frame .shop-item-art__icon {
+    font-size: 2.4rem;
+}
+
+.shop-item-art--aura .shop-item-art__icon {
+    animation: shop-item-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes shop-item-pulse {
+    0%, 100% { transform: scale(0.96); filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.55)); }
+    50% { transform: scale(1.06); filter: drop-shadow(0 10px 22px rgba(245, 197, 107, 0.35)); }
+}
+
 @keyframes cosmetic-aura-pulse {
     0%, 100% { opacity: 0.55; transform: scale(0.96); }
     50% { opacity: 1; transform: scale(1.04); }

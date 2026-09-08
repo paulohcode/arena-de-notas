@@ -29,7 +29,7 @@ class CosmeticCatalog
     /**
      * Catálogo curado de cosméticos (só visual).
      *
-     * @var array<string, array{slot: string, name: string, price: int, rarity: string, currency?: string, icon?: string, css?: string, label?: string}>
+     * @var array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: string, label?: string}>
      */
     public const ITEMS = [
         'frame_bronze' => [
@@ -37,6 +37,7 @@ class CosmeticCatalog
             'name' => 'Anel de Bronze',
             'price' => 25,
             'rarity' => 'common',
+            'icon' => '🟤',
             'css' => 'bronze',
         ],
         'frame_silver' => [
@@ -44,6 +45,7 @@ class CosmeticCatalog
             'name' => 'Anel de Prata',
             'price' => 55,
             'rarity' => 'uncommon',
+            'icon' => '⚪',
             'css' => 'silver',
         ],
         'frame_gold' => [
@@ -51,6 +53,7 @@ class CosmeticCatalog
             'name' => 'Anel de Ouro',
             'price' => 90,
             'rarity' => 'rare',
+            'icon' => '🟡',
             'css' => 'gold',
         ],
         'frame_rune' => [
@@ -58,6 +61,7 @@ class CosmeticCatalog
             'name' => 'Anel Rúnico',
             'price' => 140,
             'rarity' => 'epic',
+            'icon' => '🔮',
             'css' => 'rune',
         ],
         'frame_aurora' => [
@@ -66,6 +70,7 @@ class CosmeticCatalog
             'price' => 12,
             'rarity' => 'rare',
             'currency' => self::CURRENCY_SEALS,
+            'icon' => '🌅',
             'css' => 'aurora',
         ],
         'acc_crown' => [
@@ -116,6 +121,7 @@ class CosmeticCatalog
             'name' => 'Duelista',
             'price' => 30,
             'rarity' => 'common',
+            'icon' => '⚔️',
             'label' => 'Duelista',
         ],
         'title_champion' => [
@@ -123,6 +129,7 @@ class CosmeticCatalog
             'name' => 'Campeão',
             'price' => 75,
             'rarity' => 'rare',
+            'icon' => '🏆',
             'label' => 'Campeão',
         ],
         'title_legend' => [
@@ -130,6 +137,7 @@ class CosmeticCatalog
             'name' => 'Lenda',
             'price' => 150,
             'rarity' => 'epic',
+            'icon' => '📜',
             'label' => 'Lenda',
         ],
         'title_assiduous' => [
@@ -138,6 +146,7 @@ class CosmeticCatalog
             'price' => 10,
             'rarity' => 'rare',
             'currency' => self::CURRENCY_SEALS,
+            'icon' => '📅',
             'label' => 'Assíduo',
         ],
         'aura_ember' => [
@@ -145,6 +154,7 @@ class CosmeticCatalog
             'name' => 'Aura de Brasa',
             'price' => 60,
             'rarity' => 'uncommon',
+            'icon' => '🔥',
             'css' => 'ember',
         ],
         'aura_frost' => [
@@ -152,6 +162,7 @@ class CosmeticCatalog
             'name' => 'Aura de Gelo',
             'price' => 60,
             'rarity' => 'uncommon',
+            'icon' => '❄️',
             'css' => 'frost',
         ],
         'aura_storm' => [
@@ -159,6 +170,7 @@ class CosmeticCatalog
             'name' => 'Aura de Relâmpago',
             'price' => 120,
             'rarity' => 'epic',
+            'icon' => '⚡',
             'css' => 'storm',
         ],
         'aura_vigil' => [
@@ -167,16 +179,22 @@ class CosmeticCatalog
             'price' => 15,
             'rarity' => 'epic',
             'currency' => self::CURRENCY_SEALS,
+            'icon' => '🕯️',
             'css' => 'vigil',
         ],
     ];
 
     /**
-     * @return array{slot: string, name: string, price: int, rarity: string, currency?: string, icon?: string, css?: string, label?: string}|null
+     * @return array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: string, label?: string}|null
      */
     public static function item(string $key): ?array
     {
         return self::ITEMS[$key] ?? null;
+    }
+
+    public static function icon(string $key): string
+    {
+        return self::item($key)['icon'] ?? '✦';
     }
 
     public static function has(string $key): bool

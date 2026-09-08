@@ -85,6 +85,122 @@ class StudentRosterTest extends TestCase
         $this->assertStringContainsString('name="email"', $html);
     }
 
+    public function test_roster_groups_students_by_guild_in_alphabetical_order(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+
+        $carlos = User::factory()->create(['role' => 'student', 'name' => 'Carlos Alfa']);
+        $bruno = User::factory()->create(['role' => 'student', 'name' => 'Bruno Alfa']);
+        $zoe = User::factory()->create(['role' => 'student', 'name' => 'Zoe Beta']);
+        $ana = User::factory()->create(['role' => 'student', 'name' => 'Ana Beta']);
+        $diego = User::factory()->create(['role' => 'student', 'name' => 'Diego Livre']);
+
+        foreach ([$carlos, $bruno, $zoe, $ana, $diego] as $student) {
+            $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+        }
+
+        $lobos = Team::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Lobos',
+            'emblem' => 'wolf',
+        ]);
+        $dragoes = Team::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Dragões',
+            'emblem' => 'dragon',
+        ]);
+        Team::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Vazia',
+            'emblem' => 'owl',
+        ]);
+
+        $dragoes->members()->attach([$carlos->id, $bruno->id]);
+        $lobos->members()->attach([$zoe->id, $ana->id]);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertOk()
+            ->getContent();
+
+        $roster = $this->studentRosterHtml($html);
+
+        $this->assertDoesNotMatchRegularExpression('/Vazia/', $roster);
+        $this->assertMatchesRegularExpression(
+            '/Dragões[\s\S]*Bruno Alfa[\s\S]*Carlos Alfa[\s\S]*Lobos[\s\S]*Ana Beta[\s\S]*Zoe Beta[\s\S]*Sem guilda[\s\S]*Diego Livre/',
+            $roster
+        );
+    }
+
+    public function test_admin_sees_roster_grouped_by_guild(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create(['role' => 'student', 'name' => 'Ana Admin']);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+        $team = Team::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Águias',
+            'emblem' => 'owl',
+        ]);
+        $team->members()->attach($student->id);
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+
+        $roster = $this->studentRosterHtml(
+            $this->actingAs($admin)
+                ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+                ->assertOk()
+                ->getContent()
+        );
+
+        $this->assertMatchesRegularExpression('/Águias[\s\S]*Ana Admin/', $roster);
+        $this->assertStringNotContainsString('Sem guilda', $roster);
+    }
+
+    public function test_roster_lists_unguilded_students_alphabetically_when_there_are_no_guilds(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $bruno = User::factory()->create(['role' => 'student', 'name' => 'Bruno Sem']);
+        $ana = User::factory()->create(['role' => 'student', 'name' => 'Ana Sem']);
+        $class->students()->attach($bruno->id, ['ranking_visible' => false, 'xp' => 0]);
+        $class->students()->attach($ana->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $roster = $this->studentRosterHtml(
+            $this->actingAs($teacher)
+                ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+                ->assertOk()
+                ->getContent()
+        );
+
+        $this->assertMatchesRegularExpression('/Sem guilda[\s\S]*Ana Sem[\s\S]*Bruno Sem/', $roster);
+    }
+
+    public function test_escapes_guild_name_in_the_roster_heading(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create(['role' => 'student', 'name' => 'Aluno Guilda']);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+        $team = Team::query()->create([
+            'class_id' => $class->id,
+            'name' => "<script>alert('xss')</script>",
+            'emblem' => 'shield',
+        ]);
+        $team->members()->attach($student->id);
+
+        $roster = $this->studentRosterHtml(
+            $this->actingAs($teacher)
+                ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+                ->assertOk()
+                ->getContent()
+        );
+
+        $this->assertStringContainsString('&lt;script&gt;', $roster);
+        $this->assertStringNotContainsString("<script>alert('xss')</script>", $roster);
+    }
+
     public function test_teacher_can_rename_a_student(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
@@ -744,6 +860,20 @@ class StudentRosterTest extends TestCase
         $quoted = preg_quote(e($action), '/');
         $this->assertSame(1, preg_match(
             '/<form[^>]*action="'.$quoted.'"[^>]*>([\s\S]*?)<\/form>/',
+            $html,
+            $matches
+        ));
+
+        return $matches[1];
+    }
+
+    /**
+     * @return non-empty-string
+     */
+    private function studentRosterHtml(string $html): string
+    {
+        $this->assertSame(1, preg_match(
+            '/<section[^>]*data-student-roster[^>]*>([\s\S]*?)<\/section>/',
             $html,
             $matches
         ));
