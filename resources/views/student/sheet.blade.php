@@ -27,6 +27,10 @@
             <p class="text-4xl">{{ $team->emblemIcon() }}</p>
             <h2 class="font-display text-2xl text-amber-200 mt-2">{{ $team->name }}</h2>
             <p class="text-purple-200/70">{{ $viewerIsTeacher ? 'A guilda está em' : 'Vocês estão em' }} {{ $guildPosition }}º no Hall</p>
+            @unless($viewerIsTeacher)
+                <a href="{{ route('ranking.guild', [$class, $team]) }}" class="text-xs text-amber-200/70 hover:text-amber-200 underline mt-2 inline-block">Ver a guilda</a>
+            @endunless
+            @include('partials.guild-mission-alerts')
         @else
             <h2 class="font-display text-2xl text-amber-200">Sem guilda</h2>
             <p class="text-purple-200/70">{{ $viewerIsTeacher ? 'Este aluno ainda não está em uma equipe.' : 'O professor ainda não te colocou em uma equipe.' }}</p>

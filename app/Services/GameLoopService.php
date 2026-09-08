@@ -16,6 +16,7 @@ class GameLoopService
     public function __construct(
         private GradeCalculator $grades,
         private RankingService $ranking,
+        private ActivityReminderService $reminders,
     ) {}
 
     public function recordActivityGrade(SchoolClass $class, Activity $activity, float $score, User $author, ?User $student = null, ?Team $team = null): LedgerEntry
@@ -25,13 +26,22 @@ class GameLoopService
             ? $score
             : $score - $activity->max_score;
 
-        return $this->commit($class, function () use ($class, $activity, $score, $delta, $author, $student, $team) {
+        $hadGrades = $this->reminders->activityHasStarted($activity);
+
+        $entry = $this->commit($class, function () use ($class, $activity, $score, $delta, $author, $student, $team) {
             return $this->upsertActivityEntry($class, $activity, $score, $delta, $author, $student, $team);
         }, $student, $team, [
             'kind' => 'activity',
             'score' => $score,
             'label' => $activity->name,
+            'activity_id' => $activity->id,
         ]);
+
+        if (! $hadGrades) {
+            $this->reminders->notifyMissingWork($class, $activity);
+        }
+
+        return $entry;
     }
 
     /**
@@ -44,6 +54,7 @@ class GameLoopService
         $beforePlayers = $this->snapshotPlayers($class);
         $beforeGuilds = $this->snapshotGuilds($class);
         $isTeam = $activity->isTeam();
+        $hadGrades = $this->reminders->activityHasStarted($activity);
 
         $saved = DB::transaction(function () use ($class, $activity, $scoresByTargetId, $author, $isTeam) {
             $rows = [];
@@ -83,7 +94,12 @@ class GameLoopService
                 'kind' => 'activity',
                 'score' => $row['score'],
                 'label' => $activity->name,
+                'activity_id' => $activity->id,
             ]);
+        }
+
+        if (! $hadGrades && $saved !== []) {
+            $this->reminders->notifyMissingWork($class, $activity);
         }
 
         $this->applyXpAndLevels($class, $beforePlayers);
@@ -255,7 +271,7 @@ class GameLoopService
     }
 
     /**
-     * @param  array{kind: string, score?: float, delta?: float, label: string}  $event
+     * @param  array{kind: string, score?: float, delta?: float, label: string, activity_id?: int}  $event
      */
     private function notifyGrade(SchoolClass $class, ?User $student, ?Team $team, array $event): void
     {
@@ -275,6 +291,10 @@ class GameLoopService
                     ? "A guilda {$team->name} recebeu {$score} em {$event['label']}."
                     : "Você recebeu {$score} em {$event['label']}.";
                 $user->notify(new GameAlert('grade', $title, $message, $event));
+
+                if (isset($event['activity_id'])) {
+                    $this->reminders->dismissMissingWork($user, (int) $event['activity_id']);
+                }
 
                 continue;
             }

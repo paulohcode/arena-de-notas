@@ -477,7 +477,11 @@
                                     <td class="py-3 pr-3">{{ $activity->max_score }}</td>
                                     <td class="py-3 pr-3">{{ $activity->weight }}</td>
                                     <td class="py-3">
-                                        <div class="flex justify-end gap-2">
+                                        <div class="flex justify-end flex-wrap gap-2">
+                                            <form method="POST" action="{{ route('teacher.activities.warn', [$class, $activity]) }}" onsubmit="return confirm('Avisar os alunos que ainda não têm nota nesta atividade?')">
+                                                @csrf
+                                                <button class="game-btn-ghost px-3 py-1 text-xs" type="submit">Avisar pendentes</button>
+                                            </form>
                                             <a class="game-btn-ghost px-3 py-1 text-xs"
                                                href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'atividades', 'activity' => $activity->id]) }}">Editar</a>
                                             <form method="POST" action="{{ route('teacher.activities.destroy', [$class, $activity]) }}" onsubmit="return confirm('Excluir esta atividade?')">

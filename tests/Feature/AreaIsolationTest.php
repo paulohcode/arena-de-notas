@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Activity;
+use App\Models\SchoolClass;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -40,6 +42,43 @@ class AreaIsolationTest extends TestCase
             ->assertOk()
             ->assertSee('Turma do Reino A')
             ->assertDontSee('Turma do Reino B');
+    }
+
+    public function test_area_page_ranks_classes_by_war_score(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $area = $this->createAreaForTeacher($teacher, ['name' => 'Reino Guerra', 'slug' => 'reino-guerra']);
+        $weaker = $this->createClassForTeacher($teacher, ['area' => $area, 'name' => 'Turma Alfa']);
+        $stronger = $this->createClassForTeacher($teacher, ['area' => $area, 'name' => 'Turma Zeta']);
+
+        $this->gradeStudentInClass($teacher, $weaker, 'Ana', 40);
+        $this->gradeStudentInClass($teacher, $stronger, 'Bruno', 90);
+
+        $this->get(route('areas.show', $area))
+            ->assertSee('Ranking das turmas')
+            ->assertSeeInOrder([
+                '1º',
+                'Turma Zeta',
+                '2º',
+                'Turma Alfa',
+            ]);
+    }
+
+    public function test_escapes_class_name_on_the_area_page(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $area = $this->createAreaForTeacher($teacher, ['slug' => 'reino-xss-turma']);
+        $this->createClassForTeacher($teacher, [
+            'area' => $area,
+            'name' => "<script>alert('xss')</script>",
+        ]);
+
+        $html = $this->get(route('areas.show', $area))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+        $this->assertStringNotContainsString("<script>alert('xss')</script>", $html);
     }
 
     public function test_teacher_cannot_create_class_outside_assigned_areas(): void
@@ -104,5 +143,36 @@ class AreaIsolationTest extends TestCase
         $this->get(route('home'))
             ->assertOk()
             ->assertDontSee('Reino Oculto');
+    }
+
+    private function gradeStudentInClass(User $teacher, SchoolClass $class, string $studentName, float $score): void
+    {
+        $student = User::factory()->create([
+            'name' => $studentName,
+            'role' => 'student',
+            'character_class' => 'guerreiro',
+            'must_change_password' => false,
+        ]);
+
+        $class->students()->attach($student->id, [
+            'ranking_visible' => true,
+            'xp' => 0,
+            'behavior_score' => 100,
+        ]);
+
+        $activity = Activity::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Prova',
+            'type' => 'individual',
+            'max_score' => 100,
+            'weight' => 1,
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.grades.store', $class), [
+                'activity_id' => $activity->id,
+                'scores' => [$student->id => $score],
+            ])
+            ->assertRedirect();
     }
 }

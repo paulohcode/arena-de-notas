@@ -156,6 +156,7 @@ class ActivityControllerTest extends TestCase
             ->assertSee('Atividades cadastradas')
             ->assertSee('Trabalho em dupla')
             ->assertSee('Editar')
+            ->assertSee('Avisar pendentes')
             ->assertSee('Excluir');
     }
 

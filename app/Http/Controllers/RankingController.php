@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\SchoolClass;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\ActivityReminderService;
 use App\Services\DuelService;
 use App\Services\GradeCalculator;
 use App\Services\RankingService;
@@ -19,6 +20,7 @@ class RankingController extends Controller
         private RankingService $ranking,
         private GradeCalculator $grades,
         private DuelService $duels,
+        private ActivityReminderService $reminders,
     ) {}
 
     public function home(Request $request): View
@@ -75,6 +77,8 @@ class RankingController extends Controller
         $user = $request->user();
         $canSeeAll = $this->canSeeStaffDetails($user, $schoolClass);
         $canOpenStudentProfile = $this->canOpenStudentProfile($user, $schoolClass);
+        $team->loadMissing('members');
+        $viewerIsGuildMember = $user?->isStudent() && $team->members->contains('id', $user->id);
 
         $members = $team->members->map(function ($student) use ($schoolClass, $canSeeAll, $canOpenStudentProfile) {
             $visible = (bool) $student->enrollmentIn($schoolClass)?->ranking_visible;
@@ -99,6 +103,9 @@ class RankingController extends Controller
             'position' => $position,
             'members' => $members,
             'entries' => $entries,
+            'guildMissionAlerts' => ($canSeeAll || $viewerIsGuildMember)
+                ? $this->reminders->guildPendingMissions($team, $schoolClass)
+                : collect(),
         ]);
     }
 

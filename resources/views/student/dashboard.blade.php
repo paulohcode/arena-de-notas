@@ -71,5 +71,16 @@
     </div>
 </div>
 
+@if(($pendingMissions ?? collect())->isNotEmpty())
+    <div class="game-card p-4 mb-6 border-amber-400/50 text-amber-100 reveal" role="alert">
+        <p class="font-semibold text-amber-200">Missões pendentes</p>
+        <ul class="mt-2 space-y-1">
+            @foreach($pendingMissions as $mission)
+                <li class="text-sm">Missão {{ $mission->name }} falta concluir.</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
 @include('student.sheet')
 @endsection

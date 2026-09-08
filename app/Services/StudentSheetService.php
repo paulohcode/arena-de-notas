@@ -13,6 +13,7 @@ class StudentSheetService
     public function __construct(
         private GradeCalculator $grades,
         private RankingService $ranking,
+        private ActivityReminderService $reminders,
     ) {}
 
     /**
@@ -29,7 +30,8 @@ class StudentSheetService
      *     players: list<array<string, mixed>>,
      *     guilds: list<array<string, mixed>>,
      *     entries: Collection,
-     *     badges: Collection
+     *     badges: Collection,
+     *     guildMissionAlerts: Collection
      * }
      */
     public function data(User $student, SchoolClass $class, bool $publicPlayersOnly = false): array
@@ -64,6 +66,9 @@ class StudentSheetService
             'guilds' => $this->ranking->guilds($class),
             'entries' => $entries,
             'badges' => $student->badges()->wherePivot('class_id', $class->id)->orderBy('name')->get(),
+            'guildMissionAlerts' => $team
+                ? $this->reminders->guildPendingMissions($team, $class)
+                : collect(),
         ];
     }
 }

@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\SchoolClass;
+use App\Services\ActivityReminderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ActivityController extends Controller
 {
+    public function __construct(private ActivityReminderService $reminders) {}
+
     public function store(Request $request, SchoolClass $schoolClass): RedirectResponse
     {
         $this->authorize('manage', $schoolClass);
@@ -36,6 +39,29 @@ class ActivityController extends Controller
         $activity->delete();
 
         return $this->redirectToActivities($schoolClass, 'Atividade removida.');
+    }
+
+    public function warnMissing(SchoolClass $schoolClass, Activity $activity): RedirectResponse
+    {
+        $this->authorize('manage', $schoolClass);
+        abort_unless($activity->class_id === $schoolClass->id, 404);
+
+        if (! $this->reminders->activityHasStarted($activity)) {
+            return $this->redirectToActivities($schoolClass, 'Lance ao menos uma nota antes de avisar quem falta entregar.');
+        }
+
+        $count = $this->reminders->notifyMissingWork($schoolClass, $activity);
+
+        if ($count === 0) {
+            return $this->redirectToActivities($schoolClass, 'Nenhum aluno está pendente nesta atividade.');
+        }
+
+        return $this->redirectToActivities(
+            $schoolClass,
+            $count === 1
+                ? 'Aviso enviado para 1 aluno pendente.'
+                : "Aviso enviado para {$count} alunos pendentes.",
+        );
     }
 
     public function weights(Request $request, SchoolClass $schoolClass): RedirectResponse

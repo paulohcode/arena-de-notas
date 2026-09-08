@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Services\ActivityReminderService;
 use App\Services\CharacterPersonaService;
 use App\Services\StudentSheetService;
 use App\Support\ArenaUrl;
@@ -20,6 +21,7 @@ class DashboardController extends Controller
     public function __construct(
         private StudentSheetService $sheet,
         private CharacterPersonaService $personas,
+        private ActivityReminderService $reminders,
     ) {}
 
     public function editCharacter(Request $request): View
@@ -85,6 +87,7 @@ class DashboardController extends Controller
                 'viewerIsTeacher' => false,
                 'classes' => $student->classes()->orderBy('name')->get(),
                 'notifications' => $student->unreadNotifications()->latest()->limit(8)->get(),
+                'pendingMissions' => $this->reminders->pendingMissions($student, $class),
                 'notifyUrl' => ArenaUrl::route('student.notifications'),
                 'markReadUrl' => ArenaUrl::route('student.notifications.read'),
                 'rankingUrl' => ArenaUrl::route('ranking.live', $class),

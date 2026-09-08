@@ -95,6 +95,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::post('/turmas/{schoolClass}/atividades', [ActivityController::class, 'store'])->name('activities.store');
     Route::put('/turmas/{schoolClass}/atividades/{activity}', [ActivityController::class, 'update'])->name('activities.update');
     Route::delete('/turmas/{schoolClass}/atividades/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
+    Route::post('/turmas/{schoolClass}/atividades/{activity}/avisar', [ActivityController::class, 'warnMissing'])->name('activities.warn');
     Route::put('/turmas/{schoolClass}/pesos', [ActivityController::class, 'weights'])->name('activities.weights');
 
     Route::post('/turmas/{schoolClass}/notas', [GradeController::class, 'store'])->name('grades.store');

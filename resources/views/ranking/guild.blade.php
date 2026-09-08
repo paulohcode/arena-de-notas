@@ -15,6 +15,7 @@
         </div>
     </div>
     <div class="xp-track mt-4"><div class="xp-fill" data-xp-fill="{{ $score }}"></div></div>
+    @include('partials.guild-mission-alerts', ['guildAlertClass' => 'mt-5 p-4 rounded-xl border border-amber-400/40 bg-amber-500/10'])
 </div>
 
 <div class="grid md:grid-cols-2 gap-6">

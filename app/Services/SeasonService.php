@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Area;
 use App\Models\Badge;
 use App\Models\SchoolClass;
 use App\Models\Season;
@@ -45,19 +46,38 @@ class SeasonService
     {
         $rows = [];
 
-        foreach ($season->classes()->with(['students', 'teams.members'])->get() as $class) {
+        foreach ($season->classes()->with(['students', 'teams.members'])->orderBy('name')->orderBy('id')->get() as $class) {
             $rows[] = $this->scoreClass($class);
         }
 
-        usort($rows, fn (array $a, array $b) => $b['score'] <=> $a['score']);
+        return $this->rankClassRows($rows);
+    }
 
-        $ranked = [];
-        foreach (array_values($rows) as $index => $row) {
-            $row['position'] = $index + 1;
-            $ranked[] = $row;
+    /**
+     * Ranking de todas as turmas de um reino, com o mesmo score das temporadas.
+     *
+     * @return list<array{
+     *     position: int,
+     *     class: SchoolClass,
+     *     score: float,
+     *     avg_individual: float,
+     *     avg_guilds: float,
+     *     level_score: float,
+     *     badge_score: float,
+     *     level_distribution: array<string, int>,
+     *     total_badges: int,
+     *     student_count: int,
+     * }>
+     */
+    public function areaClassRanking(Area $area): array
+    {
+        $rows = [];
+
+        foreach ($area->classes()->with(['students', 'teams.members'])->orderBy('name')->orderBy('id')->get() as $class) {
+            $rows[] = $this->scoreClass($class);
         }
 
-        return $ranked;
+        return $this->rankClassRows($rows);
     }
 
     /**
@@ -132,7 +152,7 @@ class SeasonService
         $score = round(($avgIndividual + $avgGuilds + $levelScore + $badgeScore) / 4, 2);
 
         return [
-            'position' => 0, // preenchido no classRanking()
+            'position' => 0, // preenchido em rankClassRows()
             'class' => $class,
             'score' => $score,
             'avg_individual' => round($avgIndividual, 2),
@@ -143,5 +163,47 @@ class SeasonService
             'total_badges' => $totalBadges,
             'student_count' => $studentCount,
         ];
+    }
+
+    /**
+     * @param  list<array{
+     *     position: int,
+     *     class: SchoolClass,
+     *     score: float,
+     *     avg_individual: float,
+     *     avg_guilds: float,
+     *     level_score: float,
+     *     badge_score: float,
+     *     level_distribution: array<string, int>,
+     *     total_badges: int,
+     *     student_count: int,
+     * }>  $rows
+     * @return list<array{
+     *     position: int,
+     *     class: SchoolClass,
+     *     score: float,
+     *     avg_individual: float,
+     *     avg_guilds: float,
+     *     level_score: float,
+     *     badge_score: float,
+     *     level_distribution: array<string, int>,
+     *     total_badges: int,
+     *     student_count: int,
+     * }>
+     */
+    private function rankClassRows(array $rows): array
+    {
+        usort($rows, function (array $a, array $b): int {
+            return [$b['score'], $a['class']->name, $a['class']->id]
+                <=> [$a['score'], $b['class']->name, $b['class']->id];
+        });
+
+        $ranked = [];
+        foreach (array_values($rows) as $index => $row) {
+            $row['position'] = $index + 1;
+            $ranked[] = $row;
+        }
+
+        return $ranked;
     }
 }
