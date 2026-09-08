@@ -61,6 +61,14 @@
             <div class="hidden" data-flash-toast="{{ session('success') }}" data-flash-title="Arena"></div>
         @endif
 
+        @if(session('message'))
+            <div class="hidden" data-flash-toast="{{ session('message') }}" data-flash-title="Atenção" data-flash-tone="warn"></div>
+            <div class="game-card p-4 mb-6 border-amber-400/50 text-amber-100 reveal" role="alert">
+                <p class="font-semibold text-amber-200">Atenção</p>
+                <p class="text-sm mt-1">{{ session('message') }}</p>
+            </div>
+        @endif
+
         @if($errors->any())
             <div class="hidden" data-flash-toast="{{ $errors->first() }}" data-flash-title="Atenção" data-flash-tone="warn"></div>
             <div class="game-card p-4 mb-6 border-amber-400/50 text-amber-100 reveal" role="alert">

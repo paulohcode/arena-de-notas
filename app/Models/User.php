@@ -346,7 +346,19 @@ class User extends Authenticatable
     public function classes(): BelongsToMany
     {
         return $this->belongsToMany(SchoolClass::class, 'enrollments', 'student_id', 'class_id')
-            ->withPivot(['ranking_visible', 'xp', 'glory', 'arena_wins', 'arena_losses', 'behavior_score'])
+            ->withPivot([
+                'ranking_visible',
+                'xp',
+                'glory',
+                'relics',
+                'arena_wins',
+                'arena_losses',
+                'behavior_score',
+                'equipped_frame',
+                'equipped_accessory',
+                'equipped_title',
+                'equipped_aura',
+            ])
             ->withTimestamps();
     }
 

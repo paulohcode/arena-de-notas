@@ -49,7 +49,19 @@ class SchoolClass extends Model
     public function students(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'enrollments', 'class_id', 'student_id')
-            ->withPivot(['ranking_visible', 'xp', 'glory', 'arena_wins', 'arena_losses', 'behavior_score'])
+            ->withPivot([
+                'ranking_visible',
+                'xp',
+                'glory',
+                'relics',
+                'arena_wins',
+                'arena_losses',
+                'behavior_score',
+                'equipped_frame',
+                'equipped_accessory',
+                'equipped_title',
+                'equipped_aura',
+            ])
             ->withTimestamps();
     }
 

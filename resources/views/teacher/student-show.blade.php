@@ -9,6 +9,7 @@
         @include('partials.player-avatar', [
             'student' => $student,
             'size' => 'lg',
+            'enrollment' => $enrollment,
             'avatarKey' => $student->pending_character_avatar ?? $student->character_avatar,
         ])
         <div class="min-w-0">
@@ -25,6 +26,9 @@
             </form>
             @if($student->arenaName())
                 <p class="font-display text-xl text-amber-200 mt-1">{{ $student->arenaName() }}</p>
+            @endif
+            @if($enrollment?->equippedTitleLabel())
+                <p class="cosmetic-title mt-1">{{ $enrollment->equippedTitleLabel() }}</p>
             @endif
             <p class="text-amber-100/65 mt-2 flex flex-wrap items-center gap-2">
                 @include('partials.class-badge', ['student' => $student])

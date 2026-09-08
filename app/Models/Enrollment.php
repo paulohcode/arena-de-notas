@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Support\CosmeticCatalog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Enrollment extends Model
 {
@@ -13,9 +15,14 @@ class Enrollment extends Model
         'ranking_visible',
         'xp',
         'glory',
+        'relics',
         'arena_wins',
         'arena_losses',
         'behavior_score',
+        'equipped_frame',
+        'equipped_accessory',
+        'equipped_title',
+        'equipped_aura',
     ];
 
     protected function casts(): array
@@ -24,6 +31,7 @@ class Enrollment extends Model
             'ranking_visible' => 'boolean',
             'xp' => 'integer',
             'glory' => 'integer',
+            'relics' => 'integer',
             'arena_wins' => 'integer',
             'arena_losses' => 'integer',
             'behavior_score' => 'float',
@@ -38,5 +46,28 @@ class Enrollment extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
+    }
+
+    public function cosmetics(): HasMany
+    {
+        return $this->hasMany(EnrollmentCosmetic::class);
+    }
+
+    /**
+     * @return array{frame: ?string, accessory: ?string, title: ?string, aura: ?string}
+     */
+    public function cosmeticLoadout(): array
+    {
+        return CosmeticCatalog::loadoutFromEnrollment($this);
+    }
+
+    public function ownsCosmetic(string $itemKey): bool
+    {
+        return $this->cosmetics()->where('item_key', $itemKey)->exists();
+    }
+
+    public function equippedTitleLabel(): ?string
+    {
+        return CosmeticCatalog::titleLabel($this->equipped_title);
     }
 }

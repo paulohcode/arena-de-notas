@@ -55,7 +55,12 @@
         data-duel-waiting
         x-data="{
             statusUrl: {{ \Illuminate\Support\Js::from($statusUrl) }},
+            pulling: false,
             async poll() {
+                if (this.pulling) {
+                    return;
+                }
+                this.pulling = true;
                 try {
                     const response = await fetch(this.statusUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
                     if (! response.ok) return;
@@ -64,10 +69,13 @@
                         window.location.href = data.redirect;
                     }
                 } catch (e) {}
+                finally {
+                    this.pulling = false;
+                }
             },
             init() {
                 this.poll();
-                setInterval(() => this.poll(), 2000);
+                setInterval(() => this.poll(), 5000);
             }
         }"
     >
@@ -75,13 +83,15 @@
         <h1 class="font-display text-3xl text-amber-300 mb-3">Aguardando o oponente</h1>
         <div class="flex items-center justify-center gap-6 my-8">
             <div class="text-center">
-                @include('partials.player-avatar', ['student' => $duel->challenger, 'size' => 'lg'])
+                @include('partials.player-avatar', ['student' => $duel->challenger, 'enrollment' => $challengerEnrollment ?? null, 'size' => 'lg'])
                 <p class="mt-2 font-semibold">{{ $duel->challenger->arenaName() ?: $duel->challenger->name }}</p>
+                @include('partials.cosmetic-title', ['enrollment' => $challengerEnrollment ?? null, 'inline' => false])
             </div>
             <p class="font-display text-2xl text-amber-200/50">VS</p>
             <div class="text-center opacity-70">
-                @include('partials.player-avatar', ['student' => $duel->opponent, 'size' => 'lg'])
+                @include('partials.player-avatar', ['student' => $duel->opponent, 'enrollment' => $opponentEnrollment ?? null, 'size' => 'lg'])
                 <p class="mt-2 font-semibold">{{ $duel->opponent->arenaName() ?: $duel->opponent->name }}</p>
+                @include('partials.cosmetic-title', ['enrollment' => $opponentEnrollment ?? null, 'inline' => false])
             </div>
         </div>
         <p class="text-amber-100/65 mb-2">Quando {{ $duel->opponent->arenaName() ?: $duel->opponent->name }} aceitar, o combate abre sozinho nesta tela.</p>

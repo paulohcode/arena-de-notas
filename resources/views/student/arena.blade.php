@@ -7,9 +7,12 @@
     <div>
         <p class="hero-kicker !mb-1">Campo de duelos</p>
         <h1 class="font-display text-4xl text-amber-300">Arena da turma</h1>
-        <p class="text-amber-100/60 mt-1">{{ $class->name }} · Glória {{ $enrollment?->glory ?? 0 }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
+        <p class="text-amber-100/60 mt-1">{{ $class->name }} · Glória {{ $enrollment?->glory ?? 0 }} · Relíquias {{ $enrollment?->relics ?? 0 }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
     </div>
-    <a class="game-btn-ghost" href="{{ route('student.dashboard') }}">Voltar à ficha</a>
+    <div class="flex flex-wrap gap-2">
+        <a class="game-btn-ghost" href="{{ route('student.shop.index') }}">Loja</a>
+        <a class="game-btn-ghost" href="{{ route('student.dashboard') }}">Voltar à ficha</a>
+    </div>
 </div>
 
 @if(! $class->isArenaOpen())
@@ -119,6 +122,7 @@
                         @if($row['student']->arenaName())
                             <span class="text-amber-300"> · {{ $row['student']->arenaName() }}</span>
                         @endif
+                        @include('partials.cosmetic-title', ['student' => $row['student']])
                     </span>
                     <span class="text-cyan-300">{{ $row['glory'] }} Glória · {{ $row['arena_wins'] }}V</span>
                 </div>

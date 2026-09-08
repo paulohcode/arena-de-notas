@@ -54,6 +54,7 @@
                                     @if($row['student']->arenaName())
                                         <span class="text-amber-300"> · {{ $row['student']->arenaName() }}</span>
                                     @endif
+                                    @include('partials.cosmetic-title', ['student' => $row['student']])
                                 </span>
                             </a>
                         @else
@@ -64,6 +65,7 @@
                                     @if($row['student']->arenaName())
                                         <span class="text-amber-300"> · {{ $row['student']->arenaName() }}</span>
                                     @endif
+                                    @include('partials.cosmetic-title', ['student' => $row['student']])
                                 </span>
                             </span>
                         @endif
@@ -148,6 +150,7 @@
                                 @if($row['student']->arenaName())
                                     <span class="text-amber-300"> · {{ $row['student']->arenaName() }}</span>
                                 @endif
+                                @include('partials.cosmetic-title', ['student' => $row['student']])
                             </span>
                         </span>
                     </p>

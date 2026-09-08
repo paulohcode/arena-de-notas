@@ -123,6 +123,7 @@ class StudentController extends Controller
                     'ranking_visible' => $rankingVisible,
                     'xp' => 0,
                     'glory' => 0,
+                    'relics' => 0,
                     'arena_wins' => 0,
                     'arena_losses' => 0,
                     'behavior_score' => 100,
@@ -134,7 +135,7 @@ class StudentController extends Controller
             ->route('teacher.classes.show', ['schoolClass' => $schoolClass, 'tab' => 'alunos'])
             ->with(
                 'success',
-                "{$student->name} foi transferido para {$target->name}. Notas, XP, Glória, medalhas, guilda e histórico da turma anterior foram apagados."
+                "{$student->name} foi transferido para {$target->name}. Notas, XP, Glória, Relíquias, medalhas, guilda e histórico da turma anterior foram apagados."
             );
     }
 

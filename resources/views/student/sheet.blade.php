@@ -9,7 +9,7 @@
             <div class="text-right">
                 <p class="font-display text-2xl text-amber-300">{{ $level['name'] }}</p>
                 <p class="text-sm text-purple-200/70">{{ $enrollment?->xp ?? 0 }} XP</p>
-                <p class="text-sm text-cyan-300/80">{{ $enrollment?->glory ?? 0 }} Glória · {{ $enrollment?->arena_wins ?? 0 }}V–{{ $enrollment?->arena_losses ?? 0 }}D</p>
+                <p class="text-sm text-cyan-300/80">{{ $enrollment?->glory ?? 0 }} Glória · {{ $enrollment?->relics ?? 0 }} Relíquias · {{ $enrollment?->arena_wins ?? 0 }}V–{{ $enrollment?->arena_losses ?? 0 }}D</p>
                 <p class="text-sm">Jogador: {{ $position ? $position.'º' : '—' }} · Guilda: {{ $guildPosition ? $guildPosition.'º' : '—' }}</p>
             </div>
         </div>
@@ -112,6 +112,7 @@
                         @if($row['student']->arenaName())
                             <span class="text-amber-300"> · {{ $row['student']->arenaName() }}</span>
                         @endif
+                        @include('partials.cosmetic-title', ['student' => $row['student']])
                         <span class="text-xs text-amber-100/45">{{ $row['student']->characterClassLabel() }}</span>
                     </span>
                     <span class="text-cyan-300" data-avg>{{ number_format($row['average'], 1) }}</span>

@@ -12,14 +12,20 @@ export function startChallengePolling(url, csrf) {
 
     const shown = new Set();
     let busy = false;
+    let pulling = false;
     let queue = [];
-    const token = csrfToken(csrf);
 
     if (challengeTimer) {
         clearInterval(challengeTimer);
     }
 
     const pull = async () => {
+        if (pulling) {
+            return;
+        }
+
+        pulling = true;
+
         try {
             const response = await fetch(toLocalPath(url) || url, {
                 headers: {
@@ -45,6 +51,8 @@ export function startChallengePolling(url, csrf) {
             maybeShowNext();
         } catch {
             // ignore network blips
+        } finally {
+            pulling = false;
         }
     };
 
@@ -55,14 +63,14 @@ export function startChallengePolling(url, csrf) {
 
         busy = true;
         const challenge = queue.shift();
-        openChallengeModal(challenge, token, () => {
+        openChallengeModal(challenge, csrfToken(csrf), () => {
             busy = false;
             maybeShowNext();
         });
     };
 
     pull();
-    challengeTimer = setInterval(pull, 2500);
+    challengeTimer = setInterval(pull, 10000);
 }
 
 function openChallengeModal(challenge, csrf, onDone) {
@@ -128,7 +136,7 @@ function openChallengeModal(challenge, csrf, onDone) {
         const token = document.createElement('input');
         token.type = 'hidden';
         token.name = '_token';
-        token.value = csrf;
+        token.value = csrfToken(csrf);
         form.appendChild(token);
 
         document.body.appendChild(form);
@@ -141,7 +149,7 @@ function openChallengeModal(challenge, csrf, onDone) {
             const response = await fetch(toLocalPath(challenge.decline_url) || challenge.decline_url, {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': csrf,
+                    'X-CSRF-TOKEN': csrfToken(csrf),
                     Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
@@ -152,6 +160,11 @@ function openChallengeModal(challenge, csrf, onDone) {
             if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) {
                 layer.remove();
                 onDone();
+                return;
+            }
+
+            if (response.status === 419) {
+                showError('Sua sessão expirou. Atualize a página e tente de novo.');
                 return;
             }
 

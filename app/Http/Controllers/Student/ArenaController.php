@@ -132,10 +132,15 @@ class ArenaController extends Controller
 
         $duel->load(['challenger', 'opponent', 'winner']);
 
+        $challengerEnrollment = $duel->challenger->enrollmentIn($class);
+        $opponentEnrollment = $duel->opponent->enrollmentIn($class);
+
         return view('student.duel', [
             'class' => $class,
             'student' => $student,
             'duel' => $duel,
+            'challengerEnrollment' => $challengerEnrollment,
+            'opponentEnrollment' => $opponentEnrollment,
             'statusUrl' => ArenaUrl::route('student.arena.status', $duel),
             'notifyUrl' => ArenaUrl::route('student.notifications'),
             'markReadUrl' => ArenaUrl::route('student.notifications.read'),

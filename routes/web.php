@@ -10,6 +10,7 @@ use App\Http\Controllers\RankingController;
 use App\Http\Controllers\SeasonRankingController;
 use App\Http\Controllers\Student\ArenaController as StudentArenaController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
+use App\Http\Controllers\Student\ShopController as StudentShopController;
 use App\Http\Controllers\Teacher\ActivityController;
 use App\Http\Controllers\Teacher\ArenaController as TeacherArenaController;
 use App\Http\Controllers\Teacher\CharacterApprovalController;
@@ -123,5 +124,10 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::get('/arena/duelos/{duel}/status', [StudentArenaController::class, 'status'])->name('arena.status');
         Route::post('/arena/duelos/{duel}/aceitar', [StudentArenaController::class, 'accept'])->name('arena.accept');
         Route::post('/arena/duelos/{duel}/recusar', [StudentArenaController::class, 'decline'])->name('arena.decline');
+
+        Route::get('/loja', [StudentShopController::class, 'index'])->name('shop.index');
+        Route::post('/loja/comprar', [StudentShopController::class, 'purchase'])->name('shop.purchase');
+        Route::post('/loja/equipar', [StudentShopController::class, 'equip'])->name('shop.equip');
+        Route::post('/loja/desequipar', [StudentShopController::class, 'unequip'])->name('shop.unequip');
     });
 });

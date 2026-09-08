@@ -100,8 +100,10 @@ class ArenaDuelTest extends TestCase
             ->firstOrFail();
 
         $this->assertSame(Duel::GLORY_WIN, $winnerEnrollment->glory);
+        $this->assertSame(Duel::GLORY_WIN, $winnerEnrollment->relics);
         $this->assertSame(1, $winnerEnrollment->arena_wins);
         $this->assertSame(Duel::GLORY_LOSS, $loserEnrollment->glory);
+        $this->assertSame(Duel::GLORY_LOSS, $loserEnrollment->relics);
         $this->assertSame(1, $loserEnrollment->arena_losses);
 
         foreach ([$challenger->id, $opponent->id] as $studentId) {
@@ -133,6 +135,8 @@ class ArenaDuelTest extends TestCase
 
         $this->assertSame(0, (int) $challenger->enrollmentIn($class)->fresh()->glory);
         $this->assertSame(0, (int) $opponent->enrollmentIn($class)->fresh()->glory);
+        $this->assertSame(0, (int) $challenger->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(0, (int) $opponent->enrollmentIn($class)->fresh()->relics);
 
         Notification::assertSentTo($challenger, GameAlert::class);
     }
@@ -443,6 +447,7 @@ class ArenaDuelTest extends TestCase
             'ranking_visible' => true,
             'xp' => 0,
             'glory' => 0,
+            'relics' => 0,
             'arena_wins' => 0,
             'arena_losses' => 0,
             'behavior_score' => 100,

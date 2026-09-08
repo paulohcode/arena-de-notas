@@ -13,13 +13,19 @@ export function startNotificationPolling(url, markUrl, csrf) {
     }
 
     const seen = loadSeen();
-    const token = csrfToken(csrf);
+    let pulling = false;
 
     if (notifyTimer) {
         clearInterval(notifyTimer);
     }
 
     const pull = async () => {
+        if (pulling) {
+            return;
+        }
+
+        pulling = true;
+
         try {
             const response = await fetch(toLocalPath(url) || url, {
                 headers: {
@@ -79,15 +85,17 @@ export function startNotificationPolling(url, markUrl, csrf) {
             persistSeen(seen);
 
             if (toMark.length > 0 && markUrl) {
-                await markNotificationsRead(markUrl, token, toMark);
+                await markNotificationsRead(markUrl, csrf, toMark);
             }
         } catch {
             // ignore network blips
+        } finally {
+            pulling = false;
         }
     };
 
     pull();
-    notifyTimer = setInterval(pull, 10000);
+    notifyTimer = setInterval(pull, 20000);
 
     document.querySelectorAll('[data-mark-read]').forEach((btn) => {
         btn.addEventListener('click', async () => {
@@ -99,7 +107,7 @@ export function startNotificationPolling(url, markUrl, csrf) {
 
 async function markNotificationsRead(markUrl, csrf, ids = null) {
     const headers = {
-        'X-CSRF-TOKEN': csrf,
+        'X-CSRF-TOKEN': csrfToken(csrf),
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
         'Content-Type': 'application/json',
@@ -138,11 +146,19 @@ export function startRankingPolling(url) {
         return;
     }
 
+    let pulling = false;
+
     if (rankingTimer) {
         clearInterval(rankingTimer);
     }
 
     const pull = async () => {
+        if (pulling) {
+            return;
+        }
+
+        pulling = true;
+
         try {
             const response = await fetch(toLocalPath(url) || url, {
                 headers: { Accept: 'application/json' },
@@ -156,10 +172,12 @@ export function startRankingPolling(url) {
             updateGuilds(data.guilds || []);
         } catch {
             // ignore
+        } finally {
+            pulling = false;
         }
     };
 
-    rankingTimer = setInterval(pull, 10000);
+    rankingTimer = setInterval(pull, 20000);
 }
 
 function syncRankBadge(el, position) {

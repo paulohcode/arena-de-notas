@@ -9,6 +9,7 @@
         @include('partials.player-avatar', [
             'student' => $student,
             'size' => 'lg',
+            'enrollment' => $enrollment,
             'avatarKey' => $student->pending_character_avatar ?? $student->character_avatar,
         ])
         <div class="min-w-0">
@@ -16,6 +17,9 @@
             <h1 class="font-display text-4xl text-amber-300">{{ $student->name }}</h1>
         @if($student->arenaName())
             <p class="font-display text-xl text-amber-200 mt-1">{{ $student->arenaName() }}</p>
+        @endif
+        @if($enrollment?->equippedTitleLabel())
+            <p class="cosmetic-title mt-1">{{ $enrollment->equippedTitleLabel() }}</p>
         @endif
         <p class="text-amber-100/65 mt-2 flex flex-wrap items-center gap-2">
             @include('partials.class-badge', ['student' => $student])
@@ -28,6 +32,7 @@
         @endif
         <a href="{{ route('student.character.edit') }}" class="text-xs text-amber-200/70 hover:text-amber-200 underline mt-1 inline-block">Avatar e nome de jogo</a>
         <a href="{{ route('student.arena.index') }}" class="text-xs text-cyan-300/80 hover:text-cyan-200 underline mt-1 ml-3 inline-block">Entrar na arena</a>
+        <a href="{{ route('student.shop.index') }}" class="text-xs text-violet-300/80 hover:text-violet-200 underline mt-1 ml-3 inline-block">Loja de cosméticos</a>
         </div>
     </div>
     <div class="flex items-center gap-3">

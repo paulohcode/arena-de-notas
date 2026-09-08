@@ -302,6 +302,7 @@ class DuelService
         }
 
         $enrollment->glory = (int) $enrollment->glory + $amount;
+        $enrollment->relics = (int) $enrollment->relics + $amount;
 
         if ($won) {
             $enrollment->arena_wins = (int) $enrollment->arena_wins + 1;
