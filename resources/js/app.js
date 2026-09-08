@@ -28,11 +28,60 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.querySelectorAll('[data-attendance-form]').forEach((form) => {
+        const syncAttendanceRow = (row) => {
+            const valueInput = row.querySelector('[data-attendance-value]');
+            const present = row.querySelector('[data-attendance-present]');
+            const justified = row.querySelector('[data-attendance-justified]');
+
+            if (!valueInput || !present || !justified) {
+                return;
+            }
+
+            if (present.checked) {
+                justified.checked = false;
+                justified.disabled = true;
+                valueInput.value = 'present';
+                return;
+            }
+
+            justified.disabled = false;
+            valueInput.value = justified.checked ? 'justified' : 'absent';
+        };
+
+        const applyAttendanceStatus = (row, status) => {
+            const present = row.querySelector('[data-attendance-present]');
+            const justified = row.querySelector('[data-attendance-justified]');
+
+            if (!present || !justified) {
+                return;
+            }
+
+            present.checked = status === 'present';
+            justified.checked = status === 'justified';
+            syncAttendanceRow(row);
+        };
+
+        form.querySelectorAll('[data-attendance-row]').forEach((row) => {
+            row.querySelector('[data-attendance-present]')?.addEventListener('change', () => {
+                syncAttendanceRow(row);
+            });
+            row.querySelector('[data-attendance-justified]')?.addEventListener('change', (event) => {
+                if (event.target.checked) {
+                    const present = row.querySelector('[data-attendance-present]');
+                    if (present) {
+                        present.checked = false;
+                    }
+                }
+                syncAttendanceRow(row);
+            });
+            syncAttendanceRow(row);
+        });
+
         form.querySelectorAll('[data-attendance-mark-all]').forEach((button) => {
             button.addEventListener('click', () => {
                 const status = button.dataset.attendanceMarkAll;
-                form.querySelectorAll(`input[type="radio"][value="${status}"]`).forEach((input) => {
-                    input.checked = true;
+                form.querySelectorAll('[data-attendance-row]').forEach((row) => {
+                    applyAttendanceStatus(row, status);
                 });
             });
         });

@@ -544,10 +544,10 @@
 
                     @if($activity->isTeam())
                         @forelse($class->teams as $team)
-                            <label class="flex items-center justify-between gap-4 py-1.5">
-                                <span class="text-purple-100">{{ $team->emblemIcon() }} {{ $team->name }}</span>
+                            <label class="flex items-center gap-3 py-1.5">
+                                <span class="min-w-0 flex-1 truncate text-purple-100">{{ $team->emblemIcon() }} {{ $team->name }}</span>
                                 <input
-                                    class="game-input w-28 text-right"
+                                    class="game-input !w-20 shrink-0 !py-1 !px-2 text-right tabular-nums"
                                     type="number"
                                     step="0.1"
                                     min="0"
@@ -563,10 +563,10 @@
                         @endforelse
                     @else
                         @forelse($class->students->sortBy('name') as $student)
-                            <label class="flex items-center justify-between gap-4 py-1.5">
-                                <span class="text-purple-100">{{ $student->name }}</span>
+                            <label class="flex items-center gap-3 py-1.5">
+                                <span class="min-w-0 flex-1 truncate text-purple-100">{{ $student->name }}</span>
                                 <input
-                                    class="game-input w-28 text-right"
+                                    class="game-input !w-20 shrink-0 !py-1 !px-2 text-right tabular-nums"
                                     type="number"
                                     step="0.1"
                                     min="0"
@@ -670,7 +670,7 @@
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h3 class="font-display text-lg text-amber-200">{{ $activeAttendanceSession->held_on->format('d/m/Y') }}</h3>
-                        <p class="text-xs text-amber-100/50">Marque todos os alunos e salve para atualizar a média e os Selos.</p>
+                        <p class="text-xs text-amber-100/50">Todos começam como presentes. Desligue quem faltou e salve para atualizar a média e os Selos.</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button type="button" class="game-btn-ghost !py-1 !px-3 text-xs" data-attendance-mark-all="present">Todos presentes</button>
@@ -681,27 +681,39 @@
                 <div class="space-y-3">
                     @foreach($sessionStudents as $student)
                         @php
-                            $currentStatus = old('statuses.'.$student->id, $recordsByStudent->get($student->id)?->status);
+                            $savedStatus = old('statuses.'.$student->id, $recordsByStudent->get($student->id)?->status);
+                            $currentStatus = in_array($savedStatus, ['present', 'absent', 'justified'], true)
+                                ? $savedStatus
+                                : 'present';
+                            $isPresent = $currentStatus === 'present';
+                            $isJustified = $currentStatus === 'justified';
                         @endphp
-                        <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/40">
+                        <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/40" data-attendance-row>
                             <div class="min-w-0">
                                 <p class="font-semibold truncate">{{ $student->name }}</p>
                                 @if($student->arenaName())
                                     <p class="text-xs text-amber-100/45">{{ $student->arenaName() }}</p>
                                 @endif
                             </div>
-                            <div class="attendance-status" role="radiogroup" aria-label="Presença de {{ $student->name }}">
-                                <label class="attendance-status__option attendance-status__option--present">
-                                    <input type="radio" name="statuses[{{ $student->id }}]" value="present" @checked($currentStatus === 'present') required>
-                                    <span class="attendance-status__chip">Presente</span>
+                            <div class="attendance-controls">
+                                <input type="hidden" name="statuses[{{ $student->id }}]" value="{{ $currentStatus }}" data-attendance-value>
+                                <label class="attendance-toggle">
+                                    <span class="attendance-toggle__label attendance-toggle__label--off">Ausente</span>
+                                    <span class="attendance-toggle__switch">
+                                        <input
+                                            type="checkbox"
+                                            role="switch"
+                                            data-attendance-present
+                                            @checked($isPresent)
+                                            aria-label="Presença de {{ $student->name }}"
+                                        >
+                                        <span class="attendance-toggle__track"></span>
+                                    </span>
+                                    <span class="attendance-toggle__label attendance-toggle__label--on">Presente</span>
                                 </label>
-                                <label class="attendance-status__option attendance-status__option--absent">
-                                    <input type="radio" name="statuses[{{ $student->id }}]" value="absent" @checked($currentStatus === 'absent')>
-                                    <span class="attendance-status__chip">Ausente</span>
-                                </label>
-                                <label class="attendance-status__option attendance-status__option--justified">
-                                    <input type="radio" name="statuses[{{ $student->id }}]" value="justified" @checked($currentStatus === 'justified')>
-                                    <span class="attendance-status__chip">Justificada</span>
+                                <label class="attendance-justified">
+                                    <input type="checkbox" data-attendance-justified @checked($isJustified) @disabled($isPresent)>
+                                    <span class="attendance-justified__chip">Justificada</span>
                                 </label>
                             </div>
                         </div>

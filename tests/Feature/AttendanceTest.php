@@ -179,9 +179,38 @@ class AttendanceTest extends TestCase
             ->assertSee('Presente')
             ->assertSee('Ausente')
             ->assertSee('Justificada')
-            ->assertSee('name="statuses['.$studentA->id.']"', false)
+            ->assertSee('name="statuses['.$studentA->id.']" value="present"', false)
+            ->assertSee('name="statuses['.$studentB->id.']" value="present"', false)
             ->assertSee('Ana')
             ->assertSee('Bruno');
+    }
+
+    public function test_saved_attendance_keeps_absent_status_on_the_toggle(): void
+    {
+        [$teacher, $class, $studentA, $studentB] = $this->readyClassWithStudents();
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.attendance.store', $class), ['held_on' => '2026-09-08']);
+
+        $session = AttendanceSession::query()->firstOrFail();
+
+        $this->actingAs($teacher)
+            ->put(route('teacher.attendance.update', [$class, $session]), [
+                'statuses' => [
+                    $studentA->id => AttendanceRecord::STATUS_PRESENT,
+                    $studentB->id => AttendanceRecord::STATUS_ABSENT,
+                ],
+            ]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', [
+                'schoolClass' => $class,
+                'tab' => 'chamada',
+                'session' => $session->id,
+            ]))
+            ->assertOk()
+            ->assertSee('name="statuses['.$studentA->id.']" value="present"', false)
+            ->assertSee('name="statuses['.$studentB->id.']" value="absent"', false);
     }
 
     public function test_teacher_from_another_class_cannot_manage_attendance(): void
