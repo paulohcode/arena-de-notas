@@ -444,7 +444,7 @@ class StudentRosterTest extends TestCase
         $this->assertSame(1, $alpha->members()->count());
     }
 
-    public function test_guild_form_hides_students_already_in_another_guild(): void
+    public function test_create_guild_form_lists_available_students_and_who_already_has_a_guild(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
         $class = $this->createClassForTeacher($teacher);
@@ -465,11 +465,104 @@ class StudentRosterTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Aluno Livre', $html);
-        $this->assertStringContainsString('Aluno Ocupado · Dragões', $html);
+        $createForm = $this->formHtml($html, route('teacher.teams.store', $class));
+        $guildCard = $this->formHtml($html, route('teacher.teams.update', [$class, $team]));
+
+        $this->assertStringContainsString('Disponíveis', $createForm);
+        $this->assertStringContainsString('Aluno Livre', $createForm);
+        $this->assertStringContainsString('Já em outra guilda', $createForm);
+        $this->assertStringContainsString('Aluno Ocupado · Dragões', $createForm);
+        $this->assertStringContainsString('name="members[]" value="'.$free->id.'"', $createForm);
+
+        $this->assertStringContainsString('Aluno Ocupado', $guildCard);
+        $this->assertStringNotContainsString('Aluno Livre', $guildCard);
+        $this->assertStringNotContainsString('Já em outra guilda', $guildCard);
         $this->assertSame(
             1,
-            preg_match_all('/name="members\[\]" value="'.$taken->id.'"/', $html)
+            preg_match_all('/name="members\[\]" value="'.$taken->id.'"/', $guildCard)
         );
+    }
+
+    public function test_saved_guild_card_does_not_list_members_of_another_guild(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $ana = User::factory()->create(['role' => 'student', 'name' => 'Ana Guilda']);
+        $bruno = User::factory()->create(['role' => 'student', 'name' => 'Bruno Guilda']);
+        $class->students()->attach($ana->id, ['ranking_visible' => true, 'xp' => 0]);
+        $class->students()->attach($bruno->id, ['ranking_visible' => true, 'xp' => 0]);
+
+        $dragons = Team::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Dragões',
+            'emblem' => 'dragon',
+        ]);
+        $wolves = Team::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Lobos',
+            'emblem' => 'wolf',
+        ]);
+        $dragons->members()->attach($ana->id);
+        $wolves->members()->attach($bruno->id);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'guildas']))
+            ->assertOk()
+            ->getContent();
+
+        $dragonsCard = $this->formHtml($html, route('teacher.teams.update', [$class, $dragons]));
+        $wolvesCard = $this->formHtml($html, route('teacher.teams.update', [$class, $wolves]));
+
+        $this->assertStringContainsString('Ana Guilda', $dragonsCard);
+        $this->assertStringNotContainsString('Bruno Guilda', $dragonsCard);
+        $this->assertStringContainsString('Bruno Guilda', $wolvesCard);
+        $this->assertStringNotContainsString('Ana Guilda', $wolvesCard);
+    }
+
+    public function test_edit_members_view_lists_available_students_on_the_guild_card(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $taken = User::factory()->create(['role' => 'student', 'name' => 'Aluno Ocupado']);
+        $free = User::factory()->create(['role' => 'student', 'name' => 'Aluno Livre']);
+        $class->students()->attach($taken->id, ['ranking_visible' => true, 'xp' => 0]);
+        $class->students()->attach($free->id, ['ranking_visible' => true, 'xp' => 0]);
+
+        $team = Team::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Dragões',
+            'emblem' => 'dragon',
+        ]);
+        $team->members()->attach($taken->id);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', [
+                'schoolClass' => $class,
+                'tab' => 'guildas',
+                'edit_team' => $team->id,
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        $guildCard = $this->formHtml($html, route('teacher.teams.update', [$class, $team]));
+
+        $this->assertStringContainsString('Aluno Ocupado', $guildCard);
+        $this->assertStringContainsString('Aluno Livre', $guildCard);
+        $this->assertStringContainsString('name="members[]" value="'.$free->id.'"', $guildCard);
+    }
+
+    /**
+     * @return non-empty-string
+     */
+    private function formHtml(string $html, string $action): string
+    {
+        $quoted = preg_quote(e($action), '/');
+        $this->assertSame(1, preg_match(
+            '/<form[^>]*action="'.$quoted.'"[^>]*>([\s\S]*?)<\/form>/',
+            $html,
+            $matches
+        ));
+
+        return $matches[1];
     }
 }
