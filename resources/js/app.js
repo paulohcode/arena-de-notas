@@ -27,6 +27,17 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast(el.dataset.flashTitle || 'Arena', el.dataset.flashToast, tone);
     });
 
+    document.querySelectorAll('[data-attendance-form]').forEach((form) => {
+        form.querySelectorAll('[data-attendance-mark-all]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const status = button.dataset.attendanceMarkAll;
+                form.querySelectorAll(`input[type="radio"][value="${status}"]`).forEach((input) => {
+                    input.checked = true;
+                });
+            });
+        });
+    });
+
     const soundToggle = document.querySelector('[data-sound-toggle]');
     if (soundToggle) {
         soundToggle.checked = localStorage.getItem('arena-sound') === 'on';

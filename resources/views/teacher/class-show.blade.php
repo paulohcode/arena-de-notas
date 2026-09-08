@@ -616,17 +616,7 @@
         </form>
     </div>
 
-    <div x-show="tab === 'chamada'" x-cloak class="space-y-6"
-         x-data="{
-            statuses: {{ \Illuminate\Support\Js::from(
-                ($activeAttendanceSession?->records ?? collect())
-                    ->mapWithKeys(fn ($r) => [(string) $r->student_id => $r->status])
-                    ->all()
-            ) }},
-            markAll(status) {
-                Object.keys(this.statuses).forEach((id) => { this.statuses[id] = status; });
-            }
-         }">
+    <div x-show="tab === 'chamada'" x-cloak class="space-y-6">
         <div class="game-card p-5 space-y-4">
             <div>
                 <h2 class="font-display text-xl text-amber-200">Chamada</h2>
@@ -669,7 +659,12 @@
                 $sessionStudents = $class->students->sortBy('name')->values();
                 $recordsByStudent = $activeAttendanceSession->records->keyBy('student_id');
             @endphp
-            <form method="POST" action="{{ route('teacher.attendance.update', [$class, $activeAttendanceSession]) }}" class="game-card p-5 space-y-4">
+            <form
+                method="POST"
+                action="{{ route('teacher.attendance.update', [$class, $activeAttendanceSession]) }}"
+                class="game-card p-5 space-y-4"
+                data-attendance-form
+            >
                 @csrf
                 @method('PUT')
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -678,8 +673,8 @@
                         <p class="text-xs text-amber-100/50">Marque todos os alunos e salve para atualizar a média e os Selos.</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <button type="button" class="game-btn-ghost !py-1 !px-3 text-xs" @click="markAll('present')">Todos presentes</button>
-                        <button type="button" class="game-btn-ghost !py-1 !px-3 text-xs" @click="markAll('absent')">Todos ausentes</button>
+                        <button type="button" class="game-btn-ghost !py-1 !px-3 text-xs" data-attendance-mark-all="present">Todos presentes</button>
+                        <button type="button" class="game-btn-ghost !py-1 !px-3 text-xs" data-attendance-mark-all="absent">Todos ausentes</button>
                     </div>
                 </div>
 
@@ -695,11 +690,19 @@
                                     <p class="text-xs text-amber-100/45">{{ $student->arenaName() }}</p>
                                 @endif
                             </div>
-                            <div class="flex flex-wrap gap-2" x-init="statuses['{{ $student->id }}'] = statuses['{{ $student->id }}'] ?? {{ \Illuminate\Support\Js::from($currentStatus) }}">
-                                <input type="hidden" :name="'statuses[{{ $student->id }}]'" :value="statuses['{{ $student->id }}']">
-                                <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="statuses['{{ $student->id }}'] === 'present' && 'border-emerald-400/60 text-emerald-300'" @click="statuses['{{ $student->id }}'] = 'present'">Presente</button>
-                                <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="statuses['{{ $student->id }}'] === 'absent' && 'border-rose-400/60 text-rose-300'" @click="statuses['{{ $student->id }}'] = 'absent'">Ausente</button>
-                                <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="statuses['{{ $student->id }}'] === 'justified' && 'border-cyan-400/60 text-cyan-300'" @click="statuses['{{ $student->id }}'] = 'justified'">Justificada</button>
+                            <div class="attendance-status" role="radiogroup" aria-label="Presença de {{ $student->name }}">
+                                <label class="attendance-status__option attendance-status__option--present">
+                                    <input type="radio" name="statuses[{{ $student->id }}]" value="present" @checked($currentStatus === 'present') required>
+                                    <span class="attendance-status__chip">Presente</span>
+                                </label>
+                                <label class="attendance-status__option attendance-status__option--absent">
+                                    <input type="radio" name="statuses[{{ $student->id }}]" value="absent" @checked($currentStatus === 'absent')>
+                                    <span class="attendance-status__chip">Ausente</span>
+                                </label>
+                                <label class="attendance-status__option attendance-status__option--justified">
+                                    <input type="radio" name="statuses[{{ $student->id }}]" value="justified" @checked($currentStatus === 'justified')>
+                                    <span class="attendance-status__chip">Justificada</span>
+                                </label>
                             </div>
                         </div>
                     @endforeach

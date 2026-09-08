@@ -179,6 +179,7 @@ class AttendanceTest extends TestCase
             ->assertSee('Presente')
             ->assertSee('Ausente')
             ->assertSee('Justificada')
+            ->assertSee('name="statuses['.$studentA->id.']"', false)
             ->assertSee('Ana')
             ->assertSee('Bruno');
     }
