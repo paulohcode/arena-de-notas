@@ -129,58 +129,100 @@
         </div>
     </div>
 
-    <div x-show="tab === 'alunos'" x-cloak class="grid lg:grid-cols-2 gap-6">
+    <div x-show="tab === 'alunos'" x-cloak class="space-y-6">
         <form method="POST" action="{{ route('teacher.students.store', $class) }}" class="game-card p-5 space-y-3">
             @csrf
             <h2 class="font-display text-xl text-amber-200">Novo aluno</h2>
-            <input class="game-input" name="name" placeholder="Nome" required>
-            <input class="game-input" type="email" name="email" placeholder="E-mail" required>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+                <input class="game-input" name="name" placeholder="Nome" required>
+                <input class="game-input" type="email" name="email" placeholder="E-mail" required>
+                <button class="game-btn" type="submit">Cadastrar</button>
+            </div>
             <p class="text-xs text-purple-200/60">Senha inicial: aluno123</p>
-            <button class="game-btn" type="submit">Cadastrar</button>
         </form>
-        <div class="game-card p-5">
-            <h2 class="font-display text-xl text-amber-200 mb-3">Turma</h2>
-            <p class="text-xs text-amber-100/50 mb-3">Comportamento inicia em 100. Use − / + para ajustar rápido.</p>
-            @foreach($class->students as $student)
-                @php
-                    $behavior = (float) ($student->pivot->behavior_score ?? 100);
-                @endphp
-                <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/50">
-                    <div class="min-w-0">
-                        <a class="font-semibold truncate hover:text-amber-300 block" href="{{ route('teacher.students.show', [$class, $student]) }}">{{ $student->name }}</a>
-                        @if($student->arenaName())
-                            <p class="text-amber-300 text-sm truncate">{{ $student->arenaName() }}</p>
-                        @elseif($student->isPersonaPending())
-                            <p class="text-amber-100/50 text-xs">Personagem aguardando aprovação</p>
-                        @endif
+
+        <div>
+            <div class="mb-3">
+                <h2 class="font-display text-xl text-amber-200">Turma</h2>
+                <p class="text-xs text-amber-100/50">Comportamento inicia em 100. Use − / + para ajustar rápido.</p>
+            </div>
+            @if($class->students->isEmpty())
+                <div class="game-card p-8 text-center text-amber-100/60">Nenhum aluno cadastrado ainda.</div>
+            @else
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    @foreach($class->students as $student)
+                        @php
+                            $behavior = (float) ($student->pivot->behavior_score ?? 100);
+                            $editingName = (int) old('edited_student_id') === (int) $student->id;
+                        @endphp
+                        <div class="game-card p-4 flex flex-col gap-2 min-w-0" x-data="{ editing: {{ $editingName ? 'true' : 'false' }} }">
+                            <div class="min-w-0">
+                                <div x-show="!editing">
+                                    <a class="font-display text-lg leading-tight text-amber-200 hover:text-amber-300 block" href="{{ route('teacher.students.show', [$class, $student]) }}">{{ $student->name }}</a>
+                            @if($student->arenaName())
+                                <p class="text-amber-300 text-sm truncate">{{ $student->arenaName() }}</p>
+                            @elseif($student->isPersonaPending())
+                                <p class="text-amber-100/50 text-xs">Personagem aguardando aprovação</p>
+                            @endif
+                        </div>
+                        <form
+                            x-show="editing"
+                            x-cloak
+                            method="POST"
+                            action="{{ route('teacher.students.update', [$class, $student]) }}"
+                            class="flex flex-col gap-2"
+                        >
+                            @csrf
+                            @method('PUT')
+                            <input type="hidden" name="edited_student_id" value="{{ $student->id }}">
+                            <label>
+                                <span class="sr-only">Nome do aluno</span>
+                                <input
+                                    class="game-input"
+                                    name="name"
+                                    value="{{ $editingName ? old('name', $student->name) : $student->name }}"
+                                    required
+                                    maxlength="120"
+                                >
+                            </label>
+                            <div class="flex flex-wrap gap-2">
+                                <button class="game-btn !px-3 !py-1 text-xs" type="submit">Salvar nome</button>
+                                <button class="game-btn-ghost !px-2 !py-1 text-xs" type="button" @click="editing = false">Cancelar</button>
+                            </div>
+                        </form>
                         <p class="text-amber-100/60 text-sm truncate">{{ $student->email }}</p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <a class="game-btn-ghost !px-2 !py-1 text-xs" href="{{ route('teacher.students.show', [$class, $student]) }}">Ficha</a>
-                        <span class="text-xs text-amber-100/50 uppercase tracking-wide">Comp.</span>
-                        <form method="POST" action="{{ route('teacher.grades.behavior', [$class, $student]) }}">
-                            @csrf
-                            <input type="hidden" name="delta" value="-5">
-                            <button class="game-btn-ghost !px-2 !py-1 text-xs" type="submit" title="-5">−5</button>
-                        </form>
-                        <form method="POST" action="{{ route('teacher.grades.behavior', [$class, $student]) }}">
-                            @csrf
-                            <input type="hidden" name="delta" value="-1">
-                            <button class="game-btn-ghost !px-2 !py-1 text-sm" type="submit" title="-1">−</button>
-                        </form>
-                        <span class="font-display text-lg w-12 text-center {{ $behavior < 50 ? 'text-rose-300' : ($behavior < 80 ? 'text-amber-300' : 'text-emerald-300') }}">
-                            {{ number_format($behavior, 0) }}
-                        </span>
-                        <form method="POST" action="{{ route('teacher.grades.behavior', [$class, $student]) }}">
-                            @csrf
-                            <input type="hidden" name="delta" value="1">
-                            <button class="game-btn-ghost !px-2 !py-1 text-sm" type="submit" title="+1">+</button>
-                        </form>
-                        <form method="POST" action="{{ route('teacher.grades.behavior', [$class, $student]) }}">
-                            @csrf
-                            <input type="hidden" name="delta" value="5">
-                            <button class="game-btn-ghost !px-2 !py-1 text-xs" type="submit" title="+5">+5</button>
-                        </form>
+                    <div class="mt-auto flex flex-col gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button class="game-btn-ghost !px-2 !py-1 text-xs" type="button" @click="editing = true">Editar nome</button>
+                            <a class="game-btn-ghost !px-2 !py-1 text-xs" href="{{ route('teacher.students.show', [$class, $student]) }}">Ficha</a>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1">
+                            <span class="text-xs text-amber-100/50 uppercase tracking-wide">Comp.</span>
+                            <form method="POST" action="{{ route('teacher.grades.behavior', [$class, $student]) }}">
+                                @csrf
+                                <input type="hidden" name="delta" value="-5">
+                                <button class="game-btn-ghost !px-2 !py-1 text-xs" type="submit" title="-5">−5</button>
+                            </form>
+                            <form method="POST" action="{{ route('teacher.grades.behavior', [$class, $student]) }}">
+                                @csrf
+                                <input type="hidden" name="delta" value="-1">
+                                <button class="game-btn-ghost !px-2 !py-1 text-sm" type="submit" title="-1">−</button>
+                            </form>
+                            <span class="font-display text-lg w-10 text-center {{ $behavior < 50 ? 'text-rose-300' : ($behavior < 80 ? 'text-amber-300' : 'text-emerald-300') }}">
+                                {{ number_format($behavior, 0) }}
+                            </span>
+                            <form method="POST" action="{{ route('teacher.grades.behavior', [$class, $student]) }}">
+                                @csrf
+                                <input type="hidden" name="delta" value="1">
+                                <button class="game-btn-ghost !px-2 !py-1 text-sm" type="submit" title="+1">+</button>
+                            </form>
+                            <form method="POST" action="{{ route('teacher.grades.behavior', [$class, $student]) }}">
+                                @csrf
+                                <input type="hidden" name="delta" value="5">
+                                <button class="game-btn-ghost !px-2 !py-1 text-xs" type="submit" title="+5">+5</button>
+                            </form>
+                        </div>
                         @if($transferClasses->isNotEmpty())
                             <form
                                 method="POST"
@@ -189,7 +231,7 @@
                                 onsubmit="return confirm(@js('Transferir '.$student->name."?\n\nEle sai da guilda e perde TODAS as notas, XP, medalhas e o histórico desta turma.\nNa nova turma começa do zero.\n\nEsta ação não pode ser desfeita."))"
                             >
                                 @csrf
-                                <select class="game-select !py-1 !text-xs max-w-40" name="target_class_id" required title="Troca apaga notas, XP, medalhas e guilda desta turma">
+                                <select class="game-select !py-1 !text-xs min-w-0 flex-1" name="target_class_id" required title="Troca apaga notas, XP, medalhas e guilda desta turma">
                                     <option value="">Trocar de turma</option>
                                     @foreach($transferClasses as $target)
                                         <option value="{{ $target->id }}">
@@ -202,11 +244,13 @@
                         @endif
                         <form method="POST" action="{{ route('teacher.students.destroy', [$class, $student]) }}">
                             @csrf @method('DELETE')
-                            <button class="text-rose-300 text-sm ml-2" type="submit">Remover</button>
+                            <button class="text-rose-300 text-sm" type="submit">Remover</button>
                         </form>
                     </div>
                 </div>
-            @endforeach
+                    @endforeach
+                </div>
+            @endif
         </div>
     </div>
 

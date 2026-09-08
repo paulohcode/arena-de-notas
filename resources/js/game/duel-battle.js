@@ -13,6 +13,7 @@ export function duelBattle(payload) {
         floats: [],
         finished: false,
         playing: false,
+        victoryOpen: false,
         boltSeq: 0,
         floatSeq: 0,
 
@@ -52,6 +53,20 @@ export function duelBattle(payload) {
             return this.iWon
                 ? `+${this.gloryWin} Glória`
                 : `+${this.gloryLoss} Glória`;
+        },
+
+        get winner() {
+            return this.winnerId === this.left.id ? this.left : this.right;
+        },
+
+        get victoryGloryLine() {
+            const name = this.winner.arena || this.winner.name;
+
+            if (this.iWon) {
+                return `+${this.gloryWin} Glória para você`;
+            }
+
+            return `${name} leva +${this.gloryWin} Glória`;
         },
 
         start() {
@@ -148,6 +163,9 @@ export function duelBattle(payload) {
             this.finished = true;
             this.playing = false;
             this.syncFinalHp();
+            setTimeout(() => {
+                this.victoryOpen = true;
+            }, 420);
         },
 
         syncFinalHp() {

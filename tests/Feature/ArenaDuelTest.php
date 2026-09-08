@@ -177,7 +177,8 @@ class ArenaDuelTest extends TestCase
             ->get(route('student.arena.show', $duel))
             ->assertOk()
             ->assertSee('Campo de combate')
-            ->assertSee('Histórico de danos');
+            ->assertSee('Histórico de danos')
+            ->assertSee('Vencedor da arena');
     }
 
     public function test_pending_challenges_endpoint_lists_incoming_duels(): void

@@ -17,6 +17,7 @@
             'name' => $duel->challenger->name,
             'arena' => $duel->challenger->arenaName(),
             'class' => $challengerSnap['class'],
+            'classKey' => (string) ($duel->challenger->character_class ?? ''),
             'icon' => $duel->challenger->avatarIcon(),
             'tone' => $duel->challenger->avatarTone(),
             'maxHp' => (int) $challengerSnap['max_hp'],
@@ -30,6 +31,7 @@
             'name' => $duel->opponent->name,
             'arena' => $duel->opponent->arenaName(),
             'class' => $opponentSnap['class'],
+            'classKey' => (string) ($duel->opponent->character_class ?? ''),
             'icon' => $duel->opponent->avatarIcon(),
             'tone' => $duel->opponent->avatarTone(),
             'maxHp' => (int) $opponentSnap['max_hp'],
@@ -207,6 +209,34 @@
                     </div>
                 </template>
                 <p class="text-sm text-purple-200/50 py-2" x-show="log.length === 0">O combate vai começar…</p>
+            </div>
+        </div>
+
+        <div
+            x-show="victoryOpen"
+            x-cloak
+            x-transition.opacity.duration.400ms
+            class="duel-victory class-aura"
+            :class="winner.classKey ? ('class-aura--' + winner.classKey) : ''"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="duel-winner-name"
+            @keydown.escape.window="victoryOpen = false"
+        >
+            <span class="class-fx" :class="winner.classKey ? ('class-fx--' + winner.classKey) : ''" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+            </span>
+            <div class="duel-victory__stage">
+                <div class="duel-victory__burst" aria-hidden="true"></div>
+                <div class="duel-victory__content">
+                    <p class="hero-kicker !mb-3">Vencedor da arena</p>
+                    <p class="duel-victory__icon" x-text="winner.icon"></p>
+                    <h2 id="duel-winner-name" class="duel-victory__name font-display" x-text="winner.arena || winner.name"></h2>
+                    <p class="duel-victory__class" x-text="winner.class"></p>
+                    <p class="duel-victory__glory" x-text="victoryGloryLine"></p>
+                    <button type="button" class="game-btn mt-8" @click="victoryOpen = false">Continuar</button>
+                </div>
             </div>
         </div>
     </div>

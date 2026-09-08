@@ -14,6 +14,15 @@
         <div class="min-w-0">
             <p class="hero-kicker !mb-1">Ficha do aluno</p>
             <h1 class="font-display text-4xl text-amber-300">{{ $student->name }}</h1>
+            <form method="POST" action="{{ route('teacher.students.update', [$class, $student]) }}" class="mt-3 flex flex-wrap items-end gap-2">
+                @csrf
+                @method('PUT')
+                <label class="space-y-1 min-w-56">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome do aluno</span>
+                    <input class="game-input" name="name" value="{{ old('name', $student->name) }}" required maxlength="120">
+                </label>
+                <button class="game-btn !py-1 !px-3 text-sm" type="submit">Salvar nome</button>
+            </form>
             @if($student->arenaName())
                 <p class="font-display text-xl text-amber-200 mt-1">{{ $student->arenaName() }}</p>
             @endif
@@ -47,19 +56,13 @@
     @method('PUT')
     <div>
         <h2 class="font-display text-xl text-amber-200">Identidade do aluno</h2>
-        <p class="text-sm text-amber-100/60 mt-1">Altere o nome, o avatar e a classe. A mudança entra na arena na hora, sem pedido de aprovação.</p>
+        <p class="text-sm text-amber-100/60 mt-1">Altere o nome de jogo, o avatar e a classe. A mudança entra na arena na hora, sem pedido de aprovação.</p>
     </div>
 
-    <div class="grid sm:grid-cols-2 gap-4">
-        <label class="space-y-1">
-            <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome do aluno</span>
-            <input class="game-input" name="name" value="{{ old('name', $student->name) }}" required maxlength="120">
-        </label>
-        <label class="space-y-1">
-            <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome de jogo</span>
-            <input class="game-input" name="character_name" value="{{ old('character_name', $student->pending_character_name ?? $student->character_name) }}" required minlength="2" maxlength="24" placeholder="Ex: Lobo Noturno">
-        </label>
-    </div>
+    <label class="space-y-1 block max-w-md">
+        <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome de jogo</span>
+        <input class="game-input" name="character_name" value="{{ old('character_name', $student->pending_character_name ?? $student->character_name) }}" required minlength="2" maxlength="24" placeholder="Ex: Lobo Noturno">
+    </label>
 
     <section class="space-y-3">
         <h3 class="font-display text-lg text-amber-200">Avatar</h3>

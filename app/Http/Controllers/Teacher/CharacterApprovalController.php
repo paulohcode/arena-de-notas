@@ -22,7 +22,6 @@ class CharacterApprovalController extends Controller
         abort_unless($schoolClass->students()->where('users.id', $student->id)->exists(), 404);
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
             'character_class' => ['required', Rule::in(array_keys(User::CHARACTER_CLASSES))],
             'character_name' => [
                 'required',
@@ -39,7 +38,6 @@ class CharacterApprovalController extends Controller
             'character_avatar' => ['required', Rule::in(array_keys(User::CHARACTER_AVATARS))],
         ]);
 
-        $student->update(['name' => $data['name']]);
         $this->personas->assign(
             $student,
             $data['character_class'],

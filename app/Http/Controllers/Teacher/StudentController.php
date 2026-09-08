@@ -59,6 +59,25 @@ class StudentController extends Controller
             ->with('success', 'Aluno cadastrado. Senha inicial: aluno123');
     }
 
+    public function update(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse
+    {
+        $this->authorize('manage', $schoolClass);
+        abort_unless($student->isStudent(), 404);
+        abort_unless($schoolClass->students()->where('users.id', $student->id)->exists(), 404);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+        ]);
+
+        $student->update([
+            'name' => $data['name'],
+        ]);
+
+        return back()
+            ->withInput(['tab' => 'alunos'])
+            ->with('success', "Nome atualizado para {$student->name}.");
+    }
+
     public function attach(Request $request, SchoolClass $schoolClass): RedirectResponse
     {
         $this->authorize('manage', $schoolClass);

@@ -72,6 +72,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::delete('/turmas/{schoolClass}', [ClassController::class, 'destroy'])->name('classes.destroy');
 
     Route::get('/turmas/{schoolClass}/alunos/{student}', [StudentController::class, 'show'])->name('students.show');
+    Route::put('/turmas/{schoolClass}/alunos/{student}', [StudentController::class, 'update'])->name('students.update');
     Route::post('/turmas/{schoolClass}/alunos', [StudentController::class, 'store'])->name('students.store');
     Route::post('/turmas/{schoolClass}/alunos/vincular', [StudentController::class, 'attach'])->name('students.attach');
     Route::post('/turmas/{schoolClass}/alunos/{student}/transferir', [StudentController::class, 'transfer'])->name('students.transfer');

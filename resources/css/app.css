@@ -1278,7 +1278,10 @@ label.class-aura:has(:checked):hover {
     .duel-bolt,
     .duel-float,
     .duel-shake,
-    .duel-heal-flash {
+    .duel-heal-flash,
+    .duel-victory__burst,
+    .duel-victory__content,
+    .duel-victory__icon {
         animation: none !important;
     }
 
@@ -1472,4 +1475,133 @@ label.class-aura:has(:checked):hover {
 .duel-challenge-card .game-btn-ghost:disabled {
     opacity: 0.55;
     cursor: wait;
+}
+
+.duel-victory {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse 80% 70% at 50% 42%, color-mix(in srgb, var(--class-tone) 38%, transparent), rgba(6, 3, 12, 0.94) 68%);
+}
+
+.duel-victory .class-fx {
+    inset: 0;
+    border-radius: 0;
+    overflow: hidden;
+}
+
+.duel-victory .class-fx > span:nth-child(7) { left: 3%; animation-delay: 0.18s; }
+.duel-victory .class-fx > span:nth-child(8) { left: 16%; animation-delay: 0.36s; }
+.duel-victory .class-fx > span:nth-child(9) { left: 34%; animation-delay: 0.54s; }
+.duel-victory .class-fx > span:nth-child(10) { left: 51%; animation-delay: 0.72s; }
+.duel-victory .class-fx > span:nth-child(11) { left: 69%; animation-delay: 0.9s; }
+.duel-victory .class-fx > span:nth-child(12) { left: 93%; animation-delay: 1.08s; }
+
+.duel-victory.class-aura--guerreiro .class-fx > span,
+.duel-victory.class-aura--anao .class-fx > span {
+    width: 2.6rem;
+    height: 7.5rem;
+}
+
+.duel-victory.class-aura--mago .class-fx > span,
+.duel-victory.class-aura--feiticeira .class-fx > span,
+.duel-victory.class-aura--bardo .class-fx > span,
+.duel-victory.class-aura--clerigo .class-fx > span,
+.duel-victory.class-aura--necromante .class-fx > span {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+.duel-victory .class-fx::after {
+    opacity: 1;
+}
+
+.duel-victory__stage {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: min(92vw, 40rem);
+    min-height: 18rem;
+}
+
+.duel-victory__burst,
+.duel-victory__content {
+    grid-area: 1 / 1;
+}
+
+.duel-victory__burst {
+    width: min(70vw, 28rem);
+    height: min(70vw, 28rem);
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--class-tone) 55%, transparent);
+    box-shadow:
+        0 0 0 18px color-mix(in srgb, var(--class-tone) 12%, transparent),
+        0 0 80px color-mix(in srgb, var(--class-tone) 45%, transparent);
+    animation: duel-victory-burst 1.4s ease-out both;
+    pointer-events: none;
+}
+
+.duel-victory__content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 1.5rem;
+    max-width: 92vw;
+    animation: duel-victory-rise 0.7s ease both;
+}
+
+.duel-victory__icon {
+    font-size: clamp(3.5rem, 12vw, 6.5rem);
+    line-height: 1;
+    filter: drop-shadow(0 0 24px color-mix(in srgb, var(--class-tone) 80%, transparent));
+    animation: duel-victory-icon 1.1s ease both;
+}
+
+.duel-victory__name {
+    margin-top: 0.85rem;
+    font-size: clamp(2.4rem, 8vw, 5.6rem);
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+    color: #fff4d4;
+    text-shadow:
+        0 0 18px color-mix(in srgb, var(--class-tone) 85%, transparent),
+        0 0 42px color-mix(in srgb, var(--class-tone) 45%, transparent),
+        0 10px 28px rgba(0, 0, 0, 0.55);
+}
+
+.duel-victory__class {
+    margin-top: 0.85rem;
+    font-size: 1.05rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--class-tone) 55%, #fff7d6);
+}
+
+.duel-victory__glory {
+    margin-top: 0.7rem;
+    font-weight: 700;
+    color: #6ee7b7;
+    text-shadow: 0 0 12px rgba(52, 211, 153, 0.45);
+}
+
+@keyframes duel-victory-burst {
+    from { transform: scale(0.35); opacity: 0; }
+    45% { opacity: 1; }
+    to { transform: scale(1.35); opacity: 0.35; }
+}
+
+@keyframes duel-victory-rise {
+    from { opacity: 0; transform: translateY(22px) scale(0.94); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes duel-victory-icon {
+    from { opacity: 0; transform: scale(0.4) rotate(-12deg); }
+    60% { transform: scale(1.12) rotate(4deg); }
+    to { opacity: 1; transform: scale(1) rotate(0deg); }
 }

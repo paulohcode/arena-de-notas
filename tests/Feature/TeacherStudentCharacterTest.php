@@ -62,7 +62,7 @@ class TeacherStudentCharacterTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_teacher_updates_name_class_and_avatar_from_the_profile(): void
+    public function test_teacher_updates_class_and_avatar_from_the_profile(): void
     {
         Notification::fake();
         [$class, $student, $teacher] = $this->classWithStudent();
@@ -74,7 +74,7 @@ class TeacherStudentCharacterTest extends TestCase
 
         $student->refresh();
 
-        $this->assertSame('Ana Editada', $student->name);
+        $this->assertSame('Aluno Teste', $student->name);
         $this->assertSame('mago', $student->character_class);
         $this->assertSame('Sombra Azul', $student->character_name);
         $this->assertSame('fenix', $student->character_avatar);
@@ -85,14 +85,13 @@ class TeacherStudentCharacterTest extends TestCase
         Notification::assertSentTo($student, GameAlert::class);
     }
 
-    public function test_admin_updates_name_class_and_avatar_from_the_profile(): void
+    public function test_admin_updates_class_and_avatar_from_the_profile(): void
     {
         [$class, $student] = $this->classWithStudent();
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
 
         $this->actingAs($admin)
             ->put(route('teacher.characters.update', [$class, $student]), $this->characterPayload([
-                'name' => 'Carla Admin',
                 'character_class' => 'paladino',
                 'character_name' => 'Escudo Solar',
                 'character_avatar' => 'leao',
@@ -101,7 +100,7 @@ class TeacherStudentCharacterTest extends TestCase
 
         $student->refresh();
 
-        $this->assertSame('Carla Admin', $student->name);
+        $this->assertSame('Aluno Teste', $student->name);
         $this->assertSame('paladino', $student->character_class);
         $this->assertSame('Escudo Solar', $student->character_name);
         $this->assertSame('leao', $student->character_avatar);
@@ -127,7 +126,7 @@ class TeacherStudentCharacterTest extends TestCase
             ->from(route('teacher.students.show', [$class, $student]))
             ->put(route('teacher.characters.update', [$class, $student]), [])
             ->assertRedirectToRoute('teacher.students.show', [$class, $student])
-            ->assertSessionHasErrors(['name', 'character_class', 'character_name', 'character_avatar']);
+            ->assertSessionHasErrors(['character_class', 'character_name', 'character_avatar']);
     }
 
     public function test_rejects_an_unknown_character_class(): void
@@ -238,7 +237,6 @@ class TeacherStudentCharacterTest extends TestCase
     private function characterPayload(array $overrides = []): array
     {
         return array_merge([
-            'name' => 'Ana Editada',
             'character_class' => 'mago',
             'character_name' => 'Sombra Azul',
             'character_avatar' => 'fenix',
