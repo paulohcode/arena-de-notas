@@ -15,6 +15,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -166,6 +167,27 @@ class StudentController extends Controller
             ->with(
                 'success',
                 "{$student->name} foi transferido para {$target->name}. Notas, XP, Glória, Relíquias, medalhas, guilda e histórico da turma anterior foram apagados."
+            );
+    }
+
+    public function resetPassword(SchoolClass $schoolClass, User $student): RedirectResponse
+    {
+        $this->authorize('manage', $schoolClass);
+        abort_unless($student->isStudent(), 404);
+        abort_unless($schoolClass->students()->where('users.id', $student->id)->exists(), 404);
+
+        $student->update([
+            'password' => Hash::make(ClassAccessPdfService::INITIAL_PASSWORD),
+            'must_change_password' => true,
+        ]);
+        $student->setRememberToken(Str::random(60));
+        $student->save();
+
+        return back()
+            ->withInput(['tab' => 'alunos'])
+            ->with(
+                'success',
+                "Senha de {$student->name} redefinida para ".ClassAccessPdfService::INITIAL_PASSWORD.'. No próximo acesso, o aluno precisa trocar.'
             );
     }
 

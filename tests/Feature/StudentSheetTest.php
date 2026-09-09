@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Activity;
+use App\Models\AttendanceRecord;
+use App\Models\AttendanceSession;
 use App\Models\Badge;
 use App\Models\SchoolClass;
 use App\Models\Team;
@@ -86,6 +89,220 @@ class StudentSheetTest extends TestCase
             ->assertSee('Medalhas')
             ->assertDontSee('Trocar classe')
             ->assertDontSee('Mostrar meu nome e nota no ranking');
+    }
+
+    public function test_teacher_sees_weighted_average_calculation_on_the_sheet(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Maga');
+        $activity = Activity::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Prova',
+            'type' => 'individual',
+            'max_score' => 100,
+            'weight' => 2,
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.grades.store', $class), [
+                'activity_id' => $activity->id,
+                'scores' => [$student->id => 80],
+            ]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.students.show', [$class, $student]))
+            ->assertSee('A média ponderada é a soma de (nota × peso) dividida pela soma dos pesos.')
+            ->assertSee('Prova')
+            ->assertSee('peso 2')
+            ->assertSee('80.0 × 2 = 160.0')
+            ->assertSee('Comportamento')
+            ->assertSee('100.0 × 1 = 100.0')
+            ->assertSee('Soma (nota × peso)')
+            ->assertSee('260.0')
+            ->assertSee('Soma dos pesos')
+            ->assertSee('Média ponderada')
+            ->assertSee('86.7')
+            ->assertSee('Média final');
+    }
+
+    public function test_admin_sees_weighted_average_calculation_on_the_sheet(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Bruno Admin');
+        $activity = Activity::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Prova',
+            'type' => 'individual',
+            'max_score' => 100,
+            'weight' => 2,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.grades.store', $class), [
+                'activity_id' => $activity->id,
+                'scores' => [$student->id => 80],
+            ]);
+
+        $this->actingAs($admin)
+            ->get(route('teacher.students.show', [$class, $student]))
+            ->assertSee('A média ponderada é a soma de (nota × peso) dividida pela soma dos pesos.')
+            ->assertSee('80.0 × 2 = 160.0')
+            ->assertSee('Média final');
+    }
+
+    public function test_student_dashboard_hides_the_staff_average_calculation(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Carla Aluna');
+        $activity = Activity::query()->create([
+            'class_id' => $class->id,
+            'name' => 'Prova',
+            'type' => 'individual',
+            'max_score' => 100,
+            'weight' => 2,
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.grades.store', $class), [
+                'activity_id' => $activity->id,
+                'scores' => [$student->id => 80],
+            ]);
+
+        $this->actingAs($student)
+            ->get(route('student.dashboard'))
+            ->assertSee('Composição da nota')
+            ->assertSee('Prova')
+            ->assertSee('peso 2')
+            ->assertDontSee('A média ponderada é a soma de (nota × peso) dividida pela soma dos pesos.')
+            ->assertDontSee('80.0 × 2 = 160.0')
+            ->assertDontSee('Média final')
+            ->assertDontSee('sem lançamento · usa nota padrão');
+    }
+
+    public function test_student_dashboard_lists_own_attendance_newest_first(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Carla Aluna');
+
+        $this->recordAttendance($class, $teacher, $student, '2026-09-01', AttendanceRecord::STATUS_ABSENT);
+        $this->recordAttendance($class, $teacher, $student, '2026-09-08', AttendanceRecord::STATUS_PRESENT);
+        $this->recordAttendance($class, $teacher, $student, '2026-09-03', AttendanceRecord::STATUS_JUSTIFIED);
+
+        $this->actingAs($student)
+            ->get(route('student.dashboard'))
+            ->assertSee('data-attendance-dropdown', false)
+            ->assertSeeInOrder([
+                '08/09/2026 · Presença',
+                '03/09/2026 · Justificada',
+                '01/09/2026 · Falta',
+            ]);
+    }
+
+    public function test_student_dashboard_omits_draft_attendance(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Carla Aluna');
+
+        $this->recordAttendance($class, $teacher, $student, '2026-09-08', AttendanceRecord::STATUS_PRESENT);
+        $this->recordAttendance($class, $teacher, $student, '2026-09-09', null);
+
+        $this->actingAs($student)
+            ->get(route('student.dashboard'))
+            ->assertSee('08/09/2026 · Presença')
+            ->assertDontSee('09/09/2026');
+    }
+
+    public function test_student_dashboard_does_not_show_classmate_attendance(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Carla Aluna');
+        $classmate = $this->enrollStudent($class, 'Bruno Colega');
+
+        $this->recordAttendance($class, $teacher, $student, '2026-09-08', AttendanceRecord::STATUS_PRESENT);
+        $this->recordAttendance($class, $teacher, $classmate, '2026-09-08', AttendanceRecord::STATUS_ABSENT);
+
+        $this->actingAs($student)
+            ->get(route('student.dashboard'))
+            ->assertSee('08/09/2026 · Presença')
+            ->assertDontSee('08/09/2026 · Falta');
+    }
+
+    public function test_student_dashboard_does_not_show_attendance_from_another_class(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher, ['name' => 'Turma Atual']);
+        $otherClass = $this->createClassForTeacher($teacher, ['name' => 'Outra Turma', 'area' => $class->area]);
+        $student = $this->enrollStudent($class, 'Carla Aluna');
+        $otherClass->students()->attach($student->id, [
+            'ranking_visible' => true,
+            'xp' => 0,
+            'behavior_score' => 100,
+        ]);
+
+        $this->recordAttendance($class, $teacher, $student, '2026-09-08', AttendanceRecord::STATUS_PRESENT);
+        $this->recordAttendance($otherClass, $teacher, $student, '2026-09-01', AttendanceRecord::STATUS_ABSENT);
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->get(route('student.dashboard'))
+            ->assertSee('08/09/2026 · Presença')
+            ->assertDontSee('01/09/2026 · Falta');
+    }
+
+    public function test_student_dashboard_shows_empty_attendance_when_none_saved(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Carla Aluna');
+
+        $this->actingAs($student)
+            ->get(route('student.dashboard'))
+            ->assertSee('data-attendance-dropdown', false)
+            ->assertSee('Nenhuma chamada ainda');
+    }
+
+    public function test_teacher_sheet_does_not_show_the_attendance_dropdown(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Maga');
+
+        $this->recordAttendance($class, $teacher, $student, '2026-09-08', AttendanceRecord::STATUS_PRESENT);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.students.show', [$class, $student]))
+            ->assertDontSee('data-attendance-dropdown', false)
+            ->assertDontSee('08/09/2026 · Presença')
+            ->assertDontSee('Nenhuma chamada ainda');
+    }
+
+    public function test_escapes_activity_name_in_the_average_breakdown(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Maga');
+        Activity::query()->create([
+            'class_id' => $class->id,
+            'name' => "<script>alert('xss')</script>",
+            'type' => 'individual',
+            'max_score' => 100,
+            'weight' => 1,
+        ]);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.students.show', [$class, $student]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+        $this->assertStringNotContainsString("<script>alert('xss')</script>", $html);
     }
 
     public function test_class_roster_links_to_the_student_sheet(): void
@@ -220,5 +437,32 @@ class StudentSheetTest extends TestCase
         ]);
 
         return $student;
+    }
+
+    private function recordAttendance(
+        SchoolClass $class,
+        User $teacher,
+        User $student,
+        string $heldOn,
+        ?string $status,
+    ): AttendanceRecord {
+        $session = AttendanceSession::query()
+            ->where('class_id', $class->id)
+            ->whereDate('held_on', $heldOn)
+            ->first();
+
+        if (! $session) {
+            $session = AttendanceSession::query()->create([
+                'class_id' => $class->id,
+                'held_on' => $heldOn,
+                'created_by' => $teacher->id,
+            ]);
+        }
+
+        return AttendanceRecord::query()->create([
+            'attendance_session_id' => $session->id,
+            'student_id' => $student->id,
+            'status' => $status,
+        ]);
     }
 }

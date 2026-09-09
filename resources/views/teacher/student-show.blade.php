@@ -28,6 +28,9 @@
                 </label>
                 <button class="game-btn !py-1 !px-3 text-sm" type="submit">Salvar cadastro</button>
             </form>
+            <div class="mt-2">
+                @include('partials.reset-student-password', ['buttonClass' => 'game-btn-ghost !py-1 !px-3 text-sm'])
+            </div>
             @if($student->arenaName())
                 <p class="font-display text-xl text-amber-200 mt-1">{{ $student->arenaName() }}</p>
             @endif

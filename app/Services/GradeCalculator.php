@@ -182,50 +182,91 @@ class GradeCalculator
     }
 
     /**
-     * @return list<array{label: string, score: float, weight: int, kind: string, graded: bool}>
+     * @return list<array{label: string, score: float, weight: int, kind: string, graded: bool, contribution: float}>
      */
     public function studentBreakdown(User $student, SchoolClass $class): array
     {
-        $lines = [];
+        return $this->studentAverageBreakdown($student, $class)['lines'];
+    }
 
-        foreach ($class->activities()->where('type', 'individual')->orderBy('name')->get() as $activity) {
+    /**
+     * @return array{
+     *     lines: list<array{label: string, score: float, weight: int, kind: string, graded: bool, contribution: float}>,
+     *     weight_sum: int,
+     *     weighted_sum: float,
+     *     weighted_average: float,
+     *     adjustments: float,
+     *     average: float
+     * }
+     */
+    public function studentAverageBreakdown(User $student, SchoolClass $class): array
+    {
+        $lines = [];
+        $weightSum = 0;
+        $weightedSum = 0.0;
+
+        foreach ($class->activities()->where('type', 'individual')->orderBy('name')->orderBy('id')->get() as $activity) {
             $entry = $this->activityEntry($activity, student: $student);
+            $score = $entry?->raw_score ?? $this->defaultScore($class);
+            $weight = (int) $activity->weight;
+            $contribution = $score * $weight;
             $lines[] = [
                 'label' => $activity->name,
-                'score' => $entry?->raw_score ?? $this->defaultScore($class),
-                'weight' => (int) $activity->weight,
+                'score' => $score,
+                'weight' => $weight,
                 'kind' => 'individual',
                 'graded' => $entry !== null,
+                'contribution' => $contribution,
             ];
+            $weightSum += $weight;
+            $weightedSum += $contribution;
         }
 
+        $behaviorWeight = max(1, (int) ($class->behavior_grade_weight ?? 1));
+        $behaviorScore = $this->behaviorScore($student, $class);
+        $behaviorContribution = $behaviorScore * $behaviorWeight;
         $lines[] = [
             'label' => 'Comportamento',
-            'score' => $this->behaviorScore($student, $class),
-            'weight' => max(1, (int) ($class->behavior_grade_weight ?? 1)),
+            'score' => $behaviorScore,
+            'weight' => $behaviorWeight,
             'kind' => 'behavior',
             'graded' => true,
+            'contribution' => $behaviorContribution,
         ];
+        $weightSum += $behaviorWeight;
+        $weightedSum += $behaviorContribution;
 
         if ($this->hasGradedAttendance($class)) {
+            $attendanceWeight = max(1, (int) ($class->attendance_grade_weight ?? 1));
+            $attendanceScore = $this->attendanceScore($student, $class);
+            $attendanceContribution = $attendanceScore * $attendanceWeight;
             $lines[] = [
                 'label' => 'Frequência',
-                'score' => $this->attendanceScore($student, $class),
-                'weight' => max(1, (int) ($class->attendance_grade_weight ?? 1)),
+                'score' => $attendanceScore,
+                'weight' => $attendanceWeight,
                 'kind' => 'attendance',
                 'graded' => true,
+                'contribution' => $attendanceContribution,
             ];
+            $weightSum += $attendanceWeight;
+            $weightedSum += $attendanceContribution;
         }
 
         $team = $student->teamInClass($class);
         if ($team && $class->activities()->where('type', 'team')->exists()) {
+            $teamWeight = max(1, (int) $class->team_grade_weight);
+            $teamScore = $this->teamScore($team);
+            $teamContribution = $teamScore * $teamWeight;
             $lines[] = [
                 'label' => 'Nota equipe ('.$team->name.')',
-                'score' => $this->teamScore($team),
-                'weight' => max(1, (int) $class->team_grade_weight),
+                'score' => $teamScore,
+                'weight' => $teamWeight,
                 'kind' => 'team',
                 'graded' => true,
+                'contribution' => $teamContribution,
             ];
+            $weightSum += $teamWeight;
+            $weightedSum += $teamContribution;
         }
 
         $adjustments = $this->adjustmentsSum($class, student: $student);
@@ -236,10 +277,20 @@ class GradeCalculator
                 'weight' => 0,
                 'kind' => 'adjust',
                 'graded' => true,
+                'contribution' => 0.0,
             ];
         }
 
-        return $lines;
+        $weightedAverage = $weightSum > 0 ? $weightedSum / $weightSum : $this->defaultScore($class);
+
+        return [
+            'lines' => $lines,
+            'weight_sum' => $weightSum,
+            'weighted_sum' => round($weightedSum, 2),
+            'weighted_average' => round($weightedAverage, 2),
+            'adjustments' => $adjustments,
+            'average' => $this->clamp($weightedAverage + $adjustments),
+        ];
     }
 
     public function activityEntry(Activity $activity, ?User $student = null, ?Team $team = null): ?LedgerEntry

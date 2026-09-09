@@ -70,11 +70,26 @@ class CharacterPersonaService
 
     public function approve(SchoolClass $schoolClass, User $student): void
     {
-        abort_unless($student->isPersonaPending(), 404);
         abort_unless($schoolClass->students()->where('users.id', $student->id)->exists(), 404);
+
+        if ($student->hasApprovedPersona() && ! $student->isPersonaPending()) {
+            return;
+        }
+
+        if (! $student->isPersonaPending()) {
+            throw ValidationException::withMessages([
+                'character' => 'Este aluno não tem personagem aguardando aprovação.',
+            ]);
+        }
 
         $name = (string) $student->pending_character_name;
         $avatar = (string) $student->pending_character_avatar;
+
+        if ($name === '' || $avatar === '') {
+            throw ValidationException::withMessages([
+                'character' => 'O pedido de personagem está incompleto. Peça ao aluno para enviar de novo.',
+            ]);
+        }
 
         if ($this->nameIsTaken($student, $name)) {
             throw ValidationException::withMessages([
@@ -101,8 +116,13 @@ class CharacterPersonaService
 
     public function reject(SchoolClass $schoolClass, User $student, ?string $reason = null): void
     {
-        abort_unless($student->isPersonaPending(), 404);
         abort_unless($schoolClass->students()->where('users.id', $student->id)->exists(), 404);
+
+        if (! $student->isPersonaPending()) {
+            throw ValidationException::withMessages([
+                'character' => 'Este aluno não tem personagem aguardando aprovação.',
+            ]);
+        }
 
         $student->update([
             'pending_character_name' => null,

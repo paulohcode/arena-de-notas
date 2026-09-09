@@ -6,6 +6,7 @@ use App\Models\Badge;
 use App\Models\LedgerEntry;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\ClassAccessPdfService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -553,6 +554,162 @@ class StudentRosterTest extends TestCase
             ->assertSee('Salvar cadastro')
             ->assertSee('E-mail de acesso')
             ->assertSee(route('teacher.students.update', [$class, $student]), false);
+    }
+
+    public function test_roster_includes_password_reset_form(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create(['role' => 'student', 'name' => 'João da Silva']);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertSee('Resetar senha')
+            ->getContent();
+
+        $this->assertStringContainsString(
+            e(route('teacher.students.password', [$class, $student])),
+            $html
+        );
+    }
+
+    public function test_profile_includes_password_reset_form(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create(['role' => 'student', 'name' => 'Ana Ficha']);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.students.show', [$class, $student]))
+            ->assertSee('Resetar senha')
+            ->assertSee(route('teacher.students.password', [$class, $student]), false);
+    }
+
+    public function test_teacher_resets_student_password_to_the_initial_one(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'name' => 'João da Silva',
+            'email' => 'joao.reset@example.com',
+            'must_change_password' => false,
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->post(route('teacher.students.password', [$class, $student]))
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertSessionHas(
+                'success',
+                'Senha de João da Silva redefinida para '.ClassAccessPdfService::INITIAL_PASSWORD.'. No próximo acesso, o aluno precisa trocar.'
+            );
+
+        $this->assertTrue($student->fresh()->must_change_password);
+
+        $this->post(route('logout'));
+
+        $this->post(route('login'), [
+            'email' => 'joao.reset@example.com',
+            'password' => 'password',
+        ])->assertSessionHasErrors('email');
+
+        $this->post(route('login'), [
+            'email' => 'joao.reset@example.com',
+            'password' => ClassAccessPdfService::INITIAL_PASSWORD,
+        ])->assertRedirectToRoute('password.edit');
+    }
+
+    public function test_unauthenticated_password_reset_redirects_to_login(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'email' => 'sem.login@example.com',
+            'must_change_password' => false,
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->post(route('teacher.students.password', [$class, $student]))
+            ->assertRedirectToRoute('login');
+
+        $this->assertFalse($student->fresh()->must_change_password);
+
+        $this->post(route('login'), [
+            'email' => 'sem.login@example.com',
+            'password' => 'password',
+        ])->assertRedirect(route('student.dashboard'));
+    }
+
+    public function test_student_is_redirected_away_from_password_reset(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'email' => 'aluno.proprio@example.com',
+            'must_change_password' => false,
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($student)
+            ->post(route('teacher.students.password', [$class, $student]))
+            ->assertRedirect(route('student.dashboard'));
+
+        $this->assertFalse($student->fresh()->must_change_password);
+    }
+
+    public function test_forbids_another_teacher_from_resetting_a_student_password(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $other = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'must_change_password' => false,
+        ]);
+        $class->students()->attach($student->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($other)
+            ->post(route('teacher.students.password', [$class, $student]))
+            ->assertForbidden();
+
+        $this->assertFalse($student->fresh()->must_change_password);
+    }
+
+    public function test_student_from_another_class_returns_404_when_resetting_password(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $otherClass = $this->createClassForTeacher($teacher, ['area' => $class->area]);
+        $foreignStudent = User::factory()->create([
+            'role' => 'student',
+            'must_change_password' => false,
+        ]);
+        $otherClass->students()->attach($foreignStudent->id, ['ranking_visible' => false, 'xp' => 0]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.students.password', [$class, $foreignStudent]))
+            ->assertNotFound();
+
+        $this->assertFalse($foreignStudent->fresh()->must_change_password);
+    }
+
+    public function test_teacher_account_returns_404_when_resetting_password(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $otherTeacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.students.password', [$class, $otherTeacher]))
+            ->assertNotFound();
+
+        $this->assertFalse($otherTeacher->fresh()->must_change_password);
     }
 
     public function test_escapes_student_name_in_the_roster_form(): void

@@ -20,6 +20,20 @@
             </div>
             <div class="xp-track"><div class="xp-fill" data-xp-fill="{{ $level['progress'] }}"></div></div>
         </div>
+        @unless($viewerIsTeacher)
+            <label class="block mt-4">
+                <span class="text-xs uppercase tracking-wide text-purple-200/70">Chamada</span>
+                <select class="game-select mt-1 w-full" data-attendance-dropdown aria-label="Chamada">
+                    @forelse($attendanceRecords as $record)
+                        <option value="{{ $record->id }}">
+                            {{ $record->session->held_on->format('d/m/Y') }} · {{ $record->statusLabel() }}
+                        </option>
+                    @empty
+                        <option value="">Nenhuma chamada ainda</option>
+                    @endforelse
+                </select>
+            </label>
+        @endunless
     </div>
 
     <div class="game-card p-6">
@@ -61,12 +75,55 @@
 <div class="grid lg:grid-cols-2 gap-6 mb-8">
     <div class="game-card p-6">
         <h2 class="font-display text-xl text-amber-200 mb-3">Composição da nota</h2>
+        @if($viewerIsTeacher)
+            <p class="text-sm text-purple-200/70 mb-4">A média ponderada é a soma de (nota × peso) dividida pela soma dos pesos. Ajustes entram depois.</p>
+        @endif
         @foreach($breakdown as $line)
-            <div class="flex justify-between py-2 border-b border-purple-900/40">
-                <span>{{ $line['label'] }} @if($line['weight'])<span class="text-purple-300/50 text-xs">peso {{ $line['weight'] }}</span>@endif</span>
-                <span class="{{ $line['kind'] === 'adjust' && $line['score'] < 0 ? 'text-rose-300' : 'text-cyan-300' }}">{{ number_format($line['score'], 1) }}</span>
+            <div class="flex justify-between gap-3 py-2 border-b border-purple-900/40">
+                <span>
+                    {{ $line['label'] }}
+                    @if($line['weight'])
+                        <span class="text-purple-300/50 text-xs">peso {{ $line['weight'] }}</span>
+                    @endif
+                    @if($viewerIsTeacher && $line['kind'] === 'individual' && ! $line['graded'])
+                        <span class="block text-xs text-amber-200/70">sem lançamento · usa nota padrão</span>
+                    @endif
+                </span>
+                <span class="text-right {{ $line['kind'] === 'adjust' && $line['score'] < 0 ? 'text-rose-300' : 'text-cyan-300' }}">
+                    @if($viewerIsTeacher && $line['kind'] !== 'adjust')
+                        <span class="block text-sm">{{ number_format($line['score'], 1) }} × {{ $line['weight'] }} = {{ number_format($line['contribution'], 1) }}</span>
+                    @else
+                        {{ number_format($line['score'], 1) }}
+                    @endif
+                </span>
             </div>
         @endforeach
+        @if($viewerIsTeacher)
+            <div class="mt-4 space-y-1 text-sm">
+                <div class="flex justify-between gap-3 text-purple-200/70">
+                    <span>Soma (nota × peso)</span>
+                    <span>{{ number_format($averageBreakdown['weighted_sum'], 1) }}</span>
+                </div>
+                <div class="flex justify-between gap-3 text-purple-200/70">
+                    <span>Soma dos pesos</span>
+                    <span>{{ $averageBreakdown['weight_sum'] }}</span>
+                </div>
+                <div class="flex justify-between gap-3 text-purple-200/70">
+                    <span>Média ponderada</span>
+                    <span>{{ number_format($averageBreakdown['weighted_average'], 1) }}</span>
+                </div>
+                @if($averageBreakdown['adjustments'] != 0.0)
+                    <div class="flex justify-between gap-3 {{ $averageBreakdown['adjustments'] < 0 ? 'text-rose-300' : 'text-emerald-300' }}">
+                        <span>Ajustes</span>
+                        <span>{{ sprintf('%+0.1f', $averageBreakdown['adjustments']) }}</span>
+                    </div>
+                @endif
+                <div class="flex justify-between gap-3 pt-2 border-t border-purple-900/40 font-semibold text-cyan-300">
+                    <span>Média final</span>
+                    <span>{{ number_format($averageBreakdown['average'], 1) }}</span>
+                </div>
+            </div>
+        @endif
     </div>
     <div class="game-card p-6">
         <h2 class="font-display text-xl text-amber-200 mb-3">Extrato</h2>

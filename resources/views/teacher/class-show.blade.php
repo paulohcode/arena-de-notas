@@ -229,6 +229,7 @@
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <button class="game-btn-ghost !px-2 !py-1 text-xs" type="button" @click="editing = true">Editar cadastro</button>
                                                 <a class="game-btn-ghost !px-2 !py-1 text-xs" href="{{ route('teacher.students.show', [$class, $student]) }}">Ficha</a>
+                                                @include('partials.reset-student-password')
                                             </div>
                                             <div class="flex flex-wrap items-center gap-1">
                                                 <span class="text-xs text-amber-100/50 uppercase tracking-wide">Comp.</span>

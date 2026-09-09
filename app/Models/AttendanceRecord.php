@@ -44,4 +44,14 @@ class AttendanceRecord extends Model
     {
         return $this->status === self::STATUS_PRESENT;
     }
+
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_PRESENT => 'Presença',
+            self::STATUS_ABSENT => 'Falta',
+            self::STATUS_JUSTIFIED => 'Justificada',
+            default => '—',
+        };
+    }
 }

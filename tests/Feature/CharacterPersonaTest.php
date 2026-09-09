@@ -150,6 +150,47 @@ class CharacterPersonaTest extends TestCase
         Notification::assertSentTo($student, GameAlert::class);
     }
 
+    public function test_approving_already_approved_persona_is_idempotent(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Souza');
+        $student->update([
+            'character_name' => 'Luna Arcana',
+            'character_avatar' => 'lua',
+            'character_approval_status' => 'approved',
+            'pending_character_name' => null,
+            'pending_character_avatar' => null,
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.characters.approve', [$class, $student]))
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'personagens']))
+            ->assertSessionHas('success');
+
+        $student->refresh();
+        $this->assertSame('Luna Arcana', $student->character_name);
+        $this->assertSame('approved', $student->character_approval_status);
+    }
+
+    public function test_rejecting_when_not_pending_returns_validation_error(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Souza');
+        $student->update([
+            'character_name' => 'Luna Arcana',
+            'character_avatar' => 'lua',
+            'character_approval_status' => 'approved',
+        ]);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'personagens']))
+            ->post(route('teacher.characters.reject', [$class, $student]))
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'personagens']))
+            ->assertSessionHasErrors('character');
+    }
+
     public function test_forbids_another_teacher_from_approving_the_persona(): void
     {
         $owner = User::factory()->create(['role' => 'teacher']);

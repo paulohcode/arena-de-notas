@@ -55,11 +55,15 @@ class CharacterApprovalController extends Controller
         $this->authorize('manage', $schoolClass);
         abort_unless($student->isStudent(), 404);
 
+        $alreadyApproved = $student->hasApprovedPersona() && ! $student->isPersonaPending();
+
         $this->personas->approve($schoolClass, $student);
 
         return redirect()
             ->route('teacher.classes.show', ['schoolClass' => $schoolClass, 'tab' => 'personagens'])
-            ->with('success', "Personagem de {$student->name} aprovado.");
+            ->with('success', $alreadyApproved
+                ? "O personagem de {$student->name} já estava aprovado."
+                : "Personagem de {$student->name} aprovado.");
     }
 
     public function reject(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse

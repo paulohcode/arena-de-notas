@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AttendanceRecord;
 use App\Models\Enrollment;
 use App\Models\SchoolClass;
 use App\Models\Team;
@@ -23,7 +24,15 @@ class StudentSheetService
      *     enrollment: ?Enrollment,
      *     team: ?Team,
      *     average: float,
-     *     breakdown: list<array{label: string, score: float, weight: int, kind: string, graded: bool}>,
+     *     breakdown: list<array{label: string, score: float, weight: int, kind: string, graded: bool, contribution: float}>,
+     *     averageBreakdown: array{
+     *         lines: list<array{label: string, score: float, weight: int, kind: string, graded: bool, contribution: float}>,
+     *         weight_sum: int,
+     *         weighted_sum: float,
+     *         weighted_average: float,
+     *         adjustments: float,
+     *         average: float
+     *     },
      *     level: array{key: string, name: string, min: int, next: int|null, progress: float},
      *     position: int|null,
      *     guildPosition: int|null,
@@ -31,7 +40,8 @@ class StudentSheetService
      *     guilds: list<array<string, mixed>>,
      *     entries: Collection,
      *     badges: Collection,
-     *     guildMissionAlerts: Collection
+     *     guildMissionAlerts: Collection,
+     *     attendanceRecords: Collection<int, AttendanceRecord>
      * }
      */
     public function data(User $student, SchoolClass $class, bool $publicPlayersOnly = false): array
@@ -52,13 +62,16 @@ class StudentSheetService
             ->limit(20)
             ->get();
 
+        $averageBreakdown = $this->grades->studentAverageBreakdown($student, $class);
+
         return [
             'class' => $class,
             'student' => $student,
             'enrollment' => $enrollment,
             'team' => $team,
-            'average' => $this->grades->studentAverage($student, $class),
-            'breakdown' => $this->grades->studentBreakdown($student, $class),
+            'average' => $averageBreakdown['average'],
+            'breakdown' => $averageBreakdown['lines'],
+            'averageBreakdown' => $averageBreakdown,
             'level' => $this->grades->levelFromXp((int) ($enrollment?->xp ?? 0)),
             'position' => $this->ranking->playerPosition($student, $class),
             'guildPosition' => $team ? $this->ranking->guildPosition($team->id, $class) : null,
@@ -69,6 +82,24 @@ class StudentSheetService
             'guildMissionAlerts' => $team
                 ? $this->reminders->guildPendingMissions($team, $class)
                 : collect(),
+            'attendanceRecords' => $this->attendanceRecords($student, $class),
         ];
+    }
+
+    /**
+     * @return Collection<int, AttendanceRecord>
+     */
+    private function attendanceRecords(User $student, SchoolClass $class): Collection
+    {
+        return AttendanceRecord::query()
+            ->select('attendance_records.*')
+            ->whereBelongsTo($student, 'student')
+            ->whereNotNull('attendance_records.status')
+            ->join('attendance_sessions', 'attendance_sessions.id', '=', 'attendance_records.attendance_session_id')
+            ->where('attendance_sessions.class_id', $class->id)
+            ->with('session')
+            ->orderByDesc('attendance_sessions.held_on')
+            ->orderByDesc('attendance_records.id')
+            ->get();
     }
 }

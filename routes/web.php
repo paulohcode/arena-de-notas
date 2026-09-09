@@ -83,6 +83,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::post('/turmas/{schoolClass}/alunos', [StudentController::class, 'store'])->name('students.store');
     Route::post('/turmas/{schoolClass}/alunos/vincular', [StudentController::class, 'attach'])->name('students.attach');
     Route::post('/turmas/{schoolClass}/alunos/{student}/transferir', [StudentController::class, 'transfer'])->name('students.transfer');
+    Route::post('/turmas/{schoolClass}/alunos/{student}/senha', [StudentController::class, 'resetPassword'])->name('students.password');
     Route::delete('/turmas/{schoolClass}/alunos/{student}', [StudentController::class, 'destroy'])->name('students.destroy');
     Route::put('/turmas/{schoolClass}/alunos/{student}/personagem', [CharacterApprovalController::class, 'update'])->name('characters.update');
     Route::post('/turmas/{schoolClass}/alunos/{student}/personagem/aprovar', [CharacterApprovalController::class, 'approve'])->name('characters.approve');
