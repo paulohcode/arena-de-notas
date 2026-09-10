@@ -76,8 +76,9 @@ class ArenaController extends Controller
             'history' => $history,
             'hall' => $this->duels->hall($class, publicOnly: true),
             'resolvedToday' => $this->duels->resolvedTodayCount($class, $student),
-            'dailyLimit' => Duel::DAILY_RESOLVED_LIMIT,
-            'cooldownHours' => Duel::CHALLENGE_COOLDOWN_HOURS,
+            'dailyLimit' => $class->arenaDailyLimit(),
+            'cooldownMinutes' => $class->arenaCooldownMinutes(),
+            'cooldownLabel' => $class->arenaCooldownLabel(),
             'canChallenge' => $canChallenge,
             'opponentNotices' => $canChallenge
                 ? $this->duels->challengeNotices($class, $student, $opponents)

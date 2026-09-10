@@ -27,7 +27,7 @@ class CosmeticCatalog
     ];
 
     /**
-     * Catálogo curado de cosméticos (só visual).
+     * Catálogo curado de cosméticos. Equipados também dão bônus de poder no duelo.
      *
      * @var array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: string, label?: string}>
      */
@@ -273,6 +273,20 @@ class CosmeticCatalog
         return $item['label'] ?? $item['name'] ?? null;
     }
 
+    /**
+     * Bônus de poder no duelo por raridade (item equipado).
+     *
+     * @var array<string, float>
+     */
+    public const COMBAT_BONUS_BY_RARITY = [
+        'common' => 0.012,
+        'uncommon' => 0.02,
+        'rare' => 0.03,
+        'epic' => 0.04,
+    ];
+
+    public const COMBAT_BONUS_CAP = 0.10;
+
     public static function rarityLabel(string $rarity): string
     {
         return match ($rarity) {
@@ -282,5 +296,48 @@ class CosmeticCatalog
             'epic' => 'Épico',
             default => $rarity,
         };
+    }
+
+    public static function combatBonusForKey(string $key): float
+    {
+        $item = self::item($key);
+        if (! $item) {
+            return 0.0;
+        }
+
+        return self::COMBAT_BONUS_BY_RARITY[$item['rarity']] ?? 0.0;
+    }
+
+    /**
+     * @return array{bonus: float, items: list<array{key: string, name: string, bonus: float}>}
+     */
+    public static function equippedCombatBonus(object $enrollment): array
+    {
+        $bonus = 0.0;
+        $items = [];
+
+        foreach (self::loadoutFromEnrollment($enrollment) as $key) {
+            if (! filled($key) || ! self::has($key)) {
+                continue;
+            }
+
+            $amount = self::combatBonusForKey($key);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $item = self::item($key);
+            $bonus += $amount;
+            $items[] = [
+                'key' => $key,
+                'name' => $item['name'],
+                'bonus' => $amount,
+            ];
+        }
+
+        return [
+            'bonus' => round(min(self::COMBAT_BONUS_CAP, $bonus), 4),
+            'items' => $items,
+        ];
     }
 }

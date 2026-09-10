@@ -202,6 +202,16 @@ class DuelService
     }
 
     /**
+     * @param  array{arena_open: bool, arena_cooldown_minutes: int, arena_daily_limit: int}  $settings
+     */
+    public function updateSettings(SchoolClass $class, array $settings): SchoolClass
+    {
+        $class->update($settings);
+
+        return $class->fresh();
+    }
+
+    /**
      * @return list<array{position: int, student: User, glory: int, arena_wins: int, arena_losses: int, visible: bool}>
      */
     public function hall(SchoolClass $class, bool $publicOnly = false): array
@@ -360,8 +370,12 @@ class DuelService
 
     private function dailyLimitReason(SchoolClass $class, User $student): ?string
     {
-        if ($this->resolvedTodayCount($class, $student) >= Duel::DAILY_RESOLVED_LIMIT) {
-            return 'Você já fez '.Duel::DAILY_RESOLVED_LIMIT.' duelos hoje. Só pode duelar de novo amanhã.';
+        $limit = $class->arenaDailyLimit();
+
+        if ($this->resolvedTodayCount($class, $student) >= $limit) {
+            $label = $limit === 1 ? 'duelo' : 'duelos';
+
+            return "Você já fez {$limit} {$label} hoje. Só pode duelar de novo amanhã.";
         }
 
         return null;
@@ -369,7 +383,13 @@ class DuelService
 
     private function cooldownReason(SchoolClass $class, User $challenger): ?string
     {
-        $since = now()->subHours(Duel::CHALLENGE_COOLDOWN_HOURS);
+        $minutes = $class->arenaCooldownMinutes();
+
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        $since = now()->subMinutes($minutes);
 
         $recent = Duel::query()
             ->where('class_id', $class->id)
@@ -379,7 +399,7 @@ class DuelService
             ->exists();
 
         if ($recent) {
-            return 'Aguarde '.Duel::CHALLENGE_COOLDOWN_HOURS.' horas entre um desafio e outro.';
+            return 'Aguarde '.$class->arenaCooldownLabel().' entre um desafio e outro.';
         }
 
         return null;

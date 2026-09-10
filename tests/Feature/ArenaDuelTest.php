@@ -411,7 +411,219 @@ class ArenaDuelTest extends TestCase
             ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'arena']))
             ->assertOk()
             ->assertSee('Arena de batalha')
-            ->assertSee('Abrir arena');
+            ->assertSee('Abrir arena')
+            ->assertSee('Configurações da arena')
+            ->assertSee('Espera entre batalhas (minutos)')
+            ->assertSee('Batalhas permitidas no dia')
+            ->assertSee('Como o vencedor é definido');
+    }
+
+    public function test_unauthenticated_arena_settings_update_redirects_to_login(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+
+        $this->put(route('teacher.arena.update', $class), $this->arenaSettingsPayload())
+            ->assertRedirectToRoute('login');
+    }
+
+    public function test_student_cannot_update_arena_settings(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create(['role' => 'student']);
+
+        $this->actingAs($student)
+            ->put(route('teacher.arena.update', $class), $this->arenaSettingsPayload())
+            ->assertRedirect(route('student.dashboard'));
+
+        $this->assertFalse($class->fresh()->isArenaOpen());
+        $this->assertSame(Duel::CHALLENGE_COOLDOWN_MINUTES, $class->fresh()->arenaCooldownMinutes());
+        $this->assertSame(Duel::DAILY_RESOLVED_LIMIT, $class->fresh()->arenaDailyLimit());
+    }
+
+    public function test_another_teacher_cannot_update_arena_settings(): void
+    {
+        $owner = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($owner);
+        $otherTeacher = User::factory()->create(['role' => 'teacher']);
+
+        $this->actingAs($otherTeacher)
+            ->put(route('teacher.arena.update', $class), $this->arenaSettingsPayload())
+            ->assertForbidden();
+
+        $this->assertFalse($class->fresh()->isArenaOpen());
+    }
+
+    public function test_teacher_saves_arena_settings_and_opens_the_arena(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+
+        $this->actingAs($teacher)
+            ->put(route('teacher.arena.update', $class), $this->arenaSettingsPayload([
+                'arena_open' => '1',
+                'arena_cooldown_minutes' => 15,
+                'arena_daily_limit' => 5,
+            ]))
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'arena']))
+            ->assertSessionHas('success', 'Configurações da arena salvas.');
+
+        $class->refresh();
+        $this->assertTrue($class->isArenaOpen());
+        $this->assertSame(15, $class->arenaCooldownMinutes());
+        $this->assertSame(5, $class->arenaDailyLimit());
+        $this->assertSame('15 minutos', $class->arenaCooldownLabel());
+    }
+
+    public function test_empty_arena_settings_payload_returns_required_messages(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'arena']))
+            ->put(route('teacher.arena.update', $class), [])
+            ->assertRedirect()
+            ->assertSessionHasErrors([
+                'arena_open' => 'Informe se a arena está aberta ou fechada.',
+                'arena_cooldown_minutes' => 'Informe o tempo de espera entre batalhas.',
+                'arena_daily_limit' => 'Informe quantas batalhas são permitidas no dia.',
+            ]);
+
+        $this->assertFalse($class->fresh()->isArenaOpen());
+    }
+
+    public function test_arena_settings_reject_zero_daily_battles(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'arena']))
+            ->put(route('teacher.arena.update', $class), $this->arenaSettingsPayload([
+                'arena_daily_limit' => 0,
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasErrors([
+                'arena_daily_limit' => 'É preciso permitir pelo menos 1 batalha por dia.',
+            ]);
+
+        $this->assertSame(Duel::DAILY_RESOLVED_LIMIT, $class->fresh()->arenaDailyLimit());
+    }
+
+    public function test_closing_arena_via_settings_blocks_challenges(): void
+    {
+        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+
+        $this->actingAs($class->teacher)
+            ->put(route('teacher.arena.update', $class), $this->arenaSettingsPayload([
+                'arena_open' => '0',
+            ]))
+            ->assertRedirect();
+
+        $this->assertFalse($class->fresh()->isArenaOpen());
+
+        $this->actingAs($challenger)
+            ->from(route('student.arena.index'))
+            ->post(route('student.arena.challenge'), ['opponent_id' => $opponent->id])
+            ->assertRedirect()
+            ->assertSessionHasErrors(['arena']);
+    }
+
+    public function test_configured_cooldown_blocks_a_second_challenge_too_soon(): void
+    {
+        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+        $third = $this->enrollStudent($class, 'Carla Dias', approvedPersona: true, characterClass: 'arqueiro');
+        $class->update(['arena_cooldown_minutes' => 10]);
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.challenge'), ['opponent_id' => $opponent->id])
+            ->assertRedirect();
+
+        $this->actingAs($challenger)
+            ->from(route('student.arena.index'))
+            ->post(route('student.arena.challenge'), ['opponent_id' => $third->id])
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors([
+                'opponent_id' => 'Aguarde 10 minutos entre um desafio e outro.',
+            ]);
+
+        $this->travel(11)->minutes();
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.challenge'), ['opponent_id' => $third->id])
+            ->assertRedirect();
+
+        $this->assertSame(2, Duel::query()->where('challenger_id', $challenger->id)->count());
+    }
+
+    public function test_zero_cooldown_allows_immediate_second_challenge(): void
+    {
+        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+        $third = $this->enrollStudent($class, 'Carla Dias', approvedPersona: true, characterClass: 'arqueiro');
+        $class->update(['arena_cooldown_minutes' => 0]);
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.challenge'), ['opponent_id' => $opponent->id])
+            ->assertRedirect();
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.challenge'), ['opponent_id' => $third->id])
+            ->assertRedirect();
+
+        $this->assertSame(2, Duel::query()->where('challenger_id', $challenger->id)->count());
+    }
+
+    public function test_configured_daily_limit_blocks_further_accepts(): void
+    {
+        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+        $class->update(['arena_daily_limit' => 1]);
+
+        Duel::query()->create([
+            'class_id' => $class->id,
+            'challenger_id' => $opponent->id,
+            'opponent_id' => $challenger->id,
+            'status' => Duel::STATUS_RESOLVED,
+            'seed' => 1001,
+            'log' => ['turns' => [], 'fighters' => [], 'winner_id' => $challenger->id],
+            'winner_id' => $challenger->id,
+            'glory_winner' => Duel::GLORY_WIN,
+            'glory_loser' => Duel::GLORY_LOSS,
+            'resolved_at' => now(),
+        ]);
+
+        $extra = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
+
+        $this->actingAs($extra)
+            ->post(route('student.arena.challenge'), ['opponent_id' => $challenger->id])
+            ->assertRedirect();
+
+        $duel = Duel::query()->where('status', Duel::STATUS_PENDING)->firstOrFail();
+
+        $this->actingAs($challenger)
+            ->from(route('student.arena.index'))
+            ->post(route('student.arena.accept', $duel))
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors([
+                'opponent_id' => 'Você já fez 1 duelo hoje. Só pode duelar de novo amanhã.',
+            ]);
+    }
+
+    public function test_student_arena_shows_configured_limits(): void
+    {
+        [$class, $challenger] = $this->readyPair(arenaOpen: true);
+        $class->update([
+            'arena_cooldown_minutes' => 30,
+            'arena_daily_limit' => 4,
+        ]);
+
+        $this->actingAs($challenger)
+            ->get(route('student.arena.index'))
+            ->assertOk()
+            ->assertSee('Espere')
+            ->assertSee('30 minutos')
+            ->assertSee('4 duelos resolvidos');
     }
 
     /**
@@ -425,6 +637,19 @@ class ArenaDuelTest extends TestCase
         $opponent = $this->enrollStudent($class, 'Bruno Lima', approvedPersona: true, characterClass: 'mago');
 
         return [$class, $challenger, $opponent];
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function arenaSettingsPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'arena_open' => '1',
+            'arena_cooldown_minutes' => Duel::CHALLENGE_COOLDOWN_MINUTES,
+            'arena_daily_limit' => Duel::DAILY_RESOLVED_LIMIT,
+        ], $overrides);
     }
 
     private function enrollStudent(

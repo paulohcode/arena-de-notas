@@ -38,6 +38,8 @@ class Duel extends Model
 
     public const CHALLENGE_COOLDOWN_HOURS = 2;
 
+    public const CHALLENGE_COOLDOWN_MINUTES = 120;
+
     /**
      * @var array<string, mixed>
      */

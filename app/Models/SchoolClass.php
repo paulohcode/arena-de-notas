@@ -22,12 +22,25 @@ class SchoolClass extends Model
         'behavior_grade_weight',
         'attendance_grade_weight',
         'arena_open',
+        'arena_cooldown_minutes',
+        'arena_daily_limit',
+    ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'arena_open' => false,
+        'arena_cooldown_minutes' => Duel::CHALLENGE_COOLDOWN_MINUTES,
+        'arena_daily_limit' => Duel::DAILY_RESOLVED_LIMIT,
     ];
 
     protected function casts(): array
     {
         return [
             'arena_open' => 'boolean',
+            'arena_cooldown_minutes' => 'integer',
+            'arena_daily_limit' => 'integer',
             'team_grade_weight' => 'integer',
             'behavior_grade_weight' => 'integer',
             'attendance_grade_weight' => 'integer',
@@ -117,6 +130,33 @@ class SchoolClass extends Model
     public function isArenaOpen(): bool
     {
         return (bool) $this->arena_open;
+    }
+
+    public function arenaCooldownMinutes(): int
+    {
+        return max(0, (int) ($this->arena_cooldown_minutes ?? Duel::CHALLENGE_COOLDOWN_MINUTES));
+    }
+
+    public function arenaDailyLimit(): int
+    {
+        return max(1, (int) ($this->arena_daily_limit ?? Duel::DAILY_RESOLVED_LIMIT));
+    }
+
+    public function arenaCooldownLabel(): string
+    {
+        $minutes = $this->arenaCooldownMinutes();
+
+        if ($minutes === 0) {
+            return 'sem espera';
+        }
+
+        if ($minutes % 60 === 0) {
+            $hours = intdiv($minutes, 60);
+
+            return $hours === 1 ? '1 hora' : $hours.' horas';
+        }
+
+        return $minutes === 1 ? '1 minuto' : $minutes.' minutos';
     }
 
     public function isRising(): bool

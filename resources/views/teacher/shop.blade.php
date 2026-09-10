@@ -11,7 +11,7 @@
         <p class="hero-kicker !mb-1">Estoque e donos</p>
         <h1 class="font-display text-4xl text-amber-300">Loja · {{ $class->name }}</h1>
         <p class="text-amber-100/60 mt-1 max-w-2xl">
-            Defina quantas cópias ainda estão à venda. O restante fica com quem comprou — e pode ser negociado entre os alunos.
+            Defina quantas cópias ainda estão à venda. Itens equipados aumentam o poder no duelo. O restante fica com quem comprou — e pode ser negociado entre os alunos.
         </p>
     </div>
     <a class="game-btn-ghost" href="{{ route('teacher.classes.show', $class) }}">Voltar à turma</a>
@@ -43,6 +43,9 @@
                             </p>
                             <p class="text-sm mt-1 {{ $item['stock'] > 0 ? 'text-cyan-300/80' : 'text-rose-300/80' }}">
                                 {{ $item['stock'] > 0 ? $item['stock'].' à venda na loja' : 'Esgotado na loja' }}
+                            </p>
+                            <p class="text-xs text-amber-200/70 mt-1">
+                                Equipado: +{{ number_format(\App\Support\CosmeticCatalog::combatBonusForKey($item['key']) * 100, 1) }}% no duelo
                             </p>
                             <p class="text-sm text-amber-100/70 mt-3">
                                 @if(count($item['owners']) === 0)

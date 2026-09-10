@@ -69,8 +69,12 @@ class GradeCalculator
         return $this->clamp(($baseScore + $memberAverage) / 2);
     }
 
-    public function studentAverage(User $student, SchoolClass $class, bool $includeTeamScore = true): float
-    {
+    public function studentAverage(
+        User $student,
+        SchoolClass $class,
+        bool $includeTeamScore = true,
+        bool $includeAttendance = true,
+    ): float {
         $activities = $class->activities()->where('type', 'individual')->get();
 
         $sum = 0.0;
@@ -87,7 +91,7 @@ class GradeCalculator
         $sum += $this->behaviorScore($student, $class) * $behaviorWeight;
         $weightSum += $behaviorWeight;
 
-        if ($this->hasGradedAttendance($class)) {
+        if ($includeAttendance && $this->hasGradedAttendance($class)) {
             $attendanceWeight = max(1, (int) ($class->attendance_grade_weight ?? 1));
             $sum += $this->attendanceScore($student, $class) * $attendanceWeight;
             $weightSum += $attendanceWeight;
@@ -109,6 +113,32 @@ class GradeCalculator
     public function studentAverageWithoutTeam(User $student, SchoolClass $class): float
     {
         return $this->studentAverage($student, $class, includeTeamScore: false);
+    }
+
+    /**
+     * Média usada no poder de combate: atividades individuais, comportamento e ajustes.
+     * Frequência e nota da guilda entram à parte no duelo.
+     */
+    public function combatAcademicAverage(User $student, SchoolClass $class): float
+    {
+        return $this->studentAverage($student, $class, includeTeamScore: false, includeAttendance: false);
+    }
+
+    /**
+     * Nota da guilda no duelo. Sem guilda ou sem atividade de equipe: 0.
+     */
+    public function combatTeamScore(User $student, SchoolClass $class): float
+    {
+        if (! $class->activities()->where('type', 'team')->exists()) {
+            return 0.0;
+        }
+
+        $team = $student->teamInClass($class);
+        if (! $team) {
+            return 0.0;
+        }
+
+        return $this->teamScore($team);
     }
 
     /**

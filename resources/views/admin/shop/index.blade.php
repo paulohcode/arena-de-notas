@@ -9,7 +9,7 @@
         <p class="hero-kicker !mb-1">Mercado da arena</p>
         <h1 class="font-display text-4xl text-amber-300">Loja de cosméticos</h1>
         <p class="text-amber-100/65 mt-1 max-w-2xl">
-            Cada turma tem poucas cópias à venda. Veja quem já comprou, o que ainda está na loja e o que os alunos estão negociando entre si.
+            Cada turma tem poucas cópias à venda. Itens equipados aumentam o poder no duelo. Veja quem já comprou, o que ainda está na loja e o que os alunos estão negociando entre si.
         </p>
     </div>
 </div>

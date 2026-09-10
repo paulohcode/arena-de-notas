@@ -16,7 +16,7 @@
         </p>
         <p class="text-sm text-amber-100/45 mt-2 max-w-xl">
             Relíquias vêm da arena. Selos vêm da presença e compram itens exclusivos.
-            Há poucas cópias na loja. Se esgotar, anuncie o seu ou compre de um colega da turma.
+            Itens <strong>equipados</strong> aumentam o poder no duelo. Há poucas cópias na loja.
         </p>
     </div>
     <div class="flex flex-wrap gap-2">
@@ -124,6 +124,9 @@
                             </p>
                             <p class="text-xs mt-1 {{ $item['stock'] > 0 ? 'text-amber-100/50' : 'text-rose-300/70' }}">
                                 {{ $item['stock'] > 0 ? 'Restam '.$item['stock'].' na loja' : 'Esgotado na loja' }}
+                            </p>
+                            <p class="text-xs text-amber-200/70 mt-1">
+                                Equipado: +{{ number_format(\App\Support\CosmeticCatalog::combatBonusForKey($item['key']) * 100, 1) }}% de poder no duelo
                             </p>
                         </div>
 

@@ -36,7 +36,7 @@ class User extends Authenticatable
 
     /**
      * Classes de personagem disponíveis para os alunos.
-     * Stats de combate (hp/atk/def/spd/heal_chance) alimentam a arena; não alteram notas.
+     * Só visual na arena (nome, ícone, tom); HP/ATK/DEF/SPD do duelo são iguais para todos.
      *
      * @var array<string, array{name: string, icon: string, blurb: string, tone: string, hp: int, atk: int, def: int, spd: int, heal_chance: float}>
      */

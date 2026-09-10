@@ -51,7 +51,7 @@
                 <p class="font-semibold {{ $class->isArenaOpen() ? 'text-cyan-300' : 'text-amber-100/70' }}">
                     Arena {{ $class->isArenaOpen() ? 'aberta' : 'fechada' }}
                 </p>
-                <p class="text-sm text-amber-100/55">Duelos RPG geram Glória — não mexem na média nem no XP.</p>
+                <p class="text-sm text-amber-100/55">Duelos RPG geram Glória — não mexem na média nem no XP. Notas, chamada e itens equipados definem o poder.</p>
             </div>
             <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" @click="tab = 'arena'">Gerenciar arena</button>
         </div>
@@ -809,7 +809,9 @@
                     <span class="{{ $class->isArenaOpen() ? 'text-emerald-300' : 'text-rose-300' }}">
                         {{ $class->isArenaOpen() ? 'aberta' : 'fechada' }}
                     </span>
-                    · Vitória +{{ \App\Models\Duel::GLORY_WIN }} Glória · Derrota +{{ \App\Models\Duel::GLORY_LOSS }} · Limite {{ \App\Models\Duel::DAILY_RESOLVED_LIMIT }}/dia
+                    · Vitória +{{ \App\Models\Duel::GLORY_WIN }} Glória · Derrota +{{ \App\Models\Duel::GLORY_LOSS }}
+                    · Espera {{ $class->arenaCooldownLabel() }}
+                    · Limite {{ $class->arenaDailyLimit() }}/dia
                 </p>
             </div>
             @if($class->isArenaOpen())
@@ -824,6 +826,38 @@
                 </form>
             @endif
         </div>
+
+        <form method="POST" action="{{ route('teacher.arena.update', $class) }}" class="game-card p-5 space-y-4">
+            @csrf
+            @method('PUT')
+            <input type="hidden" name="tab" value="arena">
+            <div>
+                <h3 class="font-display text-lg text-amber-200">Configurações da arena</h3>
+                <p class="text-sm text-amber-100/60 mt-1">Defina se a arena está aberta, o intervalo entre desafios e o limite diário de batalhas.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4">
+                <label class="block">
+                    <span class="text-sm">Estado</span>
+                    <select class="game-select mt-1 w-full" name="arena_open" required>
+                        <option value="1" @selected((string) old('arena_open', $class->isArenaOpen() ? '1' : '0') === '1')>Aberta</option>
+                        <option value="0" @selected((string) old('arena_open', $class->isArenaOpen() ? '1' : '0') === '0')>Fechada</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="text-sm">Espera entre batalhas (minutos)</span>
+                    <input class="game-input mt-1 w-full" type="number" name="arena_cooldown_minutes" min="0" max="10080" required
+                        value="{{ old('arena_cooldown_minutes', $class->arenaCooldownMinutes()) }}">
+                    <span class="block text-xs text-amber-100/50 mt-1">0 = sem espera. Ex.: 30 para meia hora, 120 para 2 horas.</span>
+                </label>
+                <label class="block">
+                    <span class="text-sm">Batalhas permitidas no dia</span>
+                    <input class="game-input mt-1 w-full" type="number" name="arena_daily_limit" min="1" max="50" required
+                        value="{{ old('arena_daily_limit', $class->arenaDailyLimit()) }}">
+                    <span class="block text-xs text-amber-100/50 mt-1">Cada aluno pode concluir no máximo esse número de duelos por dia.</span>
+                </label>
+            </div>
+            <button class="game-btn" type="submit">Salvar configurações</button>
+        </form>
 
         <div class="grid lg:grid-cols-2 gap-4">
             <div class="game-card p-5">
@@ -878,6 +912,8 @@
                 <p class="text-sm text-purple-200/60">Sem duelos resolvidos.</p>
             @endforelse
         </div>
+
+        @include('partials.combat-rules')
     </div>
 </div>
 @endsection

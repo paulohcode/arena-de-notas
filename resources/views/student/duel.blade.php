@@ -45,7 +45,16 @@
         'viewerId' => (int) $student->id,
         'gloryWin' => (int) $duel->glory_winner,
         'gloryLoss' => (int) $duel->glory_loser,
+        'winnerReason' => (string) ($log['winner_reason'] ?? 'hp'),
     ] : null;
+
+    $winnerReasonLabel = match ($log['winner_reason'] ?? null) {
+        'ko' => 'O rival ficou sem vida.',
+        'hp' => 'O tempo acabou: mais HP restante.',
+        'spd' => 'Empate de HP: mais velocidade.',
+        'spd_tie' => 'Empate total: o desafiante venceu.',
+        default => null,
+    };
 @endphp
 
 @section('content')
@@ -143,6 +152,7 @@
                     <p class="text-[10px] text-amber-100/40 mt-2">
                         ATK <span x-text="left.atk"></span> · DEF <span x-text="left.def"></span> · SPD <span x-text="left.spd"></span>
                     </p>
+                    @include('partials.combat-breakdown', ['breakdown' => $challengerSnap['breakdown'] ?? []])
                 </div>
 
                 <div class="relative self-center w-16 md:w-28 h-24 md:h-32 flex items-center justify-center">
@@ -194,6 +204,7 @@
                     <p class="text-[10px] text-amber-100/40 mt-2">
                         ATK <span x-text="right.atk"></span> · DEF <span x-text="right.def"></span> · SPD <span x-text="right.spd"></span>
                     </p>
+                    @include('partials.combat-breakdown', ['breakdown' => $opponentSnap['breakdown'] ?? []])
                 </div>
             </div>
 
@@ -203,6 +214,10 @@
                 <p class="text-sm font-semibold" x-show="finished" x-cloak :class="iWon ? 'text-emerald-300' : 'text-rose-300'" x-text="resultLine"></p>
             </div>
         </div>
+
+        @if($winnerReasonLabel)
+            <p class="text-sm text-amber-100/60 -mt-2">Critério: {{ $winnerReasonLabel }} Poder do desafiante {{ number_format((float) ($challengerSnap['power'] ?? 0), 2) }} × poder do oponente {{ number_format((float) ($opponentSnap['power'] ?? 0), 2) }}.</p>
+        @endif
 
         <div class="game-card p-5">
             <h2 class="font-display text-xl text-amber-200 mb-3">Histórico de danos</h2>
@@ -220,6 +235,10 @@
                 </template>
                 <p class="text-sm text-purple-200/50 py-2" x-show="log.length === 0">O combate vai começar…</p>
             </div>
+        </div>
+
+        <div class="reveal">
+            @include('partials.combat-rules')
         </div>
 
         <div

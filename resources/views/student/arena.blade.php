@@ -68,8 +68,12 @@
 
         <div class="mb-4 rounded-lg border border-amber-400/25 bg-amber-950/20 p-3 text-xs text-amber-100/75 space-y-1">
             <p>A mesma pessoa só pode ser desafiada <strong class="text-amber-200">uma vez por dia</strong>.</p>
-            <p>Espere <strong class="text-amber-200">{{ $cooldownHours }} horas</strong> entre um desafio e outro.</p>
-            <p>Limite de <strong class="text-amber-200">{{ $dailyLimit }} duelos resolvidos</strong> por dia.</p>
+            @if($cooldownMinutes > 0)
+                <p>Espere <strong class="text-amber-200">{{ $cooldownLabel }}</strong> entre um desafio e outro.</p>
+            @else
+                <p>Não há espera entre um desafio e outro.</p>
+            @endif
+            <p>Limite de <strong class="text-amber-200">{{ $dailyLimit }} {{ $dailyLimit === 1 ? 'duelo resolvido' : 'duelos resolvidos' }}</strong> por dia.</p>
         </div>
 
         @forelse($opponents as $peer)
@@ -147,5 +151,9 @@
             @endforelse
         </div>
     </div>
+</div>
+
+<div class="mb-8 reveal">
+    @include('partials.combat-rules')
 </div>
 @endsection

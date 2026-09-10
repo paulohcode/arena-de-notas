@@ -109,6 +109,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
 
     Route::post('/turmas/{schoolClass}/arena/abrir', [TeacherArenaController::class, 'open'])->name('arena.open');
     Route::post('/turmas/{schoolClass}/arena/fechar', [TeacherArenaController::class, 'close'])->name('arena.close');
+    Route::put('/turmas/{schoolClass}/arena', [TeacherArenaController::class, 'update'])->name('arena.update');
 
     Route::get('/turmas/{schoolClass}/loja', [TeacherShopController::class, 'show'])->name('shop.show');
     Route::post('/turmas/{schoolClass}/loja/estoque', [TeacherShopController::class, 'restock'])->name('shop.restock');

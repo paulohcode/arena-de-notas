@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Enrollment;
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Support\CosmeticCatalog;
 use App\Support\SeededRandom;
 use InvalidArgumentException;
 
@@ -12,11 +14,39 @@ class ArenaCombatService
     public const MAX_TURNS = 12;
 
     /**
-     * Multiplicadores de poder por nível acadêmico.
+     * Peso máximo da média acadêmica no poder (provas, comportamento).
+     */
+    public const GRADE_WEIGHT = 0.30;
+
+    /**
+     * Peso máximo da frequência no poder. Não entra na média da prova.
+     */
+    public const ATTENDANCE_WEIGHT = 0.08;
+
+    /**
+     * Peso máximo da nota da guilda no poder. Não entra na média da prova.
+     */
+    public const TEAM_WEIGHT = 0.10;
+
+    /**
+     * Atributos base iguais para todos os lutadores. A classe de personagem é só visual.
+     */
+    public const BASE_HP = 100;
+
+    public const BASE_ATK = 18;
+
+    public const BASE_DEF = 12;
+
+    public const BASE_SPD = 10;
+
+    public const BASE_HEAL_CHANCE = 0.10;
+
+    /**
+     * Multiplicadores de poder por nível acadêmico (XP).
      *
      * @var array<string, float>
      */
-    private const LEVEL_POWER = [
+    public const LEVEL_POWER = [
         'iniciante' => 1.0,
         'aprendiz' => 1.12,
         'pleno' => 1.25,
@@ -27,10 +57,43 @@ class ArenaCombatService
     public function __construct(private GradeCalculator $grades) {}
 
     /**
+     * @return array{
+     *     max_turns: int,
+     *     grade_weight: float,
+     *     attendance_weight: float,
+     *     team_weight: float,
+     *     gear_cap: float,
+     *     level_power: array<string, float>,
+     *     gear_by_rarity: array<string, float>,
+     *     base_hp: int,
+     *     base_atk: int,
+     *     base_def: int,
+     *     base_spd: int
+     * }
+     */
+    public static function rulebook(): array
+    {
+        return [
+            'max_turns' => self::MAX_TURNS,
+            'grade_weight' => self::GRADE_WEIGHT,
+            'attendance_weight' => self::ATTENDANCE_WEIGHT,
+            'team_weight' => self::TEAM_WEIGHT,
+            'gear_cap' => CosmeticCatalog::COMBAT_BONUS_CAP,
+            'level_power' => self::LEVEL_POWER,
+            'gear_by_rarity' => CosmeticCatalog::COMBAT_BONUS_BY_RARITY,
+            'base_hp' => self::BASE_HP,
+            'base_atk' => self::BASE_ATK,
+            'base_def' => self::BASE_DEF,
+            'base_spd' => self::BASE_SPD,
+        ];
+    }
+
+    /**
      * Resolve um duelo de forma determinística a partir da semente.
      *
      * @return array{
      *     winner_id: int,
+     *     winner_reason: string,
      *     turns: list<array{turn: int, actor_id: int, action: string, amount: int, actor_hp: int, target_hp: int, text: string}>,
      *     fighters: array{challenger: array<string, mixed>, opponent: array<string, mixed>}
      * }
@@ -78,10 +141,11 @@ class ArenaCombatService
             }
         }
 
-        $winnerId = $this->decideWinner($fighters, $challenger->id, $opponent->id);
+        [$winnerId, $winnerReason] = $this->decideWinner($fighters, $challenger->id, $opponent->id);
 
         return [
             'winner_id' => $winnerId,
+            'winner_reason' => $winnerReason,
             'turns' => $turns,
             'fighters' => [
                 'challenger' => $this->publicFighterSnapshot($challengerFighter, $fighters['challenger']['hp']),
@@ -91,7 +155,20 @@ class ArenaCombatService
     }
 
     /**
-     * @return array{id: int, name: string, arena_name: ?string, class: string, max_hp: int, hp: int, atk: int, def: int, spd: int, heal_chance: float, power: float}
+     * @return array{
+     *     id: int,
+     *     name: string,
+     *     arena_name: ?string,
+     *     class: string,
+     *     max_hp: int,
+     *     hp: int,
+     *     atk: int,
+     *     def: int,
+     *     spd: int,
+     *     heal_chance: float,
+     *     power: float,
+     *     breakdown: array<string, mixed>
+     * }
      */
     public function buildFighter(User $student, SchoolClass $class): array
     {
@@ -103,13 +180,22 @@ class ArenaCombatService
         $enrollment = $student->enrollmentIn($class);
         $xp = (int) ($enrollment?->xp ?? 0);
         $level = $this->grades->levelFromXp($xp);
-        $average = $this->grades->studentAverage($student, $class);
-        $power = $this->powerMultiplier($level['key'], $average);
+        $academic = $this->grades->combatAcademicAverage($student, $class);
+        $attendanceScore = $this->grades->hasGradedAttendance($class)
+            ? $this->grades->attendanceScore($student, $class)
+            : 0.0;
+        $teamScore = $this->grades->combatTeamScore($student, $class);
+        $gear = CosmeticCatalog::equippedCombatBonus($enrollment ?? new Enrollment);
+        $power = $this->powerMultiplier($level['key'], $academic, $attendanceScore, $teamScore, $gear['bonus']);
 
-        $maxHp = max(1, (int) round($meta['hp'] * $power));
-        $atk = max(1, (int) round($meta['atk'] * $power));
-        $def = max(0, (int) round($meta['def'] * $power));
-        $spd = max(1, (int) round($meta['spd'] * $power));
+        $maxHp = max(1, (int) round(self::BASE_HP * $power));
+        $atk = max(1, (int) round(self::BASE_ATK * $power));
+        $def = max(0, (int) round(self::BASE_DEF * $power));
+        $spd = max(1, (int) round(self::BASE_SPD * $power));
+
+        $gradeBonus = $this->gradeBonus($academic);
+        $attendanceBonus = $this->attendanceBonus($attendanceScore);
+        $teamBonus = $this->teamBonus($teamScore);
 
         return [
             'id' => $student->id,
@@ -121,17 +207,46 @@ class ArenaCombatService
             'atk' => $atk,
             'def' => $def,
             'spd' => $spd,
-            'heal_chance' => (float) $meta['heal_chance'],
+            'heal_chance' => self::BASE_HEAL_CHANCE,
             'power' => round($power, 3),
+            'breakdown' => [
+                'level_name' => $level['name'],
+                'level_mult' => self::LEVEL_POWER[$level['key']] ?? 1.0,
+                'grade' => $academic,
+                'grade_bonus' => $gradeBonus,
+                'attendance' => $attendanceScore,
+                'attendance_bonus' => $attendanceBonus,
+                'team' => $teamScore,
+                'team_bonus' => $teamBonus,
+                'gear_bonus' => $gear['bonus'],
+                'gear_items' => $gear['items'],
+            ],
         ];
     }
 
-    private function powerMultiplier(string $levelKey, float $average): float
+    private function powerMultiplier(string $levelKey, float $academic, float $attendanceScore, float $teamScore, float $gearBonus): float
     {
         $levelPower = self::LEVEL_POWER[$levelKey] ?? 1.0;
-        $gradeBonus = 1 + (max(0, min(100, $average)) / 100) * 0.3;
 
-        return round($levelPower * $gradeBonus, 4);
+        return round(
+            $levelPower * (1 + $this->gradeBonus($academic) + $this->attendanceBonus($attendanceScore) + $this->teamBonus($teamScore) + $gearBonus),
+            4,
+        );
+    }
+
+    private function gradeBonus(float $academic): float
+    {
+        return (max(0, min(100, $academic)) / 100) * self::GRADE_WEIGHT;
+    }
+
+    private function attendanceBonus(float $attendanceScore): float
+    {
+        return (max(0, min(100, $attendanceScore)) / 100) * self::ATTENDANCE_WEIGHT;
+    }
+
+    private function teamBonus(float $teamScore): float
+    {
+        return (max(0, min(100, $teamScore)) / 100) * self::TEAM_WEIGHT;
     }
 
     /**
@@ -176,32 +291,37 @@ class ArenaCombatService
     }
 
     /**
-     * @param  array{challenger: array{id: int, hp: int}, opponent: array{id: int, hp: int}}  $fighters
+     * @param  array{challenger: array{id: int, hp: int, spd: int}, opponent: array{id: int, hp: int, spd: int}}  $fighters
+     * @return array{0: int, 1: string}
      */
-    private function decideWinner(array $fighters, int $challengerId, int $opponentId): int
+    private function decideWinner(array $fighters, int $challengerId, int $opponentId): array
     {
         if ($fighters['challenger']['hp'] <= 0 && $fighters['opponent']['hp'] > 0) {
-            return $opponentId;
+            return [$opponentId, 'ko'];
         }
 
         if ($fighters['opponent']['hp'] <= 0 && $fighters['challenger']['hp'] > 0) {
-            return $challengerId;
+            return [$challengerId, 'ko'];
         }
 
         if ($fighters['challenger']['hp'] === $fighters['opponent']['hp']) {
-            return $fighters['challenger']['spd'] >= $fighters['opponent']['spd']
-                ? $challengerId
-                : $opponentId;
+            if ($fighters['challenger']['spd'] === $fighters['opponent']['spd']) {
+                return [$challengerId, 'spd_tie'];
+            }
+
+            return $fighters['challenger']['spd'] > $fighters['opponent']['spd']
+                ? [$challengerId, 'spd']
+                : [$opponentId, 'spd'];
         }
 
         return $fighters['challenger']['hp'] > $fighters['opponent']['hp']
-            ? $challengerId
-            : $opponentId;
+            ? [$challengerId, 'hp']
+            : [$opponentId, 'hp'];
     }
 
     /**
-     * @param  array{id: int, name: string, arena_name: ?string, class: string, max_hp: int, atk: int, def: int, spd: int, power: float}  $start
-     * @return array{id: int, name: string, arena_name: ?string, class: string, max_hp: int, hp: int, atk: int, def: int, spd: int, power: float}
+     * @param  array<string, mixed>  $start
+     * @return array<string, mixed>
      */
     private function publicFighterSnapshot(array $start, int $finalHp): array
     {
@@ -216,6 +336,7 @@ class ArenaCombatService
             'def' => $start['def'],
             'spd' => $start['spd'],
             'power' => $start['power'],
+            'breakdown' => $start['breakdown'],
         ];
     }
 }
