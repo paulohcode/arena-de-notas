@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceSession;
 use App\Models\Duel;
 use App\Models\LedgerEntry;
+use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Models\Team;
 use App\Models\User;
@@ -131,6 +132,34 @@ class DashboardController extends Controller
             ->limit(20)
             ->get();
 
+        $pendingRealmDuels = collect();
+        $recentRealmDuels = collect();
+
+        if ($schoolClass->area_id) {
+            $pendingRealmDuels = RealmDuel::query()
+                ->with(['challenger', 'opponent', 'challengerClass', 'opponentClass'])
+                ->where('area_id', $schoolClass->area_id)
+                ->where('status', RealmDuel::STATUS_PENDING)
+                ->where(function ($query) use ($schoolClass) {
+                    $query->where('challenger_class_id', $schoolClass->id)
+                        ->orWhere('opponent_class_id', $schoolClass->id);
+                })
+                ->latest()
+                ->get();
+
+            $recentRealmDuels = RealmDuel::query()
+                ->with(['challenger', 'opponent', 'winner', 'challengerClass', 'opponentClass'])
+                ->where('area_id', $schoolClass->area_id)
+                ->whereIn('status', [RealmDuel::STATUS_RESOLVED, RealmDuel::STATUS_DECLINED])
+                ->where(function ($query) use ($schoolClass) {
+                    $query->where('challenger_class_id', $schoolClass->id)
+                        ->orWhere('opponent_class_id', $schoolClass->id);
+                })
+                ->latest('resolved_at')
+                ->limit(20)
+                ->get();
+        }
+
         $attendanceSessions = AttendanceSession::query()
             ->with(['records'])
             ->where('class_id', $schoolClass->id)
@@ -167,6 +196,8 @@ class DashboardController extends Controller
             'pendingPersonas' => $pendingPersonas,
             'pendingDuels' => $pendingDuels,
             'recentDuels' => $recentDuels,
+            'pendingRealmDuels' => $pendingRealmDuels,
+            'recentRealmDuels' => $recentRealmDuels,
             'arenaHall' => $this->duels->hall($schoolClass),
             'attendanceSessions' => $attendanceSessions,
             'activeAttendanceSession' => $activeAttendanceSession,

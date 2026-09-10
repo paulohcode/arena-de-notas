@@ -3,14 +3,20 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Services\DuelService;
+use App\Services\RealmDuelService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ArenaController extends Controller
 {
-    public function __construct(private DuelService $duels) {}
+    public function __construct(
+        private DuelService $duels,
+        private RealmDuelService $realmDuels,
+    ) {}
 
     public function open(Request $request, SchoolClass $schoolClass): RedirectResponse
     {
@@ -58,10 +64,30 @@ class ArenaController extends Controller
         return $this->redirectToArena($schoolClass, 'Configurações da arena salvas.');
     }
 
-    private function redirectToArena(SchoolClass $schoolClass, string $message): RedirectResponse
+    public function cancelRealm(Request $request, SchoolClass $schoolClass, RealmDuel $realmDuel): RedirectResponse
     {
-        return redirect()
-            ->route('teacher.classes.show', ['schoolClass' => $schoolClass, 'tab' => 'arena'])
-            ->with('success', $message);
+        $this->authorize('manage', $schoolClass);
+
+        abort_unless(
+            (int) $realmDuel->challenger_class_id === (int) $schoolClass->id
+            || (int) $realmDuel->opponent_class_id === (int) $schoolClass->id,
+            404,
+        );
+
+        try {
+            $this->realmDuels->staffCancel($realmDuel);
+        } catch (ValidationException $exception) {
+            return $this->redirectToArena($schoolClass)->withErrors($exception->errors());
+        }
+
+        return $this->redirectToArena($schoolClass, 'Desafio entre turmas cancelado.');
+    }
+
+    private function redirectToArena(SchoolClass $schoolClass, ?string $message = null): RedirectResponse
+    {
+        $response = redirect()
+            ->route('teacher.classes.show', ['schoolClass' => $schoolClass, 'tab' => 'arena']);
+
+        return $message ? $response->with('success', $message) : $response;
     }
 }

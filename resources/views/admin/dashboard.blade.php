@@ -40,7 +40,10 @@
         @forelse($areas as $area)
             <div class="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-amber-500/10 last:border-0">
                 <span>{{ $area->emblemIcon() }} {{ $area->name }} @unless($area->is_active)<span class="text-rose-300 text-xs">(inativo)</span>@endunless</span>
-                <span class="text-sm text-amber-100/55">{{ $area->teachers_count }} prof. · {{ $area->classes_count }} turmas</span>
+                <div class="flex flex-wrap items-center gap-3 text-sm">
+                    <span class="text-amber-100/55">{{ $area->teachers_count }} prof. · {{ $area->classes_count }} turmas</span>
+                    <a href="{{ route('admin.areas.arena', $area) }}" class="text-violet-300 hover:text-violet-200 underline">Arena</a>
+                </div>
             </div>
         @empty
             <p class="text-amber-100/60">Nenhum reino cadastrado.</p>

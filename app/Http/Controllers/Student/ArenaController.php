@@ -36,6 +36,7 @@ class ArenaController extends Controller
 
         $student = $request->user();
         $this->authorize('viewAsStudent', $class);
+        $class->loadMissing('area');
 
         $opponents = $class->students()
             ->where('users.id', '!=', $student->id)

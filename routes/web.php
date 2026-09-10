@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AreaController as AdminAreaController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\RealmArenaController as AdminRealmArenaController;
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\TeacherController as AdminTeacherController;
 use App\Http\Controllers\AreaController;
@@ -57,6 +58,8 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
     Route::put('/reinos/{area}', [AdminAreaController::class, 'update'])->name('areas.update');
     Route::patch('/reinos/{area}/posicao', [AdminAreaController::class, 'position'])->name('areas.position');
     Route::delete('/reinos/{area}', [AdminAreaController::class, 'destroy'])->name('areas.destroy');
+    Route::get('/reinos/{area}/arena', [AdminRealmArenaController::class, 'show'])->name('areas.arena');
+    Route::post('/reinos/{area}/arena/duelos/{realmDuel}/cancelar', [AdminRealmArenaController::class, 'cancel'])->name('areas.arena.cancel');
 
     Route::get('/professores', [AdminTeacherController::class, 'index'])->name('teachers.index');
     Route::get('/professores/novo', [AdminTeacherController::class, 'create'])->name('teachers.create');
@@ -111,6 +114,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::post('/turmas/{schoolClass}/arena/abrir', [TeacherArenaController::class, 'open'])->name('arena.open');
     Route::post('/turmas/{schoolClass}/arena/fechar', [TeacherArenaController::class, 'close'])->name('arena.close');
     Route::put('/turmas/{schoolClass}/arena', [TeacherArenaController::class, 'update'])->name('arena.update');
+    Route::post('/turmas/{schoolClass}/arena/reino/{realmDuel}/cancelar', [TeacherArenaController::class, 'cancelRealm'])->name('arena.realm.cancel');
 
     Route::get('/turmas/{schoolClass}/loja', [TeacherShopController::class, 'show'])->name('shop.show');
     Route::post('/turmas/{schoolClass}/loja/itens', [TeacherShopController::class, 'store'])->name('shop.items.store');

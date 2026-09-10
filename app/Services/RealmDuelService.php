@@ -217,6 +217,47 @@ class RealmDuelService
         return $duel->fresh(['challenger', 'opponent', 'challengerClass', 'opponentClass']);
     }
 
+    /**
+     * Cancela um desafio pendente (mediação de staff). Sem premiação.
+     *
+     * @throws ValidationException
+     */
+    public function staffCancel(RealmDuel $duel): RealmDuel
+    {
+        if (! $duel->isPending()) {
+            throw ValidationException::withMessages([
+                'duel' => 'Só é possível cancelar desafios pendentes.',
+            ]);
+        }
+
+        $duel->update([
+            'status' => RealmDuel::STATUS_DECLINED,
+            'resolved_at' => now(),
+        ]);
+
+        $payload = [
+            'realm_duel_id' => $duel->id,
+            'area_id' => $duel->area_id,
+            'url' => ArenaUrl::route('student.arena.index'),
+        ];
+
+        $duel->challenger->notify(new GameAlert(
+            'realm_duel_declined',
+            'Desafio do reino cancelado',
+            'Um mediador cancelou o duelo por Aura. Sem punição.',
+            $payload,
+        ));
+
+        $duel->opponent->notify(new GameAlert(
+            'realm_duel_declined',
+            'Desafio do reino cancelado',
+            'Um mediador cancelou o duelo por Aura. Sem punição.',
+            $payload,
+        ));
+
+        return $duel->fresh(['challenger', 'opponent', 'challengerClass', 'opponentClass']);
+    }
+
     public function challengeRestriction(Area $area, User $challenger, User $opponent): ?string
     {
         return $this->pendingBetweenReason($area, $challenger, $opponent)

@@ -918,6 +918,62 @@
             @endforelse
         </div>
 
+        @if($class->area_id)
+            <div class="grid lg:grid-cols-2 gap-4">
+                <div class="game-card p-5 border-violet-400/15">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <h3 class="font-display text-lg text-violet-200">Desafios entre turmas pendentes</h3>
+                        @if(auth()->user()?->isAdmin() && $class->area)
+                            <a href="{{ route('admin.areas.arena', $class->area) }}" class="text-xs text-violet-300 underline">Ver reino inteiro</a>
+                        @endif
+                    </div>
+                    @forelse($pendingRealmDuels as $duel)
+                        <div class="flex flex-wrap items-start justify-between gap-3 py-2 border-b border-purple-900/40 text-sm">
+                            <p>
+                                {{ $duel->challenger->arenaName() ?: $duel->challenger->name }}
+                                <span class="text-amber-100/45">({{ $duel->challengerClass->name }})</span>
+                                →
+                                {{ $duel->opponent->arenaName() ?: $duel->opponent->name }}
+                                <span class="text-amber-100/45">({{ $duel->opponentClass->name }})</span>
+                            </p>
+                            <form method="POST" action="{{ route('teacher.arena.realm.cancel', [$class, $duel]) }}"
+                                onsubmit="return confirm('Cancelar este desafio pendente?')">
+                                @csrf
+                                <button type="submit" class="game-btn-ghost !py-1 !px-3 text-xs text-rose-300">Cancelar</button>
+                            </form>
+                        </div>
+                    @empty
+                        <p class="text-sm text-purple-200/60">Nenhum desafio entre turmas pendente.</p>
+                    @endforelse
+                </div>
+
+                <div class="game-card p-5 border-violet-400/15">
+                    <h3 class="font-display text-lg text-violet-200 mb-3">Histórico entre turmas</h3>
+                    @forelse($recentRealmDuels as $duel)
+                        <div class="flex flex-wrap justify-between gap-2 py-2 border-b border-purple-900/40 text-sm">
+                            <span>
+                                {{ $duel->challenger->arenaName() ?: $duel->challenger->name }}
+                                <span class="text-amber-100/40">({{ $duel->challengerClass->name }})</span>
+                                vs
+                                {{ $duel->opponent->arenaName() ?: $duel->opponent->name }}
+                                <span class="text-amber-100/40">({{ $duel->opponentClass->name }})</span>
+                            </span>
+                            @if($duel->isResolved())
+                                <span class="text-emerald-300">
+                                    Venceu: {{ $duel->winner?->arenaName() ?: $duel->winner?->name }}
+                                    · +{{ $duel->aura_winner }}/+{{ $duel->aura_loser }} Aura
+                                </span>
+                            @else
+                                <span class="text-rose-300/80">Cancelado / recusado</span>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="text-sm text-purple-200/60">Sem duelos entre turmas ainda.</p>
+                    @endforelse
+                </div>
+            </div>
+        @endif
+
         @include('partials.combat-rules', ['detailed' => true])
     </div>
 </div>

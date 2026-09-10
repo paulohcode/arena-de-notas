@@ -23,6 +23,7 @@
                 </p>
             </div>
             <div class="flex gap-2">
+                <a href="{{ route('admin.areas.arena', $area) }}" class="game-btn text-sm">Arena do reino</a>
                 <a href="{{ route('admin.areas.edit', $area) }}" class="game-btn-ghost text-sm">Editar</a>
                 <form method="POST" action="{{ route('admin.areas.destroy', $area) }}" onsubmit="return confirm('Excluir este reino?')">
                     @csrf @method('DELETE')
