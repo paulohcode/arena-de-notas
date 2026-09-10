@@ -113,6 +113,176 @@ class AdminShopTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_unauthenticated_item_create_redirects_to_login(): void
+    {
+        $this->post(route('admin.shop.items.store'), $this->itemPayload())
+            ->assertRedirectToRoute('login');
+    }
+
+    public function test_teacher_cannot_create_item_on_admin_shop(): void
+    {
+        $teacher = User::factory()->create([
+            'role' => 'teacher',
+            'must_change_password' => false,
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('admin.shop.items.store'), $this->itemPayload())
+            ->assertRedirect(route('teacher.dashboard'));
+
+        $this->assertDatabaseCount('shop_items', 0);
+    }
+
+    public function test_student_cannot_create_item_on_admin_shop(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Souza');
+
+        $this->actingAs($student)
+            ->post(route('admin.shop.items.store'), $this->itemPayload())
+            ->assertRedirect(route('student.dashboard'));
+
+        $this->assertDatabaseCount('shop_items', 0);
+    }
+
+    public function test_admin_creates_global_item_available_in_class_shops(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher, ['name' => 'Turma Loja']);
+        $student = $this->enrollStudent($class, 'Ana Souza', relics: 100);
+
+        $this->actingAs($admin)
+            ->post(route('admin.shop.items.store'), $this->itemPayload([
+                'name' => 'Capa da Aurora',
+                'stock' => 2,
+            ]))
+            ->assertRedirect(route('admin.shop.index'))
+            ->assertSessionHas('success', 'Capa da Aurora criado e disponível em todas as turmas.');
+
+        $item = \App\Models\ShopItem::query()->firstOrFail();
+        $this->assertNull($item->class_id);
+        $this->assertSame('Capa da Aurora', $item->name);
+        $this->assertSame(2, (int) ClassCosmeticStock::query()
+            ->where('class_id', $class->id)
+            ->where('item_key', $item->item_key)
+            ->value('quantity'));
+
+        $this->actingAs($admin)
+            ->get(route('admin.shop.index'))
+            ->assertOk()
+            ->assertSee('Capa da Aurora')
+            ->assertSee('todas as turmas');
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.shop.show', $class))
+            ->assertOk()
+            ->assertSee('Capa da Aurora');
+
+        $this->actingAs($student)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertSee('Capa da Aurora');
+    }
+
+    public function test_empty_item_payload_returns_required_messages(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.shop.index'))
+            ->post(route('admin.shop.items.store'), [])
+            ->assertRedirect()
+            ->assertSessionHasErrors([
+                'name' => 'Informe o nome do item.',
+                'slot' => 'Escolha o tipo do item.',
+                'price' => 'Informe o preço do item.',
+                'currency' => 'Escolha a moeda do item.',
+                'rarity' => 'Escolha a raridade do item.',
+                'icon' => 'Informe um ícone para o item.',
+            ]);
+
+        $this->assertDatabaseCount('shop_items', 0);
+    }
+
+    public function test_teacher_creates_item_only_for_own_class(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher, ['name' => 'Turma Prof']);
+        $otherTeacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $otherClass = $this->createClassForTeacher($otherTeacher, ['name' => 'Outra Turma']);
+        $student = $this->enrollStudent($class, 'Ana Souza', relics: 80);
+        $otherStudent = $this->enrollStudent($otherClass, 'Bruno Lima', relics: 80);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.shop.items.store', $class), $this->itemPayload([
+                'name' => 'Estrela da Turma',
+                'price' => 20,
+                'stock' => 1,
+            ]))
+            ->assertRedirect(route('teacher.shop.show', $class))
+            ->assertSessionHas('success', 'Estrela da Turma cadastrado na loja desta turma.');
+
+        $item = \App\Models\ShopItem::query()->firstOrFail();
+        $this->assertSame($class->id, $item->class_id);
+
+        $this->actingAs($student)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertSee('Estrela da Turma');
+
+        $this->actingAs($otherStudent)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertDontSee('Estrela da Turma');
+
+        $this->actingAs($student)
+            ->post(route('student.shop.purchase'), ['item' => $item->item_key])
+            ->assertRedirect(route('student.shop.index'))
+            ->assertSessionHas('success');
+
+        $this->assertTrue($student->enrollmentIn($class)->ownsCosmetic($item->item_key));
+    }
+
+    public function test_another_teacher_cannot_create_item_for_the_class(): void
+    {
+        $owner = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($owner);
+        $otherTeacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+
+        $this->actingAs($otherTeacher)
+            ->post(route('teacher.shop.items.store', $class), $this->itemPayload())
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('shop_items', 0);
+    }
+
+    public function test_escapes_dangerous_custom_item_name(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Souza', relics: 100);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.shop.items.store', $class), $this->itemPayload([
+                'name' => "<script>alert('xss')</script>",
+            ]))
+            ->assertRedirect(route('teacher.shop.show', $class));
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.shop.show', $class))
+            ->assertOk()
+            ->assertSee('&lt;script&gt;alert(&#039;xss&#039;)&lt;/script&gt;', false)
+            ->assertDontSee("<script>alert('xss')</script>", false);
+
+        $this->actingAs($student)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertSee('&lt;script&gt;alert(&#039;xss&#039;)&lt;/script&gt;', false)
+            ->assertDontSee("<script>alert('xss')</script>", false);
+    }
+
     public function test_escapes_dangerous_owner_name_on_staff_shop(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
@@ -177,5 +347,23 @@ class AdminShopTest extends TestCase
         ]);
 
         return $student->fresh();
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function itemPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'name' => 'Capa da Turma',
+            'slot' => CosmeticCatalog::SLOT_ACCESSORY,
+            'price' => 45,
+            'currency' => CosmeticCatalog::CURRENCY_RELICS,
+            'rarity' => 'uncommon',
+            'icon' => '🧣',
+            'css' => 'ember',
+            'stock' => 1,
+        ], $overrides);
     }
 }
