@@ -183,6 +183,9 @@ class ArenaDuelTest extends TestCase
             ->assertSee('Campo de combate')
             ->assertSee('Histórico de danos')
             ->assertSee('Vencedor da arena')
+            ->assertSee('Som da arena')
+            ->assertSee('#ea580c')
+            ->assertSee('#7c3aed')
             ->assertDontSee('Poder do desafiante')
             ->assertDontSee('até +30%');
     }

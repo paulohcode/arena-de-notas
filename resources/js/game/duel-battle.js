@@ -1,3 +1,5 @@
+import { playArenaSound, unlockArenaAudio } from './sound';
+
 export function duelBattle(payload) {
     return {
         left: { ...payload.left, hp: payload.left.maxHp, hit: false, healed: false, striking: false },
@@ -74,16 +76,35 @@ export function duelBattle(payload) {
             return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         },
 
+        cssTone(value) {
+            return /^#[0-9a-fA-F]{6}$/.test(value || '') ? value : '#f5c56b';
+        },
+
+        fxClass(classKey) {
+            return /^[a-z0-9_]+$/.test(classKey || '') ? ` duel-fx--${classKey}` : '';
+        },
+
+        actorTone(actor) {
+            return this.cssTone(actor.classTone || actor.tone);
+        },
+
         start() {
             if (this.playing) {
                 return;
             }
 
             this.playing = true;
+            unlockArenaAudio();
             setTimeout(() => this.tick(), 800);
         },
 
         skip() {
+            if (this.finished) {
+                return;
+            }
+
+            this.playing = false;
+
             while (this.index < this.turns.length) {
                 this.applyTurn(this.turns[this.index], false);
                 this.index += 1;
@@ -139,8 +160,16 @@ export function duelBattle(payload) {
         },
 
         playAttack(fromLeft, amount, isKo) {
+            const actor = fromLeft ? this.left : this.right;
+            const target = fromLeft ? this.right : this.left;
+            const classKey = actor.classKey || '';
+            const heavy = amount >= 16;
+
             if (this.prefersReducedMotion()) {
-                const target = fromLeft ? this.right : this.left;
+                playArenaSound(heavy ? 'heavy' : 'hit', classKey);
+                if (isKo) {
+                    playArenaSound('ko');
+                }
                 target.hit = true;
                 setTimeout(() => {
                     target.hit = false;
@@ -149,27 +178,34 @@ export function duelBattle(payload) {
                 return;
             }
 
-            const actor = fromLeft ? this.left : this.right;
-            const target = fromLeft ? this.right : this.left;
             const dir = fromLeft ? 'right' : 'left';
             const impactSide = fromLeft ? 'right' : 'left';
-            const heavy = amount >= 16;
+            const tone = this.actorTone(actor);
+            const slashClass = `duel-slash duel-slash--${dir}${heavy ? ' duel-slash--heavy' : ''}${this.fxClass(classKey)}`;
 
             actor.striking = true;
-            this.spawnEffect(`duel-slash duel-slash--${dir}${heavy ? ' duel-slash--heavy' : ''}`, 700);
+            playArenaSound('whoosh', classKey);
+            this.spawnEffect(slashClass, 700, tone);
+
             if (heavy) {
                 setTimeout(() => {
-                    this.spawnEffect(`duel-slash duel-slash--${dir} duel-slash--follow`, 650);
+                    this.spawnEffect(`duel-slash duel-slash--${dir} duel-slash--follow${this.fxClass(classKey)}`, 650, tone);
                 }, 80);
             }
 
             setTimeout(() => {
                 actor.striking = false;
-                this.spawnEffect(`duel-impact duel-impact--${impactSide}${heavy ? ' duel-impact--heavy' : ''}`, 750);
-                this.spawnEffect(`duel-shock duel-shock--${impactSide}`, 650);
-                this.spawnFloat(impactSide, 'dmg', `-${amount}`, heavy);
+                playArenaSound(heavy ? 'heavy' : 'hit', classKey);
+                this.spawnEffect(`duel-impact duel-impact--${impactSide}${heavy ? ' duel-impact--heavy' : ''}${this.fxClass(classKey)}`, 750, tone);
+                this.spawnEffect(`duel-shock duel-shock--${impactSide}${this.fxClass(classKey)}`, 650, tone);
+                this.spawnFloat(impactSide, 'dmg', `-${amount}`, heavy, tone);
                 target.hit = true;
                 this.stageFlash = isKo ? 'ko' : (heavy ? 'heavy' : 'hit');
+
+                if (isKo) {
+                    playArenaSound('ko');
+                }
+
                 setTimeout(() => {
                     target.hit = false;
                     this.stageFlash = null;
@@ -180,37 +216,44 @@ export function duelBattle(payload) {
         playHeal(fromLeft, amount) {
             const actor = fromLeft ? this.left : this.right;
             const side = fromLeft ? 'left' : 'right';
+            const tone = this.actorTone(actor);
 
             actor.healed = true;
             this.stageFlash = 'heal';
-            this.spawnEffect(`duel-heal-burst duel-heal-burst--${side}`, 900);
-            this.spawnFloat(side, 'heal', `+${amount}`, false);
+            playArenaSound('heal', actor.classKey || '');
+            this.spawnEffect(`duel-heal-burst duel-heal-burst--${side}${this.fxClass(actor.classKey)}`, 900, tone);
+            this.spawnFloat(side, 'heal', `+${amount}`, false, tone);
             setTimeout(() => {
                 actor.healed = false;
                 this.stageFlash = null;
             }, 620);
         },
 
-        spawnEffect(className, ttl = 800) {
+        spawnEffect(className, ttl = 800, tone = null) {
             const id = ++this.effectSeq;
-            this.effects.push({ id, className });
+            this.effects.push({ id, className, tone });
             setTimeout(() => {
                 this.effects = this.effects.filter((effect) => effect.id !== id);
             }, ttl);
         },
 
-        spawnFloat(side, kind, text, heavy) {
+        spawnFloat(side, kind, text, heavy, tone = null) {
             const id = ++this.floatSeq;
-            this.floats.push({ id, side, kind, text, heavy: Boolean(heavy) });
+            this.floats.push({ id, side, kind, text, heavy: Boolean(heavy), tone });
             setTimeout(() => {
                 this.floats = this.floats.filter((item) => item.id !== id);
             }, 1100);
         },
 
         finish() {
+            if (this.finished) {
+                return;
+            }
+
             this.finished = true;
             this.playing = false;
             this.syncFinalHp();
+            playArenaSound('duel_result');
             setTimeout(() => {
                 this.victoryOpen = true;
             }, 520);

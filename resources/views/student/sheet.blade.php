@@ -65,7 +65,7 @@
                 </label>
             </form>
             <label class="flex items-center gap-2 text-sm mt-3 text-purple-200/70">
-                <input type="checkbox" data-sound-toggle> Som de level up
+                <input type="checkbox" data-sound-toggle> Som da arena
             </label>
             <a href="{{ route('student.arena.index') }}" class="game-btn !py-1 !px-3 text-sm mt-4 inline-block">Arena de batalha</a>
         @endif

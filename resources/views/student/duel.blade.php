@@ -20,6 +20,7 @@
             'classKey' => (string) ($duel->challenger->character_class ?? ''),
             'icon' => $duel->challenger->avatarIcon(),
             'tone' => $duel->challenger->avatarTone(),
+            'classTone' => $duel->challenger->characterClassTone(),
             'maxHp' => (int) $challengerSnap['max_hp'],
         ],
         'right' => [
@@ -30,6 +31,7 @@
             'classKey' => (string) ($duel->opponent->character_class ?? ''),
             'icon' => $duel->opponent->avatarIcon(),
             'tone' => $duel->opponent->avatarTone(),
+            'classTone' => $duel->opponent->characterClassTone(),
             'maxHp' => (int) $opponentSnap['max_hp'],
         ],
         'turns' => $turns,
@@ -130,7 +132,7 @@
             <div class="duel-stage__floor" aria-hidden="true"></div>
             <div class="duel-fx" aria-hidden="true">
                 <template x-for="fx in effects" :key="fx.id">
-                    <span class="duel-fx__item" :class="fx.className"></span>
+                    <span class="duel-fx__item" :class="fx.className" :style="fx.tone ? { '--duel-fx': fx.tone } : {}"></span>
                 </template>
                 <template x-for="float in floats" :key="float.id">
                     <span
@@ -142,6 +144,7 @@
                             'duel-float--dmg': float.kind === 'dmg',
                             'duel-float--heavy': float.heavy
                         }"
+                        :style="float.tone ? { '--duel-fx': float.tone } : {}"
                         x-text="float.text"
                     ></span>
                 </template>
@@ -213,8 +216,14 @@
 
             <div class="relative z-10 border-t border-amber-300/15 px-4 py-3 flex flex-wrap items-center justify-between gap-2 bg-black/20">
                 <p class="text-sm text-amber-100/70" x-text="statusLine"></p>
-                <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" x-show="!finished" @click="skip()">Pular animação</button>
-                <p class="text-sm font-semibold" x-show="finished" x-cloak :class="iWon ? 'text-emerald-300' : 'text-rose-300'" x-text="resultLine"></p>
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="flex items-center gap-2 text-sm text-amber-100/70">
+                        <input type="checkbox" data-sound-toggle>
+                        Som da arena
+                    </label>
+                    <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" x-show="!finished" @click="skip()">Pular animação</button>
+                    <p class="text-sm font-semibold" x-show="finished" x-cloak :class="iWon ? 'text-emerald-300' : 'text-rose-300'" x-text="resultLine"></p>
+                </div>
             </div>
         </div>
 

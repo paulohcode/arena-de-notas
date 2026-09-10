@@ -13,7 +13,7 @@
         <p class="text-amber-100/60 mt-1">Quem sobe, quem cai — o ranking atualiza ao vivo.</p>
     </div>
     <label class="flex items-center gap-2 text-sm text-amber-100/70 game-card px-3 py-2">
-        <input type="checkbox" data-sound-toggle> Som de level up
+        <input type="checkbox" data-sound-toggle> Som da arena
     </label>
 </div>
 

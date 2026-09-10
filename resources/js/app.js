@@ -5,6 +5,7 @@ import { startChallengePolling } from './game/duel-challenge-modal';
 import { showToast } from './game/toasts';
 import { kingdomMapEditor } from './game/map-editor';
 import { duelBattle } from './game/duel-battle';
+import { bindArenaSoundToggles, unlockArenaAudio } from './game/sound';
 
 window.Alpine = Alpine;
 Alpine.data('kingdomMapEditor', kingdomMapEditor);
@@ -87,11 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    const soundToggle = document.querySelector('[data-sound-toggle]');
-    if (soundToggle) {
-        soundToggle.checked = localStorage.getItem('arena-sound') === 'on';
-        soundToggle.addEventListener('change', () => {
-            localStorage.setItem('arena-sound', soundToggle.checked ? 'on' : 'off');
-        });
-    }
+    bindArenaSoundToggles();
+    document.addEventListener('pointerdown', unlockArenaAudio);
+    document.addEventListener('keydown', unlockArenaAudio);
 });
