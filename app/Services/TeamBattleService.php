@@ -94,6 +94,25 @@ class TeamBattleService
             ));
         }
 
+        $waitingPayload = [
+            'team_battle_id' => $battle->id,
+            'class_id' => $class->id,
+            'url' => ArenaUrl::route('student.arena.guild.show', $battle),
+        ];
+
+        foreach ($challengerTeam->members as $member) {
+            if ($member->id === $challenger->id) {
+                continue;
+            }
+
+            $member->notify(new GameAlert(
+                'guild_battle_waiting',
+                'Sua guilda desafiou',
+                "{$challengerLabel} desafiou a guilda {$opponentTeam->name}. Abra a sala de espera para acompanhar.",
+                $waitingPayload,
+            ));
+        }
+
         return $battle;
     }
 
@@ -329,7 +348,13 @@ class TeamBattleService
 
         foreach ($pairs as $index => $pair) {
             $fightSeed = $rng->nextInt(1, PHP_INT_MAX);
-            $result = $this->combat->resolve($pair['challenger'], $pair['opponent'], $class, $fightSeed);
+            $result = $this->combat->resolve(
+                $pair['challenger'],
+                $pair['opponent'],
+                $class,
+                $fightSeed,
+                TeamBattle::LUCK_RANGE,
+            );
 
             $winnerId = $result['winner_id'];
             $winnerIsChallenger = $winnerId === $pair['challenger']->id;
@@ -518,7 +543,7 @@ class TeamBattleService
                     [
                         'team_battle_id' => $battle->id,
                         'class_id' => $class->id,
-                        'url' => ArenaUrl::route('student.arena.guild.show', $battle),
+                        'url' => ArenaUrl::route('student.arena.guild.show', $battle).'?replay=1',
                     ],
                 ));
             }

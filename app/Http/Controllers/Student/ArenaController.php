@@ -223,7 +223,7 @@ class ArenaController extends Controller
         return response()->json([
             'status' => $duel->status,
             'redirect' => match ($duel->status) {
-                Duel::STATUS_RESOLVED => ArenaUrl::route('student.arena.show', $duel),
+                Duel::STATUS_RESOLVED => ArenaUrl::route('student.arena.show', $duel).'?replay=1',
                 Duel::STATUS_DECLINED, Duel::STATUS_EXPIRED => ArenaUrl::route('student.arena.index'),
                 default => null,
             },
@@ -303,7 +303,7 @@ class ArenaController extends Controller
                 ->withErrors($exception->errors());
         }
 
-        $battleUrl = ArenaUrl::route('student.arena.show', $resolved);
+        $battleUrl = ArenaUrl::route('student.arena.show', $resolved).'?replay=1';
 
         if ($this->wantsArenaJson($request)) {
             return response()->json([
@@ -416,7 +416,7 @@ class ArenaController extends Controller
         return response()->json([
             'status' => $teamBattle->status,
             'redirect' => match ($teamBattle->status) {
-                TeamBattle::STATUS_RESOLVED => ArenaUrl::route('student.arena.guild.show', $teamBattle),
+                TeamBattle::STATUS_RESOLVED => ArenaUrl::route('student.arena.guild.show', $teamBattle).'?replay=1',
                 TeamBattle::STATUS_DECLINED => ArenaUrl::route('student.arena.index'),
                 default => null,
             },
@@ -443,7 +443,7 @@ class ArenaController extends Controller
                 ->withErrors($exception->errors());
         }
 
-        $battleUrl = ArenaUrl::route('student.arena.guild.show', $resolved);
+        $battleUrl = ArenaUrl::route('student.arena.guild.show', $resolved).'?replay=1';
 
         if ($this->wantsArenaJson($request)) {
             return response()->json([

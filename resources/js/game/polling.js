@@ -1,6 +1,7 @@
 import { showToast } from './toasts';
 import { showLevelUp } from './level-up';
 import { csrfToken, toLocalPath } from './urls';
+import { goToBattle } from './battle-nav';
 
 const SEEN_KEY = 'arena-seen-alerts';
 
@@ -61,17 +62,24 @@ export function startNotificationPolling(url, markUrl, csrf) {
                     return;
                 }
                 const path = toLocalPath(item.payload?.url || null);
-                if (item.type === 'duel_result' && path) {
-                    const focusId = sessionStorage.getItem('arena-duel-focus');
-                    const duelId = String(item.payload?.duel_id ?? '');
-                    const alreadyOnDuel = window.location.pathname.includes('/arena/duelos/');
-                    if (focusId && focusId === duelId && ! alreadyOnDuel) {
+                if ((item.type === 'duel_result' || item.type === 'guild_battle_result') && path) {
+                    const focusId = sessionStorage.getItem(
+                        item.type === 'guild_battle_result' ? 'arena-guild-focus' : 'arena-duel-focus',
+                    );
+                    const battleId = String(
+                        item.payload?.duel_id ?? item.payload?.team_battle_id ?? '',
+                    );
+                    const onWaiting = Boolean(
+                        document.querySelector('[data-duel-waiting], [data-guild-waiting]'),
+                    );
+                    const shouldOpen = onWaiting
+                        || (focusId && focusId === battleId)
+                        || (focusId && battleId === '');
+
+                    if (shouldOpen) {
                         sessionStorage.removeItem('arena-duel-focus');
-                        window.location.href = path;
-                        return;
-                    }
-                    if (document.querySelector('[data-duel-waiting]') && ! alreadyOnDuel) {
-                        window.location.href = path;
+                        sessionStorage.removeItem('arena-guild-focus');
+                        goToBattle(path.includes('?') ? path : `${path}?replay=1`);
                         return;
                     }
                 }

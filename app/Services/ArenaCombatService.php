@@ -105,14 +105,15 @@ class ArenaCombatService
      *     fighters: array{challenger: array<string, mixed>, opponent: array<string, mixed>}
      * }
      */
-    public function resolve(User $challenger, User $opponent, SchoolClass $class, int $seed): array
+    public function resolve(User $challenger, User $opponent, SchoolClass $class, int $seed, ?float $luckRange = null): array
     {
         $challengerFighter = $this->buildFighter($challenger, $class);
         $opponentFighter = $this->buildFighter($opponent, $class);
 
         $rng = new SeededRandom($seed);
-        $challengerFighter = $this->applyArenaFortune($challengerFighter, $rng);
-        $opponentFighter = $this->applyArenaFortune($opponentFighter, $rng);
+        $luck = $luckRange ?? self::LUCK_RANGE;
+        $challengerFighter = $this->applyArenaFortune($challengerFighter, $rng, $luck);
+        $opponentFighter = $this->applyArenaFortune($opponentFighter, $rng, $luck);
         $turns = [];
 
         $order = $challengerFighter['spd'] >= $opponentFighter['spd']
@@ -262,9 +263,10 @@ class ArenaCombatService
      * @param  array<string, mixed>  $fighter
      * @return array<string, mixed>
      */
-    private function applyArenaFortune(array $fighter, SeededRandom $rng): array
+    private function applyArenaFortune(array $fighter, SeededRandom $rng, float $luckRange = self::LUCK_RANGE): array
     {
-        $luck = round(($rng->nextFloat() * 2 - 1) * self::LUCK_RANGE, 4);
+        $range = max(0, min(0.5, $luckRange));
+        $luck = round(($rng->nextFloat() * 2 - 1) * $range, 4);
         $factor = 1 + $luck;
 
         $fighter['max_hp'] = max(1, (int) round($fighter['max_hp'] * $factor));

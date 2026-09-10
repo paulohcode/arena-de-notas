@@ -135,7 +135,7 @@ class DuelService
                 [
                     'duel_id' => $locked->id,
                     'class_id' => $class->id,
-                    'url' => ArenaUrl::route('student.arena.show', $locked),
+                    'url' => ArenaUrl::route('student.arena.show', $locked).'?replay=1',
                 ],
             ));
 
@@ -148,7 +148,7 @@ class DuelService
                 [
                     'duel_id' => $locked->id,
                     'class_id' => $class->id,
-                    'url' => ArenaUrl::route('student.arena.show', $locked),
+                    'url' => ArenaUrl::route('student.arena.show', $locked).'?replay=1',
                 ],
             ));
 

@@ -80,7 +80,7 @@ class ArenaDuelTest extends TestCase
 
         $this->actingAs($opponent)
             ->post(route('student.arena.accept', $duel))
-            ->assertRedirect(route('student.arena.show', $duel));
+            ->assertRedirect(route('student.arena.show', $duel).'?replay=1');
 
         $duel->refresh();
         $this->assertSame(Duel::STATUS_RESOLVED, $duel->status);
@@ -167,14 +167,14 @@ class ArenaDuelTest extends TestCase
 
         $this->actingAs($opponent)
             ->post(route('student.arena.accept', $duel))
-            ->assertRedirect(route('student.arena.show', $duel));
+            ->assertRedirect(route('student.arena.show', $duel).'?replay=1');
 
         $this->actingAs($challenger)
             ->getJson(route('student.arena.status', $duel))
             ->assertOk()
             ->assertJson([
                 'status' => Duel::STATUS_RESOLVED,
-                'redirect' => route('student.arena.show', $duel, absolute: false),
+                'redirect' => route('student.arena.show', $duel, absolute: false).'?replay=1',
             ]);
 
         $this->actingAs($challenger)
@@ -221,7 +221,7 @@ class ArenaDuelTest extends TestCase
             ->assertOk()
             ->assertJson([
                 'ok' => true,
-                'redirect' => route('student.arena.show', $duel, absolute: false),
+                'redirect' => route('student.arena.show', $duel, absolute: false).'?replay=1',
             ]);
 
         $this->assertSame(Duel::STATUS_RESOLVED, $duel->fresh()->status);

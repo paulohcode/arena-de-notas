@@ -69,7 +69,9 @@
                     if (! response.ok) return;
                     const data = await response.json();
                     if (data.redirect) {
-                        window.location.href = data.redirect;
+                        window.ArenaGoToBattle
+                            ? window.ArenaGoToBattle(data.redirect)
+                            : window.location.reload();
                     }
                 } catch (e) {}
                 finally {
@@ -78,7 +80,7 @@
             },
             init() {
                 this.poll();
-                setInterval(() => this.poll(), 5000);
+                setInterval(() => this.poll(), 2000);
             }
         }"
     >

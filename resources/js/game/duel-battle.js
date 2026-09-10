@@ -1,12 +1,15 @@
 import { playArenaSound, unlockArenaAudio } from './sound';
 
 export function duelBattle(payload) {
+    const leftId = Number(payload.left?.id);
+    const rightId = Number(payload.right?.id);
+
     return {
-        left: { ...payload.left, hp: payload.left.maxHp, hit: false, healed: false, striking: false },
-        right: { ...payload.right, hp: payload.right.maxHp, hit: false, healed: false, striking: false },
+        left: { ...payload.left, id: leftId, hp: payload.left.maxHp, hit: false, healed: false, striking: false },
+        right: { ...payload.right, id: rightId, hp: payload.right.maxHp, hit: false, healed: false, striking: false },
         turns: payload.turns || [],
-        winnerId: payload.winnerId,
-        viewerId: payload.viewerId,
+        winnerId: Number(payload.winnerId),
+        viewerId: Number(payload.viewerId),
         gloryWin: payload.gloryWin,
         gloryLoss: payload.gloryLoss,
         index: 0,
@@ -19,6 +22,7 @@ export function duelBattle(payload) {
         stageFlash: null,
         effectSeq: 0,
         floatSeq: 0,
+        tickTimer: null,
 
         get leftPct() {
             return Math.max(0, Math.min(100, (this.left.hp / this.left.maxHp) * 100));
@@ -88,14 +92,18 @@ export function duelBattle(payload) {
             return this.cssTone(actor.classTone || actor.tone);
         },
 
+        isLeftActor(actorId) {
+            return Number(actorId) === this.left.id;
+        },
+
         start() {
-            if (this.playing) {
+            if (this.playing || this.finished) {
                 return;
             }
 
             this.playing = true;
             unlockArenaAudio();
-            setTimeout(() => this.tick(), 800);
+            this.tickTimer = setTimeout(() => this.tick(), 800);
         },
 
         skip() {
@@ -104,6 +112,10 @@ export function duelBattle(payload) {
             }
 
             this.playing = false;
+            if (this.tickTimer) {
+                clearTimeout(this.tickTimer);
+                this.tickTimer = null;
+            }
 
             while (this.index < this.turns.length) {
                 this.applyTurn(this.turns[this.index], false);
@@ -126,28 +138,28 @@ export function duelBattle(payload) {
 
             this.applyTurn(this.turns[this.index], true);
             this.index += 1;
-            setTimeout(() => this.tick(), this.prefersReducedMotion() ? 400 : 1450);
+            this.tickTimer = setTimeout(() => this.tick(), this.prefersReducedMotion() ? 500 : 1450);
         },
 
         applyTurn(turn, animate) {
-            const fromLeft = turn.actor_id === this.left.id;
+            const fromLeft = this.isLeftActor(turn.actor_id);
             const actor = fromLeft ? this.left : this.right;
             const target = fromLeft ? this.right : this.left;
 
             if (turn.action === 'heal') {
-                actor.hp = Math.min(actor.maxHp, turn.actor_hp);
+                actor.hp = Math.min(actor.maxHp, Number(turn.actor_hp));
                 this.log.push(turn);
 
                 if (animate) {
                     this.playHeal(fromLeft, turn.amount);
                 }
             } else {
-                target.hp = Math.max(0, turn.target_hp);
-                actor.hp = Math.max(0, turn.actor_hp);
+                target.hp = Math.max(0, Number(turn.target_hp));
+                actor.hp = Math.max(0, Number(turn.actor_hp));
                 this.log.push(turn);
 
                 if (animate) {
-                    this.playAttack(fromLeft, turn.amount, turn.target_hp <= 0);
+                    this.playAttack(fromLeft, turn.amount, Number(turn.target_hp) <= 0);
                 }
             }
 
@@ -252,11 +264,16 @@ export function duelBattle(payload) {
 
             this.finished = true;
             this.playing = false;
+            if (this.tickTimer) {
+                clearTimeout(this.tickTimer);
+                this.tickTimer = null;
+            }
             this.syncFinalHp();
             playArenaSound('duel_result');
+            // Dá tempo de ver o palco final antes do modal cobrir a tela.
             setTimeout(() => {
                 this.victoryOpen = true;
-            }, 520);
+            }, 1400);
         },
 
         syncFinalHp() {
@@ -266,12 +283,12 @@ export function duelBattle(payload) {
 
             const last = this.turns[this.turns.length - 1];
 
-            if (last.actor_id === this.left.id) {
-                this.left.hp = Math.max(0, last.actor_hp);
-                this.right.hp = Math.max(0, last.target_hp);
+            if (this.isLeftActor(last.actor_id)) {
+                this.left.hp = Math.max(0, Number(last.actor_hp));
+                this.right.hp = Math.max(0, Number(last.target_hp));
             } else {
-                this.right.hp = Math.max(0, last.actor_hp);
-                this.left.hp = Math.max(0, last.target_hp);
+                this.right.hp = Math.max(0, Number(last.actor_hp));
+                this.left.hp = Math.max(0, Number(last.target_hp));
             }
         },
     };

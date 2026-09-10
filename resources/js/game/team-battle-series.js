@@ -1,3 +1,4 @@
+import Alpine from 'alpinejs';
 import { duelBattle } from './duel-battle';
 import { playArenaSound } from './sound';
 
@@ -21,10 +22,7 @@ export function teamBattleSeries(payload) {
         scoreLine: payload.scoreLine,
         winnerTeamName: payload.winnerTeamName,
         battle: null,
-
-        get currentFight() {
-            return this.fights[this.fightIndex] || null;
-        },
+        autoAdvanceTimer: null,
 
         get totalFights() {
             return this.fights.length;
@@ -36,7 +34,7 @@ export function teamBattleSeries(payload) {
 
         get seriesHeadline() {
             if (! this.seriesFinished) {
-                return this.currentFight
+                return this.battle
                     ? `Combate ${this.fightIndex + 1} de ${this.totalFights}`
                     : 'Batalha de guildas';
             }
@@ -57,10 +55,24 @@ export function teamBattleSeries(payload) {
         },
 
         init() {
+            if (this.totalFights === 0) {
+                this.finishSeries();
+
+                return;
+            }
+
             this.loadFight(0);
         },
 
+        clearAutoAdvance() {
+            if (this.autoAdvanceTimer) {
+                clearTimeout(this.autoAdvanceTimer);
+                this.autoAdvanceTimer = null;
+            }
+        },
+
         makeBattle(fight) {
+            const self = this;
             const battle = duelBattle({
                 ...fight,
                 viewerId: this.viewerId,
@@ -78,14 +90,23 @@ export function teamBattleSeries(payload) {
                 this.syncFinalHp();
                 playArenaSound('duel_result');
                 this.victoryOpen = false;
+
+                self.clearAutoAdvance();
+                self.autoAdvanceTimer = setTimeout(() => {
+                    if (! self.seriesFinished) {
+                        self.nextFight();
+                    }
+                }, 1600);
             };
 
-            return battle;
+            return Alpine.reactive(battle);
         },
 
         loadFight(index) {
+            this.clearAutoAdvance();
             this.fightIndex = index;
             const fight = this.fights[index];
+
             if (! fight) {
                 this.finishSeries();
 
@@ -95,17 +116,23 @@ export function teamBattleSeries(payload) {
             this.battle = this.makeBattle(fight);
 
             this.$nextTick(() => {
-                this.battle.start();
+                if (this.battle && ! this.seriesFinished) {
+                    this.battle.start();
+                }
             });
         },
 
         skipCurrent() {
+            this.clearAutoAdvance();
+
             if (this.battle && ! this.battle.finished) {
                 this.battle.skip();
             }
         },
 
         nextFight() {
+            this.clearAutoAdvance();
+
             if (this.fightIndex + 1 >= this.totalFights) {
                 this.finishSeries();
 
@@ -116,18 +143,17 @@ export function teamBattleSeries(payload) {
         },
 
         skipAll() {
-            while (this.fightIndex < this.totalFights) {
-                if (! this.battle || this.battle.finished === false) {
-                    const fight = this.fights[this.fightIndex];
-                    this.battle = this.makeBattle(fight);
-                    this.battle.skip();
-                }
+            this.clearAutoAdvance();
 
-                if (this.fightIndex + 1 >= this.totalFights) {
-                    break;
-                }
+            if (this.battle && this.battle.playing) {
+                this.battle.playing = false;
+            }
 
-                this.fightIndex += 1;
+            for (let index = this.fightIndex; index < this.totalFights; index++) {
+                const fight = this.fights[index];
+                this.fightIndex = index;
+                this.battle = this.makeBattle(fight);
+                this.battle.skip();
             }
 
             this.finishSeries();
@@ -138,6 +164,7 @@ export function teamBattleSeries(payload) {
                 return;
             }
 
+            this.clearAutoAdvance();
             this.seriesFinished = true;
             playArenaSound('duel_result');
             setTimeout(() => {

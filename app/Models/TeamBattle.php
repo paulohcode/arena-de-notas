@@ -35,6 +35,11 @@ class TeamBattle extends Model
     public const DAILY_RESOLVED_LIMIT = 1;
 
     /**
+     * Sorte da arena nas guerras de guilda (menor que o duelo 1v1).
+     */
+    public const LUCK_RANGE = 0.06;
+
+    /**
      * @var array<string, mixed>
      */
     protected $attributes = [

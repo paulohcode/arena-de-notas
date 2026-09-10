@@ -58,6 +58,7 @@
             (mais forte vs mais forte). Quem sobrar luta de novo contra o mais fraco do outro lado.
             Vence a guilda com mais vitórias; em empate, soma-se o HP dos vencedores; empate total favorece a desafiante.
             Cada guilda só pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.
+            A sorte da arena nestas guerras é menor (±6%) do que no duelo 1v1 (±12%).
         </p>
         <p class="text-xs text-amber-100/50">
             Glória e Relíquias da vitória não mudam a média nem o XP. Esta receita completa fica só com o professor.
@@ -78,6 +79,7 @@
             Nas <strong class="text-cyan-200">batalhas de guildas</strong>, todos os lutadores elegíveis entram:
             mais forte vs mais forte; quem sobrar enfrenta o mais fraco do outro lado.
             Cada guilda só pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.
+            A sorte nestas guerras é menor (±6%) do que no duelo individual (±12%).
         </p>
     @endif
 </div>
