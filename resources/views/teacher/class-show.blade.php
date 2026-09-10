@@ -913,7 +913,7 @@
             @endforelse
         </div>
 
-        @include('partials.combat-rules')
+        @include('partials.combat-rules', ['detailed' => true])
     </div>
 </div>
 @endsection

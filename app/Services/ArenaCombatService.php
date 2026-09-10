@@ -29,6 +29,11 @@ class ArenaCombatService
     public const TEAM_WEIGHT = 0.10;
 
     /**
+     * Variação oculta de poder em cada duelo. Impede que o resultado nasça decidido.
+     */
+    public const LUCK_RANGE = 0.12;
+
+    /**
      * Atributos base iguais para todos os lutadores. A classe de personagem é só visual.
      */
     public const BASE_HP = 100;
@@ -62,6 +67,7 @@ class ArenaCombatService
      *     grade_weight: float,
      *     attendance_weight: float,
      *     team_weight: float,
+     *     luck_range: float,
      *     gear_cap: float,
      *     level_power: array<string, float>,
      *     gear_by_rarity: array<string, float>,
@@ -78,6 +84,7 @@ class ArenaCombatService
             'grade_weight' => self::GRADE_WEIGHT,
             'attendance_weight' => self::ATTENDANCE_WEIGHT,
             'team_weight' => self::TEAM_WEIGHT,
+            'luck_range' => self::LUCK_RANGE,
             'gear_cap' => CosmeticCatalog::COMBAT_BONUS_CAP,
             'level_power' => self::LEVEL_POWER,
             'gear_by_rarity' => CosmeticCatalog::COMBAT_BONUS_BY_RARITY,
@@ -104,6 +111,8 @@ class ArenaCombatService
         $opponentFighter = $this->buildFighter($opponent, $class);
 
         $rng = new SeededRandom($seed);
+        $challengerFighter = $this->applyArenaFortune($challengerFighter, $rng);
+        $opponentFighter = $this->applyArenaFortune($opponentFighter, $rng);
         $turns = [];
 
         $order = $challengerFighter['spd'] >= $opponentFighter['spd']
@@ -247,6 +256,26 @@ class ArenaCombatService
     private function teamBonus(float $teamScore): float
     {
         return (max(0, min(100, $teamScore)) / 100) * self::TEAM_WEIGHT;
+    }
+
+    /**
+     * @param  array<string, mixed>  $fighter
+     * @return array<string, mixed>
+     */
+    private function applyArenaFortune(array $fighter, SeededRandom $rng): array
+    {
+        $luck = round(($rng->nextFloat() * 2 - 1) * self::LUCK_RANGE, 4);
+        $factor = 1 + $luck;
+
+        $fighter['max_hp'] = max(1, (int) round($fighter['max_hp'] * $factor));
+        $fighter['hp'] = $fighter['max_hp'];
+        $fighter['atk'] = max(1, (int) round($fighter['atk'] * $factor));
+        $fighter['def'] = max(0, (int) round($fighter['def'] * $factor));
+        $fighter['spd'] = max(1, (int) round($fighter['spd'] * $factor));
+        $fighter['power'] = round($fighter['power'] * $factor, 3);
+        $fighter['breakdown']['luck'] = $luck;
+
+        return $fighter;
     }
 
     /**

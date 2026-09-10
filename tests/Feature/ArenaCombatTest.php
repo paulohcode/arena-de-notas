@@ -204,9 +204,12 @@ class ArenaCombatTest extends TestCase
         $this->assertContains($result['winner_reason'], ['ko', 'hp', 'spd', 'spd_tie']);
         $this->assertArrayHasKey('breakdown', $result['fighters']['challenger']);
         $this->assertArrayHasKey('grade', $result['fighters']['challenger']['breakdown']);
+        $this->assertArrayHasKey('luck', $result['fighters']['challenger']['breakdown']);
+        $this->assertGreaterThanOrEqual(-0.12, $result['fighters']['challenger']['breakdown']['luck']);
+        $this->assertLessThanOrEqual(0.12, $result['fighters']['challenger']['breakdown']['luck']);
     }
 
-    public function test_arena_page_explains_how_the_winner_is_decided(): void
+    public function test_arena_page_explains_how_the_winner_is_decided_without_revealing_the_math(): void
     {
         [$class, $student] = $this->readyStudent();
         $class->update(['arena_open' => true]);
@@ -215,10 +218,10 @@ class ArenaCombatTest extends TestCase
             ->get(route('student.arena.index'))
             ->assertOk()
             ->assertSee('Como o vencedor é definido')
-            ->assertSee('é só visual')
-            ->assertSee('Nota da equipe')
-            ->assertSee('Chamada e guilda')
-            ->assertSee('Itens equipados');
+            ->assertSee('fator de sorte')
+            ->assertSee('ninguém chega sabendo quem vai ganhar')
+            ->assertDontSee('até +30%')
+            ->assertDontSee('HP 100');
     }
 
     /**

@@ -21,10 +21,6 @@
             'icon' => $duel->challenger->avatarIcon(),
             'tone' => $duel->challenger->avatarTone(),
             'maxHp' => (int) $challengerSnap['max_hp'],
-            'atk' => (int) $challengerSnap['atk'],
-            'def' => (int) $challengerSnap['def'],
-            'spd' => (int) $challengerSnap['spd'],
-            'power' => $challengerSnap['power'],
         ],
         'right' => [
             'id' => $duel->opponent->id,
@@ -35,10 +31,6 @@
             'icon' => $duel->opponent->avatarIcon(),
             'tone' => $duel->opponent->avatarTone(),
             'maxHp' => (int) $opponentSnap['max_hp'],
-            'atk' => (int) $opponentSnap['atk'],
-            'def' => (int) $opponentSnap['def'],
-            'spd' => (int) $opponentSnap['spd'],
-            'power' => $opponentSnap['power'],
         ],
         'turns' => $turns,
         'winnerId' => (int) $duel->winner_id,
@@ -149,10 +141,6 @@
                             <div class="duel-hp-fill" :style="'width:' + leftPct + '%'"></div>
                         </div>
                     </div>
-                    <p class="text-[10px] text-amber-100/40 mt-2">
-                        ATK <span x-text="left.atk"></span> · DEF <span x-text="left.def"></span> · SPD <span x-text="left.spd"></span>
-                    </p>
-                    @include('partials.combat-breakdown', ['breakdown' => $challengerSnap['breakdown'] ?? []])
                 </div>
 
                 <div class="relative self-center w-16 md:w-28 h-24 md:h-32 flex items-center justify-center">
@@ -201,10 +189,6 @@
                             <div class="duel-hp-fill" :style="'width:' + rightPct + '%'"></div>
                         </div>
                     </div>
-                    <p class="text-[10px] text-amber-100/40 mt-2">
-                        ATK <span x-text="right.atk"></span> · DEF <span x-text="right.def"></span> · SPD <span x-text="right.spd"></span>
-                    </p>
-                    @include('partials.combat-breakdown', ['breakdown' => $opponentSnap['breakdown'] ?? []])
                 </div>
             </div>
 
@@ -216,7 +200,7 @@
         </div>
 
         @if($winnerReasonLabel)
-            <p class="text-sm text-amber-100/60 -mt-2">Critério: {{ $winnerReasonLabel }} Poder do desafiante {{ number_format((float) ($challengerSnap['power'] ?? 0), 2) }} × poder do oponente {{ number_format((float) ($opponentSnap['power'] ?? 0), 2) }}.</p>
+            <p class="text-sm text-amber-100/60 -mt-2">{{ $winnerReasonLabel }}</p>
         @endif
 
         <div class="game-card p-5">

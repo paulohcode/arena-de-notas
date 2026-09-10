@@ -182,7 +182,9 @@ class ArenaDuelTest extends TestCase
             ->assertOk()
             ->assertSee('Campo de combate')
             ->assertSee('Histórico de danos')
-            ->assertSee('Vencedor da arena');
+            ->assertSee('Vencedor da arena')
+            ->assertDontSee('Poder do desafiante')
+            ->assertDontSee('até +30%');
     }
 
     public function test_pending_challenges_endpoint_lists_incoming_duels(): void
@@ -415,7 +417,9 @@ class ArenaDuelTest extends TestCase
             ->assertSee('Configurações da arena')
             ->assertSee('Espera entre batalhas (minutos)')
             ->assertSee('Batalhas permitidas no dia')
-            ->assertSee('Como o vencedor é definido');
+            ->assertSee('Como o vencedor é definido')
+            ->assertSee('até +30%')
+            ->assertSee('Sorte da arena');
     }
 
     public function test_unauthenticated_arena_settings_update_redirects_to_login(): void
