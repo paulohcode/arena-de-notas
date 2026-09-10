@@ -105,10 +105,16 @@ class ArenaCombatService
      *     fighters: array{challenger: array<string, mixed>, opponent: array<string, mixed>}
      * }
      */
-    public function resolve(User $challenger, User $opponent, SchoolClass $class, int $seed, ?float $luckRange = null): array
-    {
+    public function resolve(
+        User $challenger,
+        User $opponent,
+        SchoolClass $class,
+        int $seed,
+        ?float $luckRange = null,
+        ?SchoolClass $opponentClass = null,
+    ): array {
         $challengerFighter = $this->buildFighter($challenger, $class);
-        $opponentFighter = $this->buildFighter($opponent, $class);
+        $opponentFighter = $this->buildFighter($opponent, $opponentClass ?? $class);
 
         $rng = new SeededRandom($seed);
         $luck = $luckRange ?? self::LUCK_RANGE;

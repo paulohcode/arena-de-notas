@@ -61,6 +61,16 @@ class Area extends Model
         return $this->hasMany(Season::class);
     }
 
+    public function balances(): HasMany
+    {
+        return $this->hasMany(AreaBalance::class);
+    }
+
+    public function realmDuels(): HasMany
+    {
+        return $this->hasMany(RealmDuel::class);
+    }
+
     public function emblemIcon(): string
     {
         return self::EMBLEMS[$this->emblem] ?? '🏰';

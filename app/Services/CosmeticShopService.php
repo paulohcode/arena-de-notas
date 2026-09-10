@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AreaBalance;
 use App\Models\ClassCosmeticStock;
 use App\Models\CosmeticListing;
 use App\Models\Enrollment;
@@ -90,14 +91,14 @@ class CosmeticShopService
                 'equipped' => $equippedKey === $key,
                 'stock' => (int) ($stockByKey[$key] ?? 0),
                 'listed_price' => isset($ownListings[$key]) ? (int) $ownListings[$key] : null,
-                'tradable' => ! CosmeticCatalog::usesSeals($key),
+                'tradable' => ! CosmeticCatalog::isNonTradable($key),
             ];
         }
 
         $listings = [];
         foreach ($peerListings as $listing) {
             $item = CosmeticCatalog::item($listing->item_key);
-            if (! $item || CosmeticCatalog::usesSeals($listing->item_key)) {
+            if (! $item || CosmeticCatalog::isNonTradable($listing->item_key)) {
                 continue;
             }
 
@@ -125,7 +126,21 @@ class CosmeticShopService
             'loadout' => $loadout,
             'listings' => $listings,
             'catalog' => $catalog,
+            'auras' => $this->aurasBalance($student, $class),
         ];
+    }
+
+    public function aurasBalance(User $student, SchoolClass $class): int
+    {
+        $areaId = $class->area_id;
+        if (! $areaId) {
+            return 0;
+        }
+
+        return (int) (AreaBalance::query()
+            ->where('area_id', $areaId)
+            ->where('student_id', $student->id)
+            ->value('auras') ?? 0);
     }
 
     /**
@@ -197,8 +212,8 @@ class CosmeticShopService
                 'label' => $item['label'] ?? null,
                 'stock' => (int) ($stockByKey[$key] ?? 0),
                 'owners' => $ownersByKey[$key] ?? [],
-                'listings' => CosmeticCatalog::usesSeals($key) ? [] : ($listingsByKey[$key] ?? []),
-                'tradable' => ! CosmeticCatalog::usesSeals($key),
+                'listings' => CosmeticCatalog::isNonTradable($key) ? [] : ($listingsByKey[$key] ?? []),
+                'tradable' => ! CosmeticCatalog::isNonTradable($key),
             ];
         }
 
@@ -394,23 +409,58 @@ class CosmeticShopService
 
             $price = (int) $item['price'];
             $currency = CosmeticCatalog::currency($itemKey);
-            $balance = $currency === CosmeticCatalog::CURRENCY_SEALS
-                ? (int) $enrollment->seals
-                : (int) $enrollment->relics;
 
-            if ($balance < $price) {
-                $label = CosmeticCatalog::currencyLabel($currency);
-                throw ValidationException::withMessages([
-                    'item' => "{$label} insuficientes para comprar este item.",
-                ]);
-            }
+            if ($currency === CosmeticCatalog::CURRENCY_AURAS) {
+                $area = $class->area;
+                if (! $area) {
+                    throw ValidationException::withMessages([
+                        'item' => 'Esta turma não pertence a um reino para gastar Aura.',
+                    ]);
+                }
 
-            if ($currency === CosmeticCatalog::CURRENCY_SEALS) {
-                $enrollment->seals = $balance - $price;
+                $areaBalance = AreaBalance::query()
+                    ->where('area_id', $area->id)
+                    ->where('student_id', $student->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                $balance = (int) ($areaBalance?->auras ?? 0);
+                if ($balance < $price) {
+                    throw ValidationException::withMessages([
+                        'item' => 'Aura insuficiente para comprar este item.',
+                    ]);
+                }
+
+                if (! $areaBalance) {
+                    $areaBalance = AreaBalance::query()->create([
+                        'area_id' => $area->id,
+                        'student_id' => $student->id,
+                        'auras' => 0,
+                    ]);
+                    $areaBalance = AreaBalance::query()->whereKey($areaBalance->id)->lockForUpdate()->firstOrFail();
+                }
+
+                $areaBalance->auras = $balance - $price;
+                $areaBalance->save();
             } else {
-                $enrollment->relics = $balance - $price;
+                $balance = $currency === CosmeticCatalog::CURRENCY_SEALS
+                    ? (int) $enrollment->seals
+                    : (int) $enrollment->relics;
+
+                if ($balance < $price) {
+                    $label = CosmeticCatalog::currencyLabel($currency);
+                    throw ValidationException::withMessages([
+                        'item' => "{$label} insuficientes para comprar este item.",
+                    ]);
+                }
+
+                if ($currency === CosmeticCatalog::CURRENCY_SEALS) {
+                    $enrollment->seals = $balance - $price;
+                } else {
+                    $enrollment->relics = $balance - $price;
+                }
+                $enrollment->save();
             }
-            $enrollment->save();
 
             $stock->quantity = (int) $stock->quantity - 1;
             $stock->save();
@@ -432,9 +482,9 @@ class CosmeticShopService
             ]);
         }
 
-        if (CosmeticCatalog::usesSeals($itemKey)) {
+        if (CosmeticCatalog::isNonTradable($itemKey)) {
             throw ValidationException::withMessages([
-                'item' => 'Itens de presença não podem ser anunciados no mercado.',
+                'item' => 'Este item não pode ser anunciado no mercado.',
             ]);
         }
 
@@ -547,9 +597,9 @@ class CosmeticShopService
             $itemKey = $lockedListing->item_key;
             $price = (int) $lockedListing->price;
 
-            if (CosmeticCatalog::usesSeals($itemKey)) {
+            if (CosmeticCatalog::isNonTradable($itemKey)) {
                 throw ValidationException::withMessages([
-                    'listing' => 'Itens de presença não podem ser negociados no mercado.',
+                    'listing' => 'Este item não pode ser negociado no mercado.',
                 ]);
             }
 

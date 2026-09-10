@@ -7,7 +7,7 @@
     <div>
         <p class="hero-kicker !mb-1">Campo de duelos</p>
         <h1 class="font-display text-4xl text-amber-300">Arena da turma</h1>
-        <p class="text-amber-100/60 mt-1">{{ $class->name }} · Glória {{ $enrollment?->glory ?? 0 }} · Relíquias {{ $enrollment?->relics ?? 0 }} · Selos {{ $enrollment?->seals ?? 0 }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
+        <p class="text-amber-100/60 mt-1">{{ $class->name }} · Glória {{ $enrollment?->glory ?? 0 }} · Relíquias {{ $enrollment?->relics ?? 0 }} · Selos {{ $enrollment?->seals ?? 0 }} · Aura {{ $realmAuras }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
         <a class="game-btn-ghost" href="{{ route('student.shop.index') }}">Loja</a>
@@ -78,6 +78,37 @@
                         <button class="game-btn !py-1 !px-3 text-sm" type="submit">Aceitar</button>
                     </form>
                     <form method="POST" action="{{ route('student.arena.guild.decline', $battle) }}">
+                        @csrf
+                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Recusar</button>
+                    </form>
+                </div>
+            </div>
+        @endforeach
+    </div>
+@endif
+
+@if($pendingRealmIncoming->isNotEmpty())
+    <div class="game-card p-5 mb-6 space-y-4 border-violet-400/20">
+        <h2 class="font-display text-xl text-violet-200">Desafios entre turmas recebidos</h2>
+        @foreach($pendingRealmIncoming as $duel)
+            <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/40">
+                <div class="flex items-center gap-3 min-w-0">
+                    @include('partials.player-avatar', ['student' => $duel->challenger, 'size' => 'sm'])
+                    <div class="min-w-0">
+                        <p class="font-semibold truncate">{{ $duel->challenger->name }}
+                            @if($duel->challenger->arenaName())
+                                <span class="text-amber-300"> · {{ $duel->challenger->arenaName() }}</span>
+                            @endif
+                        </p>
+                        <p class="text-xs text-amber-100/50">{{ $duel->challengerClass->name }} · por Aura</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <form method="POST" action="{{ route('student.arena.realm.accept', $duel) }}">
+                        @csrf
+                        <button class="game-btn !py-1 !px-3 text-sm" type="submit">Aceitar</button>
+                    </form>
+                    <form method="POST" action="{{ route('student.arena.realm.decline', $duel) }}">
                         @csrf
                         <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Recusar</button>
                     </form>
@@ -253,6 +284,77 @@
         </div>
     @endif
 </div>
+
+@if($area)
+<div class="game-card p-5 mb-8 reveal border-violet-400/15">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h2 class="font-display text-xl text-violet-200">Desafio entre turmas</h2>
+        <p class="text-xs text-amber-100/50">{{ $realmResolvedToday }}/{{ $realmDailyLimit }} duelos do reino hoje · {{ $realmAuras }} Aura</p>
+    </div>
+
+    <div class="mb-4 rounded-lg border border-violet-400/25 bg-violet-950/20 p-3 text-xs text-amber-100/75 space-y-1">
+        <p>Desafie alunos de <strong class="text-violet-200">outras turmas do mesmo reino</strong> ({{ $area->name }}).</p>
+        <p>Vitória: +{{ \App\Models\RealmDuel::AURA_WIN }} Aura · Derrota: +{{ \App\Models\RealmDuel::AURA_LOSS }} Aura. Sem Glória nem Relíquias.</p>
+        <p>Mesmo par 1×/dia · até {{ $realmDailyLimit }} duelos resolvidos por dia. As duas arenas precisam estar abertas.</p>
+    </div>
+
+    @forelse($realmOpponents as $row)
+        @php $peer = $row['student']; $peerClass = $row['class']; @endphp
+        <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/40">
+            <div class="flex items-center gap-3 min-w-0">
+                @include('partials.player-avatar', ['student' => $peer, 'size' => 'sm'])
+                <div class="min-w-0">
+                    <p class="font-semibold truncate">{{ $peer->name }}
+                        @if($peer->arenaName())
+                            <span class="text-amber-300"> · {{ $peer->arenaName() }}</span>
+                        @endif
+                    </p>
+                    <p class="text-xs text-amber-100/50">{{ $peerClass->name }} · {{ $peer->characterClassLabel() }}</p>
+                </div>
+            </div>
+            @if(! empty($realmNotices[$peer->id]))
+                <p class="text-xs text-amber-200/90 max-w-64 text-right leading-snug">{{ $realmNotices[$peer->id] }}</p>
+            @elseif($canChallengeRealm)
+                <form method="POST" action="{{ route('student.arena.realm.challenge') }}">
+                    @csrf
+                    <input type="hidden" name="opponent_id" value="{{ $peer->id }}">
+                    <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Desafiar</button>
+                </form>
+            @endif
+        </div>
+    @empty
+        <p class="text-sm text-purple-200/60">Nenhum aluno de outra turma do reino com personagem aprovado.</p>
+    @endforelse
+
+    @if($pendingRealmOutgoing->isNotEmpty())
+        <div class="mt-6">
+            <h3 class="text-sm uppercase tracking-wide text-purple-200/70 mb-2">Desafios do reino enviados</h3>
+            @foreach($pendingRealmOutgoing as $duel)
+                <a href="{{ route('student.arena.realm.show', $duel) }}" class="block text-sm py-1 text-violet-300/90 hover:text-violet-200 underline">
+                    Aguardando {{ $duel->opponent->arenaName() ?: $duel->opponent->name }} ({{ $duel->opponentClass->name }}) — sala de espera
+                </a>
+            @endforeach
+        </div>
+    @endif
+
+    <div class="mt-6">
+        <h3 class="text-sm uppercase tracking-wide text-purple-200/70 mb-2">Duelos do reino recentes</h3>
+        @forelse($realmHistory as $duel)
+            <a href="{{ route('student.arena.realm.show', $duel) }}" class="flex justify-between py-2 border-b border-purple-900/40 text-sm hover:text-amber-200">
+                <span>
+                    vs {{ $duel->otherParticipant($student)?->arenaName() ?: $duel->otherParticipant($student)?->name }}
+                    <span class="text-amber-100/40">({{ $duel->classFor($duel->otherParticipant($student))?->name }})</span>
+                </span>
+                <span class="{{ $duel->winner_id === $student->id ? 'text-emerald-300' : 'text-rose-300' }}">
+                    {{ $duel->winner_id === $student->id ? 'Vitória' : 'Derrota' }}
+                </span>
+            </a>
+        @empty
+            <p class="text-sm text-purple-200/60">Nenhum duelo entre turmas resolvido ainda.</p>
+        @endforelse
+    </div>
+</div>
+@endif
 
 <div class="mb-8 reveal">
     @include('partials.combat-rules')

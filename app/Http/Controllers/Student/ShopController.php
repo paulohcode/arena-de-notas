@@ -36,6 +36,7 @@ class ShopController extends Controller
             'catalog' => $data['catalog'],
             'loadout' => $data['loadout'],
             'listings' => $data['listings'],
+            'auras' => $data['auras'],
             'slots' => CosmeticCatalog::SLOTS,
         ]);
     }

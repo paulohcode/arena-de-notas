@@ -149,6 +149,12 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::post('/arena/guildas/{teamBattle}/aceitar', [StudentArenaController::class, 'acceptGuild'])->name('arena.guild.accept');
         Route::post('/arena/guildas/{teamBattle}/recusar', [StudentArenaController::class, 'declineGuild'])->name('arena.guild.decline');
 
+        Route::post('/arena/reino/desafiar', [StudentArenaController::class, 'challengeRealm'])->name('arena.realm.challenge');
+        Route::get('/arena/reino/{realmDuel}', [StudentArenaController::class, 'showRealm'])->name('arena.realm.show');
+        Route::get('/arena/reino/{realmDuel}/status', [StudentArenaController::class, 'statusRealm'])->name('arena.realm.status');
+        Route::post('/arena/reino/{realmDuel}/aceitar', [StudentArenaController::class, 'acceptRealm'])->name('arena.realm.accept');
+        Route::post('/arena/reino/{realmDuel}/recusar', [StudentArenaController::class, 'declineRealm'])->name('arena.realm.decline');
+
         Route::get('/loja', [StudentShopController::class, 'index'])->name('shop.index');
         Route::post('/loja/comprar', [StudentShopController::class, 'purchase'])->name('shop.purchase');
         Route::post('/loja/anunciar', [StudentShopController::class, 'list'])->name('shop.list');

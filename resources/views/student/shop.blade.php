@@ -12,10 +12,12 @@
             <span class="text-cyan-300">{{ $enrollment->relics }} Relíquias</span>
             ·
             <span class="text-emerald-300">{{ $enrollment->seals }} Selos</span>
+            ·
+            <span class="text-violet-300">{{ $auras }} Aura</span>
             · Glória {{ $enrollment->glory }}
         </p>
         <p class="text-sm text-amber-100/45 mt-2 max-w-xl">
-            Relíquias vêm da arena. Selos vêm da presença e compram itens exclusivos.
+            Relíquias vêm da arena da turma. Selos vêm da presença. Aura vem de duelos entre turmas do mesmo reino e compra só itens da Loja de Aura.
             Itens <strong>equipados</strong> fortalecem você na arena. Há poucas cópias na loja.
         </p>
     </div>
@@ -86,8 +88,15 @@
     @endif
 </section>
 
+<section class="mb-8 reveal" x-data="{ tab: 'turma' }">
+    <div class="flex flex-wrap gap-2 mb-4">
+        <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="tab === 'turma' && 'ring-1 ring-amber-400/50'" @click="tab = 'turma'">Loja da turma</button>
+        <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="tab === 'aura' && 'ring-1 ring-violet-400/50'" @click="tab = 'aura'">Loja de Aura</button>
+    </div>
+
+    <div x-show="tab === 'turma'" x-cloak>
 @foreach($slots as $slot => $slotLabel)
-    <section class="mb-8 reveal">
+    <section class="mb-8">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 class="font-display text-xl text-amber-200">{{ $slotLabel }}</h2>
             @php
@@ -103,93 +112,26 @@
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             @foreach($catalog[$slot] as $item)
-                <article class="game-card shop-item-card {{ $item['equipped'] ? 'is-equipped' : '' }}">
-                    @include('partials.shop-item-art', [
-                        'icon' => $item['icon'],
-                        'rarity' => $item['rarity'],
-                        'css' => $item['css'] ?? null,
-                        'slot' => $item['slot'],
-                    ])
-                    <div class="shop-item-card__body">
-                        <div>
-                            <p class="font-display text-lg text-amber-100">{{ $item['name'] }}</p>
-                            <div class="shop-item-card__meta mt-2">
-                                <span class="shop-item-card__badge">{{ $item['rarity_label'] }}</span>
-                                @if(($item['currency'] ?? 'relics') === 'seals')
-                                    <span class="shop-item-card__badge shop-item-card__badge--seals">só presença</span>
-                                @endif
-                            </div>
-                            <p class="text-sm mt-3 {{ ($item['currency'] ?? 'relics') === 'seals' ? 'text-emerald-300' : 'text-cyan-300' }}">
-                                {{ $item['price'] }} {{ $item['currency_label'] ?? 'Relíquias' }}
-                            </p>
-                            <p class="text-xs mt-1 {{ $item['stock'] > 0 ? 'text-amber-100/50' : 'text-rose-300/70' }}">
-                                {{ $item['stock'] > 0 ? 'Restam '.$item['stock'].' na loja' : 'Esgotado na loja' }}
-                            </p>
-                            <p class="text-xs text-amber-200/70 mt-1">
-                                Fortalece na arena quando equipado
-                            </p>
-                        </div>
-
-                        <div class="mt-auto flex flex-col gap-2">
-                            @if($item['owned'])
-                                <div class="flex flex-wrap gap-2">
-                                    @if($item['equipped'])
-                                        <span class="text-xs text-emerald-300 self-center">Equipado</span>
-                                    @else
-                                        <form method="POST" action="{{ route('student.shop.equip') }}">
-                                            @csrf
-                                            <input type="hidden" name="item" value="{{ $item['key'] }}">
-                                            <button type="submit" class="game-btn !py-1 !px-3 text-sm">Equipar</button>
-                                        </form>
-                                    @endif
-                                </div>
-                                @if($item['tradable'] ?? true)
-                                    @if($item['listed_price'] !== null)
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <span class="text-xs text-violet-200">À venda por {{ $item['listed_price'] }}</span>
-                                            <form method="POST" action="{{ route('student.shop.unlist') }}">
-                                                @csrf
-                                                <input type="hidden" name="item" value="{{ $item['key'] }}">
-                                                <button type="submit" class="game-btn-ghost !py-1 !px-3 text-xs">Tirar do mercado</button>
-                                            </form>
-                                        </div>
-                                    @else
-                                        <form method="POST" action="{{ route('student.shop.list') }}" class="flex flex-wrap items-end gap-2">
-                                            @csrf
-                                            <input type="hidden" name="item" value="{{ $item['key'] }}">
-                                            <label class="space-y-1">
-                                                <span class="text-xs uppercase tracking-wide text-purple-200/70">Preço</span>
-                                                <input class="game-input w-24 !py-1" type="number" name="price" min="1" max="9999" value="{{ $item['price'] }}" required>
-                                            </label>
-                                            <button type="submit" class="game-btn-ghost !py-1 !px-3 text-sm">Anunciar</button>
-                                        </form>
-                                    @endif
-                                @else
-                                    <p class="text-xs text-emerald-200/60">Item de presença — não pode ser negociado.</p>
-                                @endif
-                            @else
-                                @php
-                                    $canAfford = ($item['currency'] ?? 'relics') === 'seals'
-                                        ? $enrollment->seals >= $item['price']
-                                        : $enrollment->relics >= $item['price'];
-                                @endphp
-                                <form method="POST" action="{{ route('student.shop.purchase') }}">
-                                    @csrf
-                                    <input type="hidden" name="item" value="{{ $item['key'] }}">
-                                    <button
-                                        type="submit"
-                                        class="game-btn !py-1 !px-3 text-sm w-full"
-                                        @disabled($item['stock'] < 1 || ! $canAfford)
-                                    >
-                                        Comprar na loja
-                                    </button>
-                                </form>
-                            @endif
-                        </div>
-                    </div>
-                </article>
+                @continue(($item['currency'] ?? 'relics') === 'auras')
+                @include('partials.shop-item-card', ['item' => $item, 'enrollment' => $enrollment, 'auras' => $auras])
             @endforeach
         </div>
     </section>
 @endforeach
+    </div>
+
+    <div x-show="tab === 'aura'" x-cloak>
+        <p class="text-sm text-violet-200/70 mb-4">Itens compráveis só com Aura do reino. Não entram no mercado P2P.</p>
+        @php $auraItems = collect($catalog)->flatten(1)->filter(fn ($item) => ($item['currency'] ?? '') === 'auras'); @endphp
+        @if($auraItems->isEmpty())
+            <div class="game-card p-4 text-sm text-amber-100/55">Nenhum item de Aura cadastrado ainda.</div>
+        @else
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                @foreach($auraItems as $item)
+                    @include('partials.shop-item-card', ['item' => $item, 'enrollment' => $enrollment, 'auras' => $auras])
+                @endforeach
+            </div>
+        @endif
+    </div>
+</section>
 @endsection

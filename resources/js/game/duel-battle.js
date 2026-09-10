@@ -12,6 +12,7 @@ export function duelBattle(payload) {
         viewerId: Number(payload.viewerId),
         gloryWin: payload.gloryWin,
         gloryLoss: payload.gloryLoss,
+        rewardLabel: payload.rewardLabel || 'Glória',
         index: 0,
         log: [],
         effects: [],
@@ -58,8 +59,8 @@ export function duelBattle(payload) {
 
         get resultLine() {
             return this.iWon
-                ? `+${this.gloryWin} Glória`
-                : `+${this.gloryLoss} Glória`;
+                ? `+${this.gloryWin} ${this.rewardLabel}`
+                : `+${this.gloryLoss} ${this.rewardLabel}`;
         },
 
         get winner() {
@@ -70,10 +71,10 @@ export function duelBattle(payload) {
             const name = this.winner.arena || this.winner.name;
 
             if (this.iWon) {
-                return `+${this.gloryWin} Glória para você`;
+                return `+${this.gloryWin} ${this.rewardLabel} para você`;
             }
 
-            return `${name} leva +${this.gloryWin} Glória`;
+            return `${name} leva +${this.gloryWin} ${this.rewardLabel}`;
         },
 
         prefersReducedMotion() {

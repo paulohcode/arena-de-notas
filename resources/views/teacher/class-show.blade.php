@@ -51,7 +51,7 @@
                 <p class="font-semibold {{ $class->isArenaOpen() ? 'text-cyan-300' : 'text-amber-100/70' }}">
                     Arena {{ $class->isArenaOpen() ? 'aberta' : 'fechada' }}
                 </p>
-                <p class="text-sm text-amber-100/55">Duelos RPG e batalhas de guildas geram Glória — não mexem na média nem no XP. Com a arena aberta, cada guilda pode batalhar 1 vez por dia.</p>
+                <p class="text-sm text-amber-100/55">Duelos RPG e batalhas de guildas geram Glória — não mexem na média nem no XP. Com a arena aberta, cada guilda pode batalhar 1 vez por dia. Alunos também podem desafiar outras turmas do mesmo reino por Aura.</p>
             </div>
             <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" @click="tab = 'arena'">Gerenciar arena</button>
         </div>
@@ -816,6 +816,7 @@
                 <p class="text-sm text-cyan-200/70 mt-2">
                     Batalhas de guildas: com a arena aberta, qualquer membro pode desafiar outra guilda.
                     Cada guilda resolve no máximo <strong>1 batalha por dia</strong>. Quem lutou ganha Glória/Relíquias; a média e o XP não mudam.
+                    Com a arena aberta, alunos também podem desafiar outras turmas do mesmo reino por <strong>Aura</strong>.
                 </p>
             </div>
             @if($class->isArenaOpen())

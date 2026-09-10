@@ -40,7 +40,7 @@ export function startChallengePolling(url, csrf) {
 
             const data = await response.json();
             (data.challenges || []).forEach((challenge) => {
-                const challengeId = String(challenge.id || challenge.duel_id || challenge.team_battle_id);
+            const challengeId = String(challenge.id || challenge.duel_id || challenge.team_battle_id || challenge.realm_duel_id);
                 if (shown.has(challengeId)) {
                     return;
                 }
@@ -84,8 +84,8 @@ function openChallengeModal(challenge, csrf, onDone) {
     layer.dataset.duelChallengeModal = 'true';
     layer.innerHTML = `
         <div class="duel-challenge-card game-card p-6 max-w-md w-[92vw]" role="dialog" aria-modal="true" aria-labelledby="duel-challenge-title">
-            <p class="hero-kicker !mb-2">${challenge.kind === 'guild' ? 'Desafio de guilda' : 'Desafio na arena'}</p>
-            <h2 id="duel-challenge-title" class="font-display text-2xl text-amber-300 mb-2">${challenge.kind === 'guild' ? 'Aceita a batalha?' : 'Aceita o duelo?'}</h2>
+            <p class="hero-kicker !mb-2">${challenge.kind === 'guild' ? 'Desafio de guilda' : (challenge.kind === 'realm' ? 'Desafio entre turmas' : 'Desafio na arena')}</p>
+            <h2 id="duel-challenge-title" class="font-display text-2xl text-amber-300 mb-2">${challenge.kind === 'guild' ? 'Aceita a batalha?' : (challenge.kind === 'realm' ? 'Aceita o duelo por Aura?' : 'Aceita o duelo?')}</h2>
             <p class="text-amber-100/75 mb-6">${escapeHtml(challenge.message)}</p>
             <div class="flex flex-wrap gap-3 justify-end">
                 <button type="button" class="game-btn-ghost" data-duel-decline>Recusar</button>
@@ -131,6 +131,9 @@ function openChallengeModal(challenge, csrf, onDone) {
         }
         if (challenge.team_battle_id) {
             sessionStorage.setItem('arena-guild-focus', String(challenge.team_battle_id));
+        }
+        if (challenge.realm_duel_id) {
+            sessionStorage.setItem('arena-realm-focus', String(challenge.realm_duel_id));
         }
 
         const form = document.createElement('form');

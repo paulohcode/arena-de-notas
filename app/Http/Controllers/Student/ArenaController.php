@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Duel;
+use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Models\Team;
 use App\Models\TeamBattle;
 use App\Models\User;
 use App\Services\DuelService;
+use App\Services\RealmDuelService;
 use App\Services\TeamBattleService;
 use App\Support\ArenaUrl;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +24,7 @@ class ArenaController extends Controller
     public function __construct(
         private DuelService $duels,
         private TeamBattleService $teamBattles,
+        private RealmDuelService $realmDuels,
     ) {}
 
     public function index(Request $request): View|RedirectResponse
@@ -121,6 +124,58 @@ class ArenaController extends Controller
                 : [];
         }
 
+        $area = $class->area;
+        $realmOpponents = $area
+            ? $this->realmDuels->realmOpponents($class, $student)
+            : collect();
+        $canChallengeRealm = $canChallenge && $area !== null;
+        $pendingRealmIncoming = collect();
+        $pendingRealmOutgoing = collect();
+        $realmHistory = collect();
+        $realmResolvedToday = 0;
+        $realmAuras = 0;
+        $realmNotices = [];
+
+        if ($area) {
+            $pendingRealmIncoming = RealmDuel::query()
+                ->with(['challenger', 'challengerClass'])
+                ->where('opponent_id', $student->id)
+                ->where('area_id', $area->id)
+                ->where('status', RealmDuel::STATUS_PENDING)
+                ->latest()
+                ->get();
+
+            $pendingRealmOutgoing = RealmDuel::query()
+                ->with(['opponent', 'opponentClass'])
+                ->where('challenger_id', $student->id)
+                ->where('area_id', $area->id)
+                ->where('status', RealmDuel::STATUS_PENDING)
+                ->latest()
+                ->get();
+
+            $realmHistory = RealmDuel::query()
+                ->with(['challenger', 'opponent', 'winner', 'challengerClass', 'opponentClass'])
+                ->where('area_id', $area->id)
+                ->where(function ($query) use ($student) {
+                    $query->where('challenger_id', $student->id)
+                        ->orWhere('opponent_id', $student->id);
+                })
+                ->where('status', RealmDuel::STATUS_RESOLVED)
+                ->latest('resolved_at')
+                ->limit(12)
+                ->get();
+
+            $realmResolvedToday = $this->realmDuels->resolvedTodayCount($area, $student);
+            $realmAuras = $this->realmDuels->auraBalance($area, $student);
+            $realmNotices = $canChallengeRealm
+                ? $this->realmDuels->challengeNotices(
+                    $area,
+                    $student,
+                    $realmOpponents->map(fn (array $row) => $row['student']),
+                )
+                : [];
+        }
+
         return view('student.arena', [
             'class' => $class,
             'student' => $student,
@@ -147,6 +202,16 @@ class ArenaController extends Controller
             'guildDailyLimit' => TeamBattle::DAILY_RESOLVED_LIMIT,
             'canChallengeGuild' => $canChallengeGuild,
             'guildNotices' => $guildNotices,
+            'area' => $area,
+            'realmOpponents' => $realmOpponents,
+            'pendingRealmIncoming' => $pendingRealmIncoming,
+            'pendingRealmOutgoing' => $pendingRealmOutgoing,
+            'realmHistory' => $realmHistory,
+            'realmResolvedToday' => $realmResolvedToday,
+            'realmDailyLimit' => RealmDuel::DAILY_RESOLVED_LIMIT,
+            'realmAuras' => $realmAuras,
+            'canChallengeRealm' => $canChallengeRealm,
+            'realmNotices' => $realmNotices,
             'notifyUrl' => ArenaUrl::route('student.notifications'),
             'markReadUrl' => ArenaUrl::route('student.notifications.read'),
         ]);
@@ -281,8 +346,32 @@ class ArenaController extends Controller
             })
             ->values();
 
+        $realmChallenges = RealmDuel::query()
+            ->with(['challenger', 'challengerClass'])
+            ->where('opponent_id', $student->id)
+            ->where('status', RealmDuel::STATUS_PENDING)
+            ->latest()
+            ->get()
+            ->map(function (RealmDuel $duel) {
+                $challengerLabel = $duel->challenger->arenaName() ?: $duel->challenger->name;
+                $className = $duel->challengerClass->name;
+
+                return [
+                    'id' => 'realm-'.$duel->id,
+                    'kind' => 'realm',
+                    'realm_duel_id' => $duel->id,
+                    'challenger_name' => $duel->challenger->name,
+                    'challenger_arena' => $duel->challenger->arenaName(),
+                    'message' => "{$challengerLabel} ({$className}) te desafiou por Aura. Aceita?",
+                    'accept_url' => ArenaUrl::route('student.arena.realm.accept', $duel),
+                    'decline_url' => ArenaUrl::route('student.arena.realm.decline', $duel),
+                    'show_url' => ArenaUrl::route('student.arena.realm.show', $duel),
+                ];
+            })
+            ->values();
+
         return response()->json([
-            'challenges' => $duelChallenges->concat($guildChallenges)->values(),
+            'challenges' => $duelChallenges->concat($guildChallenges)->concat($realmChallenges)->values(),
         ]);
     }
 
@@ -488,6 +577,152 @@ class ArenaController extends Controller
         return redirect()
             ->route('student.arena.index')
             ->with('success', 'Desafio de guilda recusado.');
+    }
+
+    public function challengeRealm(Request $request): RedirectResponse
+    {
+        $class = $this->currentClass($request);
+        abort_unless($class, 404);
+        $this->authorize('viewAsStudent', $class);
+
+        $data = $request->validate([
+            'opponent_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $opponent = User::query()->findOrFail($data['opponent_id']);
+
+        try {
+            $duel = $this->realmDuels->challenge($class, $request->user(), $opponent);
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('student.arena.index')
+                ->withErrors($exception->errors());
+        }
+
+        return redirect()
+            ->route('student.arena.realm.show', $duel)
+            ->with('success', 'Desafio do reino enviado! Aguarde o aceite — a batalha abre sozinha.');
+    }
+
+    public function showRealm(Request $request, RealmDuel $realmDuel): View|RedirectResponse
+    {
+        $student = $request->user();
+        abort_unless($realmDuel->involves($student), 404);
+
+        $viewerClass = $realmDuel->classFor($student);
+        abort_unless($viewerClass, 404);
+        $this->authorize('viewAsStudent', $viewerClass);
+
+        if ($realmDuel->isPending() && $realmDuel->opponent_id === $student->id) {
+            return redirect()->route('student.arena.index');
+        }
+
+        if ($realmDuel->status === RealmDuel::STATUS_DECLINED) {
+            return redirect()
+                ->route('student.arena.index')
+                ->with('success', 'Este desafio do reino foi recusado.');
+        }
+
+        $realmDuel->load(['challenger', 'opponent', 'winner', 'challengerClass', 'opponentClass']);
+
+        $challengerEnrollment = $realmDuel->challenger->enrollmentIn($realmDuel->challengerClass);
+        $opponentEnrollment = $realmDuel->opponent->enrollmentIn($realmDuel->opponentClass);
+
+        return view('student.duel', [
+            'class' => $viewerClass,
+            'student' => $student,
+            'duel' => $realmDuel,
+            'challengerEnrollment' => $challengerEnrollment,
+            'opponentEnrollment' => $opponentEnrollment,
+            'rewardWin' => (int) $realmDuel->aura_winner,
+            'rewardLoss' => (int) $realmDuel->aura_loser,
+            'rewardLabel' => 'Aura',
+            'statusUrl' => ArenaUrl::route('student.arena.realm.status', $realmDuel),
+            'notifyUrl' => ArenaUrl::route('student.notifications'),
+            'markReadUrl' => ArenaUrl::route('student.notifications.read'),
+        ]);
+    }
+
+    public function statusRealm(Request $request, RealmDuel $realmDuel): JsonResponse
+    {
+        $student = $request->user();
+        abort_unless($realmDuel->involves($student), 404);
+
+        $viewerClass = $realmDuel->classFor($student);
+        abort_unless($viewerClass, 404);
+        $this->authorize('viewAsStudent', $viewerClass);
+
+        $realmDuel->refresh();
+
+        return response()->json([
+            'status' => $realmDuel->status,
+            'redirect' => match ($realmDuel->status) {
+                RealmDuel::STATUS_RESOLVED => ArenaUrl::route('student.arena.realm.show', $realmDuel).'?replay=1',
+                RealmDuel::STATUS_DECLINED => ArenaUrl::route('student.arena.index'),
+                default => null,
+            },
+        ]);
+    }
+
+    public function acceptRealm(Request $request, RealmDuel $realmDuel): RedirectResponse|JsonResponse
+    {
+        abort_unless($realmDuel->opponent_id === $request->user()->id, 403);
+        $this->authorize('viewAsStudent', $realmDuel->opponentClass);
+
+        try {
+            $resolved = $this->realmDuels->accept($realmDuel, $request->user());
+        } catch (ValidationException $exception) {
+            if ($this->wantsArenaJson($request)) {
+                throw $exception;
+            }
+
+            return redirect()
+                ->route('student.arena.index')
+                ->withErrors($exception->errors());
+        }
+
+        $battleUrl = ArenaUrl::route('student.arena.realm.show', $resolved).'?replay=1';
+
+        if ($this->wantsArenaJson($request)) {
+            return response()->json([
+                'ok' => true,
+                'redirect' => $battleUrl,
+            ]);
+        }
+
+        return redirect()
+            ->to($battleUrl)
+            ->with('success', 'Combate do reino iniciado!');
+    }
+
+    public function declineRealm(Request $request, RealmDuel $realmDuel): RedirectResponse|JsonResponse
+    {
+        abort_unless($realmDuel->opponent_id === $request->user()->id, 403);
+        $this->authorize('viewAsStudent', $realmDuel->opponentClass);
+
+        try {
+            $this->realmDuels->decline($realmDuel, $request->user());
+        } catch (ValidationException $exception) {
+            if ($this->wantsArenaJson($request)) {
+                throw $exception;
+            }
+
+            return redirect()
+                ->route('student.arena.index')
+                ->withErrors($exception->errors());
+        }
+
+        if ($this->wantsArenaJson($request)) {
+            return response()->json([
+                'ok' => true,
+                'redirect' => null,
+                'message' => 'Desafio do reino recusado.',
+            ]);
+        }
+
+        return redirect()
+            ->route('student.arena.index')
+            ->with('success', 'Desafio do reino recusado.');
     }
 
     private function wantsArenaJson(Request $request): bool

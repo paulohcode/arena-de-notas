@@ -35,7 +35,7 @@ function escapeHtml(value) {
 }
 
 function playOptionalSound(type) {
-    if (!['level', 'rank_up', 'badge', 'duel_result', 'duel_challenge'].includes(type)) {
+    if (!['level', 'rank_up', 'badge', 'duel_result', 'duel_challenge', 'realm_duel_result', 'realm_duel_challenge'].includes(type)) {
         return;
     }
 

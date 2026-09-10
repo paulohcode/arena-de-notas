@@ -57,17 +57,21 @@ export function startNotificationPolling(url, markUrl, csrf) {
                     return;
                 }
                 seen.add(id);
-                if (item.type === 'duel_challenge') {
+                if (item.type === 'duel_challenge' || item.type === 'realm_duel_challenge' || item.type === 'guild_battle_challenge') {
                     // O modal dedicado cuida do aceite/recusa.
                     return;
                 }
                 const path = toLocalPath(item.payload?.url || null);
-                if ((item.type === 'duel_result' || item.type === 'guild_battle_result') && path) {
-                    const focusId = sessionStorage.getItem(
-                        item.type === 'guild_battle_result' ? 'arena-guild-focus' : 'arena-duel-focus',
-                    );
+                if ((item.type === 'duel_result' || item.type === 'guild_battle_result' || item.type === 'realm_duel_result') && path) {
+                    const focusKey = item.type === 'guild_battle_result'
+                        ? 'arena-guild-focus'
+                        : (item.type === 'realm_duel_result' ? 'arena-realm-focus' : 'arena-duel-focus');
+                    const focusId = sessionStorage.getItem(focusKey);
                     const battleId = String(
-                        item.payload?.duel_id ?? item.payload?.team_battle_id ?? '',
+                        item.payload?.duel_id
+                            ?? item.payload?.team_battle_id
+                            ?? item.payload?.realm_duel_id
+                            ?? '',
                     );
                     const onWaiting = Boolean(
                         document.querySelector('[data-duel-waiting], [data-guild-waiting]'),
@@ -79,6 +83,7 @@ export function startNotificationPolling(url, markUrl, csrf) {
                     if (shouldOpen) {
                         sessionStorage.removeItem('arena-duel-focus');
                         sessionStorage.removeItem('arena-guild-focus');
+                        sessionStorage.removeItem('arena-realm-focus');
                         goToBattle(path.includes('?') ? path : `${path}?replay=1`);
                         return;
                     }

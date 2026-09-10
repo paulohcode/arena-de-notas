@@ -37,8 +37,9 @@
         'turns' => $turns,
         'winnerId' => (int) $duel->winner_id,
         'viewerId' => (int) $student->id,
-        'gloryWin' => (int) $duel->glory_winner,
-        'gloryLoss' => (int) $duel->glory_loser,
+        'gloryWin' => (int) ($rewardWin ?? $duel->glory_winner ?? $duel->aura_winner ?? 0),
+        'gloryLoss' => (int) ($rewardLoss ?? $duel->glory_loser ?? $duel->aura_loser ?? 0),
+        'rewardLabel' => $rewardLabel ?? 'Glória',
         'winnerReason' => (string) ($log['winner_reason'] ?? 'hp'),
     ] : null;
 

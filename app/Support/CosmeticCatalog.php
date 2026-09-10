@@ -21,12 +21,15 @@ class CosmeticCatalog
 
     public const CURRENCY_SEALS = 'seals';
 
+    public const CURRENCY_AURAS = 'auras';
+
     /**
      * @var array<string, string>
      */
     public const CURRENCIES = [
         self::CURRENCY_RELICS => 'Relíquias',
         self::CURRENCY_SEALS => 'Selos',
+        self::CURRENCY_AURAS => 'Aura',
     ];
 
     /**
@@ -373,12 +376,19 @@ class CosmeticCatalog
         return self::currency($key) === self::CURRENCY_SEALS;
     }
 
+    public static function usesAuras(string $key): bool
+    {
+        return self::currency($key) === self::CURRENCY_AURAS;
+    }
+
+    public static function isNonTradable(string $key): bool
+    {
+        return self::usesSeals($key) || self::usesAuras($key);
+    }
+
     public static function currencyLabel(string $currency): string
     {
-        return match ($currency) {
-            self::CURRENCY_SEALS => 'Selos',
-            default => 'Relíquias',
-        };
+        return self::CURRENCIES[$currency] ?? 'Relíquias';
     }
 
     public static function slotColumn(string $slot): ?string
