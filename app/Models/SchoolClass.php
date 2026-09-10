@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CosmeticCatalog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -97,6 +98,11 @@ class SchoolClass extends Model
         return $this->hasMany(Activity::class, 'class_id');
     }
 
+    public function gameEvents(): HasMany
+    {
+        return $this->hasMany(GameEvent::class, 'class_id');
+    }
+
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(LedgerEntry::class, 'class_id');
@@ -125,6 +131,25 @@ class SchoolClass extends Model
     public function shopItems(): HasMany
     {
         return $this->hasMany(ShopItem::class, 'class_id');
+    }
+
+    public function resolveChildRouteBinding($childType, $value, $field)
+    {
+        if ($childType === 'shopItem') {
+            return ShopItem::query()
+                ->where($field ?? 'id', $value)
+                ->where(function ($query) {
+                    $query->where('class_id', $this->id)
+                        ->orWhere(function ($query) {
+                            $query->where('currency', CosmeticCatalog::CURRENCY_AURAS)
+                                ->whereNotNull('area_id')
+                                ->where('area_id', $this->area_id);
+                        });
+                })
+                ->first();
+        }
+
+        return parent::resolveChildRouteBinding($childType, $value, $field);
     }
 
     public function cosmetics(): HasManyThrough

@@ -22,6 +22,7 @@
         </p>
     </div>
     <div class="flex flex-wrap gap-2">
+        <a class="game-btn-ghost" href="{{ route('student.arena.realm.index') }}">Entre turmas</a>
         <a class="game-btn-ghost" href="{{ route('student.arena.index') }}">Arena</a>
         <a class="game-btn-ghost" href="{{ route('student.dashboard') }}">Minha ficha</a>
     </div>
@@ -121,7 +122,7 @@
     </div>
 
     <div x-show="tab === 'aura'" x-cloak>
-        <p class="text-sm text-violet-200/70 mb-4">Itens compráveis só com Aura do reino. Não entram no mercado P2P.</p>
+        <p class="text-sm text-violet-200/70 mb-4">Itens compráveis só com Aura do reino. São únicos no reino: todas as turmas compartilham o mesmo estoque. Não entram no mercado P2P.</p>
         @php $auraItems = collect($catalog)->flatten(1)->filter(fn ($item) => ($item['currency'] ?? '') === 'auras'); @endphp
         @if($auraItems->isEmpty())
             <div class="game-card p-4 text-sm text-amber-100/55">Nenhum item de Aura cadastrado ainda.</div>

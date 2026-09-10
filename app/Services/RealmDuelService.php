@@ -28,6 +28,7 @@ class RealmDuelService
         $area = $this->requireArea($challengerClass);
         $opponentClass = $this->resolveOpponentClass($area, $challengerClass, $opponent);
 
+        $this->assertRealmArenaOpen($area);
         $this->assertArenaOpen($challengerClass);
         $this->assertArenaOpen($opponentClass);
         $this->assertCanFight($challengerClass, $challenger);
@@ -69,7 +70,7 @@ class RealmDuelService
                 'challenger_class' => $challengerClass->name,
                 'accept_url' => ArenaUrl::route('student.arena.realm.accept', $duel),
                 'decline_url' => ArenaUrl::route('student.arena.realm.decline', $duel),
-                'url' => ArenaUrl::route('student.arena.index'),
+                'url' => ArenaUrl::route('student.arena.realm.index'),
             ],
         ));
 
@@ -95,6 +96,7 @@ class RealmDuelService
 
         $challengerClass = $duel->challengerClass;
         $opponentClass = $duel->opponentClass;
+        $this->assertRealmArenaOpen($duel->area);
         $this->assertArenaOpen($challengerClass);
         $this->assertArenaOpen($opponentClass);
         $this->assertCanFight($challengerClass, $duel->challenger);
@@ -210,7 +212,7 @@ class RealmDuelService
             [
                 'realm_duel_id' => $duel->id,
                 'area_id' => $duel->area_id,
-                'url' => ArenaUrl::route('student.arena.index'),
+                'url' => ArenaUrl::route('student.arena.realm.index'),
             ],
         ));
 
@@ -238,7 +240,7 @@ class RealmDuelService
         $payload = [
             'realm_duel_id' => $duel->id,
             'area_id' => $duel->area_id,
-            'url' => ArenaUrl::route('student.arena.index'),
+            'url' => ArenaUrl::route('student.arena.realm.index'),
         ];
 
         $duel->challenger->notify(new GameAlert(
@@ -262,7 +264,29 @@ class RealmDuelService
     {
         return $this->pendingBetweenReason($area, $challenger, $opponent)
             ?? $this->duplicateTodayReason($area, $challenger, $opponent)
-            ?? $this->dailyLimitReason($area, $challenger);
+            ?? $this->dailyLimitReason($area, $challenger)
+            ?? $this->cooldownReason($area, $challenger);
+    }
+
+    public function toggleRealmArena(Area $area, bool $open): Area
+    {
+        $area->update(['realm_arena_open' => $open]);
+
+        return $area->fresh();
+    }
+
+    /**
+     * @param  array{realm_arena_open: bool, realm_arena_cooldown_minutes: int, realm_arena_daily_limit: int}  $settings
+     */
+    public function updateSettings(Area $area, array $settings): Area
+    {
+        $area->update([
+            'realm_arena_open' => $settings['realm_arena_open'],
+            'realm_arena_cooldown_minutes' => $settings['realm_arena_cooldown_minutes'],
+            'realm_arena_daily_limit' => $settings['realm_arena_daily_limit'],
+        ]);
+
+        return $area->fresh();
     }
 
     /**
@@ -392,6 +416,15 @@ class RealmDuelService
         return $opponentClass;
     }
 
+    private function assertRealmArenaOpen(Area $area): void
+    {
+        if (! $area->isRealmArenaOpen()) {
+            throw ValidationException::withMessages([
+                'arena' => 'A arena entre turmas deste reino está fechada.',
+            ]);
+        }
+    }
+
     private function assertArenaOpen(SchoolClass $class): void
     {
         if (! $class->isArenaOpen()) {
@@ -439,10 +472,36 @@ class RealmDuelService
 
     private function dailyLimitReason(Area $area, User $student): ?string
     {
-        $limit = RealmDuel::DAILY_RESOLVED_LIMIT;
+        $limit = $area->realmArenaDailyLimit();
 
         if ($this->resolvedTodayCount($area, $student) >= $limit) {
-            return "Você já fez {$limit} duelos do reino hoje. Só pode de novo amanhã.";
+            $label = $limit === 1 ? 'duelo do reino' : 'duelos do reino';
+
+            return "Você já fez {$limit} {$label} hoje. Só pode de novo amanhã.";
+        }
+
+        return null;
+    }
+
+    private function cooldownReason(Area $area, User $challenger): ?string
+    {
+        $minutes = $area->realmArenaCooldownMinutes();
+
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        $since = now()->subMinutes($minutes);
+
+        $recent = RealmDuel::query()
+            ->where('area_id', $area->id)
+            ->where('challenger_id', $challenger->id)
+            ->where('created_at', '>=', $since)
+            ->whereIn('status', [RealmDuel::STATUS_PENDING, RealmDuel::STATUS_RESOLVED])
+            ->exists();
+
+        if ($recent) {
+            return 'Aguarde '.$area->realmArenaCooldownLabel().' entre um desafio do reino e outro.';
         }
 
         return null;

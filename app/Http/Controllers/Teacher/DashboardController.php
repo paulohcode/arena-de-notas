@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceSession;
 use App\Models\Duel;
+use App\Models\GameEvent;
 use App\Models\LedgerEntry;
 use App\Models\RealmDuel;
 use App\Models\SchoolClass;
@@ -49,7 +50,10 @@ class DashboardController extends Controller
             'students' => fn ($query) => $query->orderBy('name')->orderBy('users.id'),
             'teams' => fn ($query) => $query->orderBy('name'),
             'teams.members',
-            'activities',
+            'activities' => fn ($query) => $query->with('gameEvent'),
+            'gameEvents' => fn ($query) => $query->with(['prizeItem', 'questions'])
+                ->whereIn('kind', [GameEvent::KIND_CLASS, GameEvent::KIND_ACTIVITY])
+                ->latest(),
             'area',
             'teacher',
         ]);

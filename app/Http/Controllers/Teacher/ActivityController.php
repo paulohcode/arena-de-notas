@@ -36,6 +36,11 @@ class ActivityController extends Controller
     {
         $this->authorize('manage', $schoolClass);
         abort_unless($activity->class_id === $schoolClass->id, 404);
+
+        if ($activity->isEvent()) {
+            $activity->gameEvent?->delete();
+        }
+
         $activity->delete();
 
         return $this->redirectToActivities($schoolClass, 'Atividade removida.');

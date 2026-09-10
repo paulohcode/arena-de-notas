@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
 use App\Models\SchoolClass;
+use App\Models\ShopItem;
 use App\Services\CosmeticShopService;
 use App\Support\CosmeticCatalog;
 use Illuminate\Http\RedirectResponse;
@@ -37,10 +38,39 @@ class ShopController extends Controller
 
         $data = $request->validate(CosmeticCatalog::itemRules(), CosmeticCatalog::itemMessages());
         $item = $this->shop->createItem($data, $schoolClass);
+        $success = $item->usesAuras()
+            ? $item->name.' cadastrado na loja do reino (único para todas as turmas).'
+            : $item->name.' cadastrado na loja desta turma.';
 
         return redirect()
             ->route('teacher.shop.show', $schoolClass)
-            ->with('success', $item->name.' cadastrado na loja desta turma.');
+            ->with('success', $success);
+    }
+
+    public function edit(SchoolClass $schoolClass, ShopItem $shopItem): View
+    {
+        $this->authorize('manage', $schoolClass);
+
+        return view('teacher.shop-item-edit', [
+            'class' => $schoolClass,
+            'item' => $shopItem,
+            'slots' => CosmeticCatalog::SLOTS,
+            'rarities' => CosmeticCatalog::RARITIES,
+            'currencies' => CosmeticCatalog::CURRENCIES,
+            'cssTones' => CosmeticCatalog::CSS_TONES,
+        ]);
+    }
+
+    public function update(Request $request, SchoolClass $schoolClass, ShopItem $shopItem): RedirectResponse
+    {
+        $this->authorize('manage', $schoolClass);
+
+        $data = $request->validate(CosmeticCatalog::itemUpdateRules(), CosmeticCatalog::itemMessages());
+        $item = $this->shop->updateItem($shopItem, $data);
+
+        return redirect()
+            ->route('teacher.shop.show', $schoolClass)
+            ->with('success', $item->name.' atualizado.');
     }
 
     public function restock(Request $request, SchoolClass $schoolClass): RedirectResponse

@@ -10,9 +10,59 @@
         <h1 class="font-display text-4xl text-amber-300">{{ $area->emblemIcon() }} Arena do reino</h1>
         <p class="text-amber-100/65 mt-1">
             {{ $area->name }} · duelos entre turmas por Aura (+{{ \App\Models\RealmDuel::AURA_WIN }}/+{{ \App\Models\RealmDuel::AURA_LOSS }})
+            · Status:
+            <span class="{{ $area->isRealmArenaOpen() ? 'text-emerald-300' : 'text-rose-300' }}">
+                {{ $area->isRealmArenaOpen() ? 'aberta' : 'fechada' }}
+            </span>
+            · Espera {{ $area->realmArenaCooldownLabel() }}
+            · Limite {{ $area->realmArenaDailyLimit() }}/dia
         </p>
     </div>
+    <div>
+        @if($area->isRealmArenaOpen())
+            <form method="POST" action="{{ route('admin.areas.arena.close', $area) }}">
+                @csrf
+                <button class="game-btn-ghost" type="submit">Fechar arena entre turmas</button>
+            </form>
+        @else
+            <form method="POST" action="{{ route('admin.areas.arena.open', $area) }}">
+                @csrf
+                <button class="game-btn" type="submit">Abrir arena entre turmas</button>
+            </form>
+        @endif
+    </div>
 </div>
+
+<form method="POST" action="{{ route('admin.areas.arena.update', $area) }}" class="game-card p-5 mb-6 space-y-4">
+    @csrf
+    @method('PUT')
+    <div>
+        <h2 class="font-display text-xl text-amber-200">Configurações da arena entre turmas</h2>
+        <p class="text-sm text-amber-100/60 mt-1">Define se o reino aceita duelos entre turmas, a espera entre desafios e o limite diário de Aura.</p>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4">
+        <label class="block">
+            <span class="text-sm">Estado</span>
+            <select class="game-select mt-1 w-full" name="realm_arena_open" required>
+                <option value="1" @selected((string) old('realm_arena_open', $area->isRealmArenaOpen() ? '1' : '0') === '1')>Aberta</option>
+                <option value="0" @selected((string) old('realm_arena_open', $area->isRealmArenaOpen() ? '1' : '0') === '0')>Fechada</option>
+            </select>
+        </label>
+        <label class="block">
+            <span class="text-sm">Espera entre desafios (minutos)</span>
+            <input class="game-input mt-1 w-full" type="number" name="realm_arena_cooldown_minutes" min="0" max="10080" required
+                value="{{ old('realm_arena_cooldown_minutes', $area->realmArenaCooldownMinutes()) }}">
+            <span class="block text-xs text-amber-100/50 mt-1">0 = sem espera. Ex.: 30 para meia hora.</span>
+        </label>
+        <label class="block">
+            <span class="text-sm">Duelos do reino no dia</span>
+            <input class="game-input mt-1 w-full" type="number" name="realm_arena_daily_limit" min="1" max="50" required
+                value="{{ old('realm_arena_daily_limit', $area->realmArenaDailyLimit()) }}">
+            <span class="block text-xs text-amber-100/50 mt-1">Cada aluno pode concluir no máximo esse número por dia.</span>
+        </label>
+    </div>
+    <button class="game-btn" type="submit">Salvar configurações</button>
+</form>
 
 <div class="game-card p-5 mb-6">
     <h2 class="font-display text-xl text-amber-200 mb-3">Turmas do reino</h2>

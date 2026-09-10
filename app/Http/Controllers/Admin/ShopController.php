@@ -27,7 +27,7 @@ class ShopController extends Controller
             'classes' => $classes,
             'overview' => $this->shop->overviewForClasses($classes),
             'customItems' => ShopItem::query()
-                ->with('schoolClass')
+                ->with(['schoolClass', 'area'])
                 ->orderByDesc('id')
                 ->get(),
             'slots' => CosmeticCatalog::SLOTS,
@@ -41,9 +41,33 @@ class ShopController extends Controller
     {
         $data = $request->validate(CosmeticCatalog::itemRules(), CosmeticCatalog::itemMessages());
         $item = $this->shop->createItem($data);
+        $success = $item->usesAuras()
+            ? $item->name.' criado: único em cada reino.'
+            : $item->name.' criado e disponível em todas as turmas.';
 
         return redirect()
             ->route('admin.shop.index')
-            ->with('success', $item->name.' criado e disponível em todas as turmas.');
+            ->with('success', $success);
+    }
+
+    public function edit(ShopItem $shopItem): View
+    {
+        return view('admin.shop.edit', [
+            'item' => $shopItem,
+            'slots' => CosmeticCatalog::SLOTS,
+            'rarities' => CosmeticCatalog::RARITIES,
+            'currencies' => CosmeticCatalog::CURRENCIES,
+            'cssTones' => CosmeticCatalog::CSS_TONES,
+        ]);
+    }
+
+    public function update(Request $request, ShopItem $shopItem): RedirectResponse
+    {
+        $data = $request->validate(CosmeticCatalog::itemUpdateRules(), CosmeticCatalog::itemMessages());
+        $item = $this->shop->updateItem($shopItem, $data);
+
+        return redirect()
+            ->route('admin.shop.index')
+            ->with('success', $item->name.' atualizado.');
     }
 }

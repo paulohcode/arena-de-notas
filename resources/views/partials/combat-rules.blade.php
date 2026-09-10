@@ -30,12 +30,14 @@
                 A nota da guilda vale para todos os integrantes. Sem guilda, esse bônus fica zerado.
             </li>
             <li>
-                <strong class="text-amber-200">Itens equipados</strong> da loja: cada peça dá um pouco de poder conforme a raridade
+                <strong class="text-amber-200">Itens equipados</strong> da loja: cada peça dá um bônus de poder.
+                No catálogo, a raridade define o valor
                 (comum {{ number_format($rules['gear_by_rarity']['common'] * 100, 1) }}%,
                 incomum {{ number_format($rules['gear_by_rarity']['uncommon'] * 100, 1) }}%,
                 raro {{ number_format($rules['gear_by_rarity']['rare'] * 100, 1) }}%,
-                épico {{ number_format($rules['gear_by_rarity']['epic'] * 100, 1) }}%),
-                no máximo +{{ $gearCapPct }}% no total. Só vale o que está equipado.
+                épico {{ number_format($rules['gear_by_rarity']['epic'] * 100, 1) }}%).
+                Itens cadastrados na loja podem ter um poder próprio.
+                No máximo +{{ $gearCapPct }}% no total. Só vale o que está equipado.
             </li>
             <li>
                 <strong class="text-amber-200">Nível de XP</strong> (Iniciante a Mestre) multiplica o resultado final.

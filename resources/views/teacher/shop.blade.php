@@ -20,7 +20,7 @@
 <div class="game-card p-5 mb-8 reveal space-y-4">
     <div>
         <h2 class="font-display text-xl text-amber-200">Cadastrar item</h2>
-        <p class="text-sm text-amber-100/60 mt-1">O item fica disponível só nesta turma. Depois você pode ajustar quantas cópias estão à venda.</p>
+        <p class="text-sm text-amber-100/60 mt-1">Itens pagos com Relíquias ou Selos ficam só nesta turma. Itens de Aura são únicos no reino: todas as turmas compartilham o mesmo item e o mesmo estoque.</p>
     </div>
     @include('partials.shop-item-form', ['action' => route('teacher.shop.items.store', $class)])
 </div>
@@ -51,9 +51,12 @@
                             </p>
                             <p class="text-sm mt-1 {{ $item['stock'] > 0 ? 'text-cyan-300/80' : 'text-rose-300/80' }}">
                                 {{ $item['stock'] > 0 ? $item['stock'].' à venda na loja' : 'Esgotado na loja' }}
+                                @if(($item['currency'] ?? '') === 'auras')
+                                    <span class="text-violet-200/80"> · único no reino</span>
+                                @endif
                             </p>
                             <p class="text-xs text-amber-200/70 mt-1">
-                                Equipado: +{{ number_format(\App\Support\CosmeticCatalog::combatBonusForKey($item['key']) * 100, 1) }}% no duelo
+                                Equipado: +{{ number_format($item['combat_bonus'] * 100, 1) }}% no duelo
                             </p>
                             <p class="text-sm text-amber-100/70 mt-3">
                                 @if(count($item['owners']) === 0)
@@ -96,6 +99,11 @@
                                 <input class="game-input w-24" type="number" name="quantity" min="0" max="99" value="{{ old('item') === $item['key'] ? old('quantity', $item['stock']) : $item['stock'] }}" required>
                             </label>
                             <button class="game-btn !py-1 !px-3 text-sm" type="submit">Atualizar</button>
+                            @if(($item['shop_item_id'] ?? null) && ((int) ($item['class_id'] ?? 0) === (int) $class->id || (($item['currency'] ?? '') === 'auras' && (int) ($item['area_id'] ?? 0) === (int) $class->area_id)))
+                                <a class="game-btn-ghost !py-1 !px-3 text-sm" href="{{ route('teacher.shop.items.edit', [$class, $item['shop_item_id']]) }}">Editar</a>
+                            @elseif(($item['shop_item_id'] ?? null) && ($item['class_id'] ?? null) === null && ($item['area_id'] ?? null) === null && auth()->user()->isAdmin())
+                                <a class="game-btn-ghost !py-1 !px-3 text-sm" href="{{ route('admin.shop.items.edit', $item['shop_item_id']) }}">Editar</a>
+                            @endif
                         </form>
                     </div>
                 </article>

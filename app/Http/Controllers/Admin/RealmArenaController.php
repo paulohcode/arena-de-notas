@@ -8,6 +8,7 @@ use App\Models\AreaBalance;
 use App\Models\RealmDuel;
 use App\Services\RealmDuelService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -50,6 +51,39 @@ class RealmArenaController extends Controller
         ]);
     }
 
+    public function open(Area $area): RedirectResponse
+    {
+        $this->realmDuels->toggleRealmArena($area, true);
+
+        return redirect()
+            ->route('admin.areas.arena', $area)
+            ->with('success', 'Arena entre turmas aberta.');
+    }
+
+    public function close(Area $area): RedirectResponse
+    {
+        $this->realmDuels->toggleRealmArena($area, false);
+
+        return redirect()
+            ->route('admin.areas.arena', $area)
+            ->with('success', 'Arena entre turmas fechada.');
+    }
+
+    public function update(Request $request, Area $area): RedirectResponse
+    {
+        $data = $this->validatedSettings($request);
+
+        $this->realmDuels->updateSettings($area, [
+            'realm_arena_open' => $request->boolean('realm_arena_open'),
+            'realm_arena_cooldown_minutes' => (int) $data['realm_arena_cooldown_minutes'],
+            'realm_arena_daily_limit' => (int) $data['realm_arena_daily_limit'],
+        ]);
+
+        return redirect()
+            ->route('admin.areas.arena', $area)
+            ->with('success', 'Configurações da arena entre turmas salvas.');
+    }
+
     public function cancel(Area $area, RealmDuel $realmDuel): RedirectResponse
     {
         abort_unless((int) $realmDuel->area_id === (int) $area->id, 404);
@@ -65,5 +99,28 @@ class RealmArenaController extends Controller
         return redirect()
             ->route('admin.areas.arena', $area)
             ->with('success', 'Desafio entre turmas cancelado.');
+    }
+
+    /**
+     * @return array{realm_arena_open: mixed, realm_arena_cooldown_minutes: mixed, realm_arena_daily_limit: mixed}
+     */
+    private function validatedSettings(Request $request): array
+    {
+        return $request->validate([
+            'realm_arena_open' => ['required', 'boolean'],
+            'realm_arena_cooldown_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
+            'realm_arena_daily_limit' => ['required', 'integer', 'min:1', 'max:50'],
+        ], [
+            'realm_arena_open.required' => 'Informe se a arena entre turmas está aberta ou fechada.',
+            'realm_arena_open.boolean' => 'O status da arena entre turmas precisa ser aberto ou fechado.',
+            'realm_arena_cooldown_minutes.required' => 'Informe o tempo de espera entre desafios do reino.',
+            'realm_arena_cooldown_minutes.integer' => 'O tempo de espera precisa ser um número inteiro de minutos.',
+            'realm_arena_cooldown_minutes.min' => 'O tempo de espera não pode ser negativo.',
+            'realm_arena_cooldown_minutes.max' => 'O tempo de espera não pode passar de 7 dias.',
+            'realm_arena_daily_limit.required' => 'Informe quantos duelos do reino são permitidos no dia.',
+            'realm_arena_daily_limit.integer' => 'A quantidade de duelos precisa ser um número inteiro.',
+            'realm_arena_daily_limit.min' => 'É preciso permitir pelo menos 1 duelo do reino por dia.',
+            'realm_arena_daily_limit.max' => 'O limite diário não pode passar de 50 duelos.',
+        ]);
     }
 }

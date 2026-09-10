@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Area;
 use App\Models\AreaBalance;
+use App\Models\AreaCosmeticStock;
 use App\Models\ClassCosmeticStock;
 use App\Models\CosmeticListing;
 use App\Models\Enrollment;
@@ -42,11 +44,26 @@ class CosmeticShopService
 
         $owned = $enrollment->cosmetics()->pluck('item_key')->all();
         $ownedSet = array_fill_keys($owned, true);
+
+        if ($class->area_id) {
+            foreach ($this->itemKeysOwnedInArea($student, (int) $class->area_id) as $itemKey) {
+                if (CosmeticCatalog::usesAuras($itemKey)) {
+                    $ownedSet[$itemKey] = true;
+                }
+            }
+        }
+
         $loadout = $enrollment->cosmeticLoadout();
 
         $stockByKey = ClassCosmeticStock::query()
             ->where('class_id', $class->id)
             ->pluck('quantity', 'item_key');
+
+        $areaStockByKey = $class->area_id
+            ? AreaCosmeticStock::query()
+                ->where('area_id', $class->area_id)
+                ->pluck('quantity', 'item_key')
+            : collect();
 
         $ownListings = CosmeticListing::query()
             ->where('enrollment_id', $enrollment->id)
@@ -89,7 +106,9 @@ class CosmeticShopService
                 'label' => $item['label'] ?? null,
                 'owned' => isset($ownedSet[$key]),
                 'equipped' => $equippedKey === $key,
-                'stock' => (int) ($stockByKey[$key] ?? 0),
+                'stock' => CosmeticCatalog::usesAuras($key)
+                    ? (int) ($areaStockByKey[$key] ?? 0)
+                    : (int) ($stockByKey[$key] ?? 0),
                 'listed_price' => isset($ownListings[$key]) ? (int) $ownListings[$key] : null,
                 'tradable' => ! CosmeticCatalog::isNonTradable($key),
             ];
@@ -145,7 +164,7 @@ class CosmeticShopService
 
     /**
      * @return array{
-     *     catalog: array<string, list<array{key: string, slot: string, name: string, price: int, rarity: string, rarity_label: string, icon?: string, css?: string, label?: string, stock: int, owners: list<array{name: string, character: ?string, equipped: bool}>, listings: list<array{seller: string, price: int}>}>>
+     *     catalog: array<string, list<array{key: string, slot: string, name: string, price: int, rarity: string, rarity_label: string, icon?: string, css?: string, label?: string, stock: int, shop_item_id: ?int, class_id: ?int, area_id: ?int, combat_bonus: float, owners: list<array{name: string, character: ?string, equipped: bool}>, listings: list<array{seller: string, price: int}>}>>
      * }
      */
     public function inventory(SchoolClass $class): array
@@ -160,20 +179,26 @@ class CosmeticShopService
         ]);
 
         $stockByKey = $class->cosmeticStocks->pluck('quantity', 'item_key');
+        $areaStockByKey = $class->area_id
+            ? AreaCosmeticStock::query()
+                ->where('area_id', $class->area_id)
+                ->pluck('quantity', 'item_key')
+            : collect();
 
         $ownersByKey = [];
         foreach ($class->enrollments as $enrollment) {
-            $loadout = $enrollment->cosmeticLoadout();
-            $student = $enrollment->student;
-            $displayName = $student?->name ?? 'Aluno';
-            $character = $student?->arenaName();
+            $this->appendOwners($ownersByKey, $enrollment);
+        }
 
-            foreach ($enrollment->cosmetics as $cosmetic) {
-                $ownersByKey[$cosmetic->item_key][] = [
-                    'name' => $displayName,
-                    'character' => $character,
-                    'equipped' => in_array($cosmetic->item_key, $loadout, true),
-                ];
+        $areaOwnersByKey = [];
+        if ($class->area_id) {
+            $areaEnrollments = Enrollment::query()
+                ->with(['student', 'cosmetics'])
+                ->whereIn('class_id', SchoolClass::query()->where('area_id', $class->area_id)->select('id'))
+                ->get();
+
+            foreach ($areaEnrollments as $enrollment) {
+                $this->appendOwners($areaOwnersByKey, $enrollment, auraOnly: true);
             }
         }
 
@@ -210,8 +235,16 @@ class CosmeticShopService
                 'icon' => CosmeticCatalog::icon($key),
                 'css' => $item['css'] ?? null,
                 'label' => $item['label'] ?? null,
-                'stock' => (int) ($stockByKey[$key] ?? 0),
-                'owners' => $ownersByKey[$key] ?? [],
+                'stock' => CosmeticCatalog::usesAuras($key)
+                    ? (int) ($areaStockByKey[$key] ?? 0)
+                    : (int) ($stockByKey[$key] ?? 0),
+                'shop_item_id' => $item['id'] ?? null,
+                'class_id' => $item['class_id'] ?? null,
+                'area_id' => $item['area_id'] ?? null,
+                'combat_bonus' => CosmeticCatalog::combatBonusForKey($key),
+                'owners' => CosmeticCatalog::usesAuras($key)
+                    ? ($areaOwnersByKey[$key] ?? [])
+                    : ($ownersByKey[$key] ?? []),
                 'listings' => CosmeticCatalog::isNonTradable($key) ? [] : ($listingsByKey[$key] ?? []),
                 'tradable' => ! CosmeticCatalog::isNonTradable($key),
             ];
@@ -238,6 +271,15 @@ class CosmeticShopService
             ->groupBy('class_id')
             ->pluck('stock_remaining', 'class_id');
 
+        $areaIds = $classes->pluck('area_id')->filter()->unique()->values();
+        $areaStock = $areaIds->isEmpty()
+            ? collect()
+            : AreaCosmeticStock::query()
+                ->whereIn('area_id', $areaIds)
+                ->selectRaw('area_id, SUM(quantity) as stock_remaining')
+                ->groupBy('area_id')
+                ->pluck('stock_remaining', 'area_id');
+
         $owned = EnrollmentCosmetic::query()
             ->join('enrollments', 'enrollments.id', '=', 'enrollment_cosmetics.enrollment_id')
             ->whereIn('enrollments.class_id', $classIds)
@@ -253,7 +295,7 @@ class CosmeticShopService
 
         return $classes->mapWithKeys(fn (SchoolClass $class) => [
             $class->id => [
-                'stock_remaining' => (int) ($stock[$class->id] ?? 0),
+                'stock_remaining' => (int) ($stock[$class->id] ?? 0) + (int) ($areaStock[$class->area_id] ?? 0),
                 'owned_copies' => (int) ($owned[$class->id] ?? 0),
                 'listings_count' => (int) ($listings[$class->id] ?? 0),
             ],
@@ -262,35 +304,46 @@ class CosmeticShopService
 
     public function seedDefaultStock(SchoolClass $class): void
     {
+        $classKeys = [];
+        $auraKeys = [];
+
+        foreach (CosmeticCatalog::keysForClass($class) as $key) {
+            if (CosmeticCatalog::usesAuras($key)) {
+                $auraKeys[] = $key;
+            } else {
+                $classKeys[] = $key;
+            }
+        }
+
         $existing = ClassCosmeticStock::query()
             ->where('class_id', $class->id)
             ->pluck('item_key')
             ->all();
 
-        $missing = array_diff(CosmeticCatalog::keysForClass($class), $existing);
+        $missing = array_diff($classKeys, $existing);
 
-        if ($missing === []) {
+        if ($missing !== []) {
+            $this->insertClassStocks($missing, self::DEFAULT_STOCK, [$class->id]);
+        }
+
+        if (! $class->area_id || $auraKeys === []) {
             return;
         }
 
-        $now = now();
-        $rows = [];
+        $existingArea = AreaCosmeticStock::query()
+            ->where('area_id', $class->area_id)
+            ->pluck('item_key')
+            ->all();
 
-        foreach ($missing as $key) {
-            $rows[] = [
-                'class_id' => $class->id,
-                'item_key' => $key,
-                'quantity' => self::DEFAULT_STOCK,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
+        $missingArea = array_diff($auraKeys, $existingArea);
+
+        if ($missingArea !== []) {
+            $this->insertAreaStocks($missingArea, self::DEFAULT_STOCK, [(int) $class->area_id]);
         }
-
-        ClassCosmeticStock::query()->insert($rows);
     }
 
     /**
-     * @param  array{name: string, slot: string, price: int, currency: string, rarity: string, icon: string, css?: ?string, label?: ?string, stock?: int}  $attributes
+     * @param  array{name: string, slot: string, price: int, currency: string, rarity: string, icon: string, css?: ?string, label?: ?string, combat_bonus_percent?: mixed, stock?: int}  $attributes
      */
     public function createItem(array $attributes, ?SchoolClass $forClass = null): ShopItem
     {
@@ -303,9 +356,21 @@ class CosmeticShopService
         $stock = array_key_exists('stock', $attributes) && $attributes['stock'] !== null
             ? (int) $attributes['stock']
             : self::DEFAULT_STOCK;
+        $combatBonus = CosmeticCatalog::combatBonusFromPercent(
+            $attributes['combat_bonus_percent'] ?? null,
+            $attributes['rarity'],
+        );
+        $usesAuras = $attributes['currency'] === CosmeticCatalog::CURRENCY_AURAS;
+
+        if ($usesAuras && $forClass && ! $forClass->area_id) {
+            throw ValidationException::withMessages([
+                'currency' => 'Itens de Aura só podem ser cadastrados em turmas de um reino.',
+            ]);
+        }
 
         $item = ShopItem::query()->create([
-            'class_id' => $forClass?->id,
+            'class_id' => $usesAuras ? null : $forClass?->id,
+            'area_id' => $usesAuras ? $forClass?->area_id : null,
             'item_key' => CosmeticCatalog::uniqueKey($slot, $name),
             'slot' => $slot,
             'name' => $name,
@@ -315,35 +380,82 @@ class CosmeticShopService
             'icon' => $attributes['icon'],
             'css' => $css,
             'label' => $label,
+            'combat_bonus' => $combatBonus,
+            'prize_only' => (bool) ($attributes['prize_only'] ?? false),
         ]);
 
         CosmeticCatalog::flush();
+
+        if ($item->prize_only) {
+            return $item;
+        }
+
+        if ($usesAuras) {
+            $areaIds = $forClass?->area_id
+                ? [(int) $forClass->area_id]
+                : Area::query()->orderBy('id')->pluck('id')->all();
+
+            if ($areaIds !== []) {
+                $this->insertAreaStocks([$item->item_key], $stock, $areaIds);
+            }
+
+            return $item;
+        }
 
         $classIds = $forClass
             ? [$forClass->id]
             : SchoolClass::query()->orderBy('id')->pluck('id')->all();
 
         if ($classIds !== []) {
-            $now = now();
-            $rows = [];
-
-            foreach ($classIds as $classId) {
-                $rows[] = [
-                    'class_id' => $classId,
-                    'item_key' => $item->item_key,
-                    'quantity' => $stock,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            ClassCosmeticStock::query()->insert($rows);
+            $this->insertClassStocks([$item->item_key], $stock, $classIds);
         }
 
         return $item;
     }
 
-    public function restock(SchoolClass $class, string $itemKey, int $quantity): ClassCosmeticStock
+    /**
+     * @param  array{name: string, slot: string, price: int, currency: string, rarity: string, icon: string, css?: ?string, label?: ?string, combat_bonus_percent?: mixed}  $attributes
+     */
+    public function updateItem(ShopItem $item, array $attributes): ShopItem
+    {
+        $slot = $attributes['slot'];
+        $name = trim($attributes['name']);
+        $label = filled($attributes['label'] ?? null)
+            ? trim((string) $attributes['label'])
+            : ($slot === CosmeticCatalog::SLOT_TITLE ? $name : null);
+        $css = filled($attributes['css'] ?? null) ? $attributes['css'] : null;
+        $previousSlot = $item->slot;
+
+        $usesAuras = $attributes['currency'] === CosmeticCatalog::CURRENCY_AURAS;
+
+        $item->fill([
+            'slot' => $slot,
+            'name' => $name,
+            'price' => (int) $attributes['price'],
+            'currency' => $attributes['currency'],
+            'rarity' => $attributes['rarity'],
+            'icon' => $attributes['icon'],
+            'css' => $css,
+            'label' => $label,
+            'class_id' => $usesAuras ? null : $item->class_id,
+            'area_id' => $usesAuras
+                ? ($item->area_id ?? $item->schoolClass?->area_id)
+                : null,
+            'combat_bonus' => CosmeticCatalog::combatBonusFromPercent(
+                $attributes['combat_bonus_percent'] ?? null,
+                $attributes['rarity'],
+            ),
+        ]);
+        $item->save();
+
+        if ($previousSlot !== $slot) {
+            $this->clearEquippedForItemKey($item, $previousSlot);
+        }
+
+        return $item;
+    }
+
+    public function restock(SchoolClass $class, string $itemKey, int $quantity): ClassCosmeticStock|AreaCosmeticStock
     {
         if (! CosmeticCatalog::isAvailableTo($itemKey, $class)) {
             throw ValidationException::withMessages([
@@ -353,15 +465,29 @@ class CosmeticShopService
 
         $this->seedDefaultStock($class);
 
-        $stock = ClassCosmeticStock::query()->updateOrCreate(
+        if (CosmeticCatalog::usesAuras($itemKey)) {
+            if (! $class->area_id) {
+                throw ValidationException::withMessages([
+                    'item' => 'Esta turma não pertence a um reino para estoque de Aura.',
+                ]);
+            }
+
+            return AreaCosmeticStock::query()->updateOrCreate(
+                [
+                    'area_id' => $class->area_id,
+                    'item_key' => $itemKey,
+                ],
+                ['quantity' => $quantity],
+            );
+        }
+
+        return ClassCosmeticStock::query()->updateOrCreate(
             [
                 'class_id' => $class->id,
                 'item_key' => $itemKey,
             ],
             ['quantity' => $quantity],
         );
-
-        return $stock;
     }
 
     public function purchase(User $student, SchoolClass $class, string $itemKey): Enrollment
@@ -377,15 +503,20 @@ class CosmeticShopService
         return DB::transaction(function () use ($student, $class, $itemKey, $item) {
             $this->seedDefaultStock($class);
 
-            $stock = ClassCosmeticStock::query()
-                ->where('class_id', $class->id)
-                ->where('item_key', $itemKey)
-                ->lockForUpdate()
-                ->first();
+            $usesAuras = CosmeticCatalog::usesAuras($itemKey);
+            $stock = $usesAuras
+                ? $this->lockAreaStock($class, $itemKey)
+                : ClassCosmeticStock::query()
+                    ->where('class_id', $class->id)
+                    ->where('item_key', $itemKey)
+                    ->lockForUpdate()
+                    ->first();
 
             if (! $stock || (int) $stock->quantity < 1) {
                 throw ValidationException::withMessages([
-                    'item' => 'Este item esgotou na loja. Negocie com quem já possui.',
+                    'item' => CosmeticCatalog::isNonTradable($itemKey)
+                        ? 'Este item esgotou na loja.'
+                        : 'Este item esgotou na loja. Negocie com quem já possui.',
                 ]);
             }
 
@@ -401,9 +532,15 @@ class CosmeticShopService
                 ]);
             }
 
-            if ($enrollment->ownsCosmetic($itemKey)) {
+            $alreadyOwned = $usesAuras && $class->area_id
+                ? $this->studentOwnsItemInArea($student, (int) $class->area_id, $itemKey)
+                : $enrollment->ownsCosmetic($itemKey);
+
+            if ($alreadyOwned) {
                 throw ValidationException::withMessages([
-                    'item' => 'Você já possui este item.',
+                    'item' => $usesAuras
+                        ? 'Você já possui este item neste reino.'
+                        : 'Você já possui este item.',
                 ]);
             }
 
@@ -725,6 +862,142 @@ class CosmeticShopService
 
         if ($column && $enrollment->{$column} === $itemKey) {
             $enrollment->{$column} = null;
+        }
+    }
+
+    private function clearEquippedForItemKey(ShopItem $item, string $previousSlot): void
+    {
+        $column = CosmeticCatalog::slotColumn($previousSlot);
+
+        if (! $column) {
+            return;
+        }
+
+        $query = Enrollment::query()->where($column, $item->item_key);
+
+        if ($item->class_id) {
+            $query->where('class_id', $item->class_id);
+        } elseif ($item->area_id) {
+            $query->whereIn('class_id', SchoolClass::query()->where('area_id', $item->area_id)->select('id'));
+        }
+
+        $query->update([$column => null]);
+    }
+
+    /**
+     * @param  list<string>  $itemKeys
+     * @param  list<int>  $classIds
+     */
+    private function insertClassStocks(array $itemKeys, int $quantity, array $classIds): void
+    {
+        $now = now();
+        $rows = [];
+
+        foreach ($classIds as $classId) {
+            foreach ($itemKeys as $key) {
+                $rows[] = [
+                    'class_id' => $classId,
+                    'item_key' => $key,
+                    'quantity' => $quantity,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+
+        if ($rows !== []) {
+            ClassCosmeticStock::query()->insert($rows);
+        }
+    }
+
+    /**
+     * @param  list<string>  $itemKeys
+     * @param  list<int>  $areaIds
+     */
+    private function insertAreaStocks(array $itemKeys, int $quantity, array $areaIds): void
+    {
+        $now = now();
+        $rows = [];
+
+        foreach ($areaIds as $areaId) {
+            foreach ($itemKeys as $key) {
+                $rows[] = [
+                    'area_id' => $areaId,
+                    'item_key' => $key,
+                    'quantity' => $quantity,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+
+        if ($rows !== []) {
+            AreaCosmeticStock::query()->insert($rows);
+        }
+    }
+
+    private function lockAreaStock(SchoolClass $class, string $itemKey): ?AreaCosmeticStock
+    {
+        if (! $class->area_id) {
+            throw ValidationException::withMessages([
+                'item' => 'Esta turma não pertence a um reino para gastar Aura.',
+            ]);
+        }
+
+        return AreaCosmeticStock::query()
+            ->where('area_id', $class->area_id)
+            ->where('item_key', $itemKey)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function itemKeysOwnedInArea(User $student, int $areaId): array
+    {
+        return EnrollmentCosmetic::query()
+            ->join('enrollments', 'enrollments.id', '=', 'enrollment_cosmetics.enrollment_id')
+            ->join('classes', 'classes.id', '=', 'enrollments.class_id')
+            ->where('enrollments.student_id', $student->id)
+            ->where('classes.area_id', $areaId)
+            ->pluck('enrollment_cosmetics.item_key')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function studentOwnsItemInArea(User $student, int $areaId, string $itemKey): bool
+    {
+        return EnrollmentCosmetic::query()
+            ->where('item_key', $itemKey)
+            ->whereHas('enrollment', function ($query) use ($student, $areaId) {
+                $query->where('student_id', $student->id)
+                    ->whereHas('schoolClass', fn ($classQuery) => $classQuery->where('area_id', $areaId));
+            })
+            ->exists();
+    }
+
+    /**
+     * @param  array<string, list<array{name: string, character: ?string, equipped: bool}>>  $ownersByKey
+     */
+    private function appendOwners(array &$ownersByKey, Enrollment $enrollment, bool $auraOnly = false): void
+    {
+        $loadout = $enrollment->cosmeticLoadout();
+        $student = $enrollment->student;
+        $displayName = $student?->name ?? 'Aluno';
+        $character = $student?->arenaName();
+
+        foreach ($enrollment->cosmetics as $cosmetic) {
+            if ($auraOnly && ! CosmeticCatalog::usesAuras($cosmetic->item_key)) {
+                continue;
+            }
+
+            $ownersByKey[$cosmetic->item_key][] = [
+                'name' => $displayName,
+                'character' => $character,
+                'equipped' => in_array($cosmetic->item_key, $loadout, true),
+            ];
         }
     }
 }

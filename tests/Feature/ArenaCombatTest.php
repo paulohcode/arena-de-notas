@@ -7,6 +7,7 @@ use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
 use App\Models\EnrollmentCosmetic;
 use App\Models\SchoolClass;
+use App\Models\ShopItem;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\ArenaCombatService;
@@ -150,6 +151,27 @@ class ArenaCombatTest extends TestCase
         $this->assertGreaterThan($before['atk'], $after['atk']);
         $this->assertSame('Anel de Ouro', $after['breakdown']['gear_items'][0]['name']);
         $this->assertSame(0.03, $after['breakdown']['gear_bonus']);
+    }
+
+    public function test_equipped_custom_item_uses_configured_combat_bonus(): void
+    {
+        [$class, $student] = $this->readyStudent();
+        $item = ShopItem::factory()->forClass($class->id)->create([
+            'name' => 'Capa da Turma',
+            'rarity' => 'common',
+            'combat_bonus' => 0.05,
+        ]);
+        $enrollment = $student->enrollmentIn($class);
+        EnrollmentCosmetic::query()->create([
+            'enrollment_id' => $enrollment->id,
+            'item_key' => $item->item_key,
+        ]);
+        $enrollment->update(['equipped_accessory' => $item->item_key]);
+
+        $fighter = app(ArenaCombatService::class)->buildFighter($student->fresh(), $class);
+
+        $this->assertSame(0.05, $fighter['breakdown']['gear_bonus']);
+        $this->assertSame('Capa da Turma', $fighter['breakdown']['gear_items'][0]['name']);
     }
 
     public function test_owned_cosmetic_without_equip_does_not_raise_combat_power(): void

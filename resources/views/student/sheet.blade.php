@@ -68,6 +68,7 @@
                 <input type="checkbox" data-sound-toggle> Som da arena
             </label>
             <a href="{{ route('student.arena.index') }}" class="game-btn !py-1 !px-3 text-sm mt-4 inline-block">Arena de batalha</a>
+            <a href="{{ route('student.arena.realm.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm mt-2 inline-block">Arena entre turmas</a>
         @endif
     </div>
 </div>

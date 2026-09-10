@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AreaBalance;
+use App\Models\AreaCosmeticStock;
 use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Models\ShopItem;
@@ -22,9 +23,9 @@ class RealmDuelTest extends TestCase
         [$classA, $challenger, $classmate] = $this->readySameClassPair(arenaOpen: true);
 
         $this->actingAs($challenger)
-            ->from(route('student.arena.index'))
+            ->from(route('student.arena.realm.index'))
             ->post(route('student.arena.realm.challenge'), ['opponent_id' => $classmate->id])
-            ->assertRedirect(route('student.arena.index'))
+            ->assertRedirect(route('student.arena.realm.index'))
             ->assertSessionHasErrors(['opponent_id']);
     }
 
@@ -33,9 +34,9 @@ class RealmDuelTest extends TestCase
         [$classA, $challenger, $classB, $opponent] = $this->readyCrossAreaPair(arenaOpen: true);
 
         $this->actingAs($challenger)
-            ->from(route('student.arena.index'))
+            ->from(route('student.arena.realm.index'))
             ->post(route('student.arena.realm.challenge'), ['opponent_id' => $opponent->id])
-            ->assertRedirect(route('student.arena.index'))
+            ->assertRedirect(route('student.arena.realm.index'))
             ->assertSessionHasErrors(['opponent_id']);
     }
 
@@ -138,6 +139,20 @@ class RealmDuelTest extends TestCase
                 'kind' => 'realm',
                 'realm_duel_id' => $duel->id,
             ]);
+    }
+
+    public function test_student_can_open_realm_arena_shortcut(): void
+    {
+        [$classA, $challenger, $classB, $opponent] = $this->readyRealmPair(
+            challengerArenaOpen: true,
+            opponentArenaOpen: true,
+        );
+
+        $this->actingAs($challenger)
+            ->get(route('student.arena.realm.index'))
+            ->assertOk()
+            ->assertSee('Arena entre turmas')
+            ->assertSee($opponent->name);
     }
 
     public function test_purchase_with_aura_debits_area_balance(): void
@@ -279,7 +294,8 @@ class RealmDuelTest extends TestCase
     private function createAuraItem(SchoolClass $class, string $itemKey, int $price): void
     {
         ShopItem::query()->create([
-            'class_id' => $class->id,
+            'class_id' => null,
+            'area_id' => $class->area_id,
             'item_key' => $itemKey,
             'slot' => CosmeticCatalog::SLOT_ACCESSORY,
             'name' => 'Item Aura Teste',
@@ -291,8 +307,11 @@ class RealmDuelTest extends TestCase
             'label' => null,
         ]);
 
-        $class->cosmeticStocks()->updateOrCreate(
-            ['item_key' => $itemKey],
+        AreaCosmeticStock::query()->updateOrCreate(
+            [
+                'area_id' => $class->area_id,
+                'item_key' => $itemKey,
+            ],
             ['quantity' => 5],
         );
 

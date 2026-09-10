@@ -21,6 +21,7 @@ class ShopItemFactory extends Factory
 
         return [
             'class_id' => null,
+            'area_id' => null,
             'item_key' => 'custom_accessory_'.Str::slug($name, '_').'_'.fake()->unique()->numerify('###'),
             'slot' => CosmeticCatalog::SLOT_ACCESSORY,
             'name' => Str::title($name),
@@ -30,6 +31,8 @@ class ShopItemFactory extends Factory
             'icon' => '🛡️',
             'css' => null,
             'label' => null,
+            'combat_bonus' => null,
+            'prize_only' => false,
         ];
     }
 
@@ -37,6 +40,14 @@ class ShopItemFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'class_id' => $classId,
+        ]);
+    }
+
+    public function prizeOnly(): static
+    {
+        return $this->state(fn (): array => [
+            'prize_only' => true,
+            'price' => 0,
         ]);
     }
 }

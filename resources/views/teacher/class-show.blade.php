@@ -16,17 +16,21 @@
 </div>
 
 @php
-    $allowedTabs = ['visao', 'alunos', 'guildas', 'atividades', 'notas', 'chamada', 'pesos', 'personagens', 'arena'];
+    $allowedTabs = ['visao', 'alunos', 'guildas', 'atividades', 'eventos', 'notas', 'chamada', 'pesos', 'personagens', 'arena'];
     $currentTab = request('tab', old('tab', 'visao'));
     $currentTab = in_array($currentTab, $allowedTabs, true) ? $currentTab : 'visao';
     $editingActivity = $class->activities->firstWhere('id', (int) request('activity'));
     if ($editingActivity) {
         $currentTab = 'atividades';
     }
+    $gradableActivities = $class->activities->where('type', '!=', 'event');
+    $realmEvents = $class->area_id
+        ? \App\Models\GameEvent::query()->with('prizeItem')->where('area_id', $class->area_id)->where('kind', 'realm')->latest()->get()
+        : collect();
 @endphp
 <div x-data="{ tab: {{ \Illuminate\Support\Js::from($currentTab) }} }">
     <div class="flex flex-wrap gap-2 mb-6">
-        @foreach(['visao' => 'Visão', 'alunos' => 'Alunos', 'guildas' => 'Guildas', 'atividades' => 'Atividades', 'notas' => 'Lançar notas', 'chamada' => 'Chamada', 'pesos' => 'Pesos', 'personagens' => 'Personagens', 'arena' => 'Arena'] as $key => $label)
+        @foreach(['visao' => 'Visão', 'alunos' => 'Alunos', 'guildas' => 'Guildas', 'atividades' => 'Atividades', 'eventos' => 'Eventos', 'notas' => 'Lançar notas', 'chamada' => 'Chamada', 'pesos' => 'Pesos', 'personagens' => 'Personagens', 'arena' => 'Arena'] as $key => $label)
             <button type="button" class="tab-btn game-btn-ghost" :data-active="tab === '{{ $key }}'" @click="tab = '{{ $key }}'">
                 {{ $label }}
                 @if($key === 'personagens' && $pendingPersonas->isNotEmpty())
@@ -405,14 +409,17 @@
         </div>
     </div>
 
-    <div x-show="tab === 'atividades'" x-cloak class="space-y-6">
+    <div x-show="tab === 'atividades'" x-cloak class="space-y-6"
+         x-data="{ type: '{{ old('type', $editingActivity->type ?? 'individual') }}' }">
         <form method="POST"
-              action="{{ $editingActivity
-                  ? route('teacher.activities.update', [$class, $editingActivity])
-                  : route('teacher.activities.store', $class) }}"
+              :action="type === 'event'
+                  ? '{{ route('teacher.activities.event.store', $class) }}'
+                  : '{{ $editingActivity
+                      ? route('teacher.activities.update', [$class, $editingActivity])
+                      : route('teacher.activities.store', $class) }}'"
               class="game-card p-5 space-y-4">
             @csrf
-            @if($editingActivity)
+            @if($editingActivity && ($editingActivity->type ?? '') !== 'event')
                 @method('PUT')
             @endif
 
@@ -426,27 +433,79 @@
             </div>
 
             <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <label class="space-y-1 sm:col-span-2">
+                <label class="space-y-1 sm:col-span-2" x-show="type !== 'event'">
                     <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome</span>
-                    <input class="game-input" name="name" value="{{ old('name', $editingActivity->name ?? '') }}" placeholder="Ex: Prova 1" required maxlength="120">
+                    <input class="game-input" name="name" value="{{ old('name', $editingActivity->name ?? '') }}" placeholder="Ex: Prova 1" maxlength="120" :required="type !== 'event'" :disabled="type === 'event'">
+                </label>
+                <label class="space-y-1 sm:col-span-2" x-show="type === 'event'" x-cloak>
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Nome do evento</span>
+                    <input class="game-input" name="title" value="{{ old('title', old('name', '')) }}" placeholder="Ex: Quiz da semana" maxlength="120" :required="type === 'event'" :disabled="type !== 'event'">
                 </label>
                 <label class="space-y-1">
                     <span class="text-xs uppercase tracking-wide text-purple-200/70">Tipo</span>
-                    <select class="game-select" name="type">
+                    <select class="game-select" name="type" x-model="type" @if($editingActivity) disabled @endif>
                         <option value="individual" @selected(old('type', $editingActivity->type ?? 'individual') === 'individual')>Individual</option>
                         <option value="team" @selected(old('type', $editingActivity->type ?? 'individual') === 'team')>Equipe / guilda</option>
+                        <option value="event" @selected(old('type', $editingActivity->type ?? 'individual') === 'event')>Evento (quiz)</option>
                     </select>
+                    @if($editingActivity)
+                        <input type="hidden" name="type" value="{{ $editingActivity->type }}">
+                    @endif
                 </label>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-2 gap-3" x-show="type !== 'event'">
                     <label class="space-y-1">
                         <span class="text-xs uppercase tracking-wide text-purple-200/70">Nota máx.</span>
-                        <input class="game-input" type="number" name="max_score" value="{{ old('max_score', $editingActivity->max_score ?? 100) }}" min="1" max="100" required>
+                        <input class="game-input" type="number" name="max_score" value="{{ old('max_score', $editingActivity->max_score ?? 100) }}" min="1" max="100" :required="type !== 'event'" :disabled="type === 'event'">
                     </label>
                     <label class="space-y-1">
                         <span class="text-xs uppercase tracking-wide text-purple-200/70">Peso</span>
-                        <input class="game-input" type="number" name="weight" value="{{ old('weight', $editingActivity->weight ?? 1) }}" min="1" max="10" required>
+                        <input class="game-input" type="number" name="weight" value="{{ old('weight', $editingActivity->weight ?? 1) }}" min="1" max="10" :required="type !== 'event'" :disabled="type === 'event'">
                     </label>
                 </div>
+                <label class="space-y-1" x-show="type === 'event'" x-cloak>
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Peso na média</span>
+                    <input class="game-input" type="number" name="weight" value="{{ old('weight', 1) }}" min="1" max="10" :required="type === 'event'" :disabled="type !== 'event'">
+                    <span class="text-xs text-purple-200/50">Nota máx. 100 · proporcional aos acertos</span>
+                </label>
+            </div>
+
+            <div x-show="type === 'event'" x-cloak class="space-y-4 border-t border-purple-800/40 pt-4">
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Modo</span>
+                        <select class="game-select" name="mode">
+                            <option value="window" @selected(old('mode', 'window') === 'window')>Janela de tempo</option>
+                            <option value="live" @selected(old('mode') === 'live')>Ao vivo</option>
+                        </select>
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Segundos por pergunta</span>
+                        <input class="game-input" type="number" name="question_seconds" value="{{ old('question_seconds', 30) }}" min="5" max="300" required>
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Início</span>
+                        <input class="game-input" type="datetime-local" name="starts_at" value="{{ old('starts_at') }}">
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Fim</span>
+                        <input class="game-input" type="datetime-local" name="ends_at" value="{{ old('ends_at') }}">
+                    </label>
+                </div>
+                <div class="grid sm:grid-cols-3 gap-3">
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Relíquias / acerto</span>
+                        <input class="game-input" type="number" name="relics_per_correct" value="{{ old('relics_per_correct', 0) }}" min="0" max="100">
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Selos / acerto</span>
+                        <input class="game-input" type="number" name="seals_per_correct" value="{{ old('seals_per_correct', 0) }}" min="0" max="100">
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Aura / acerto</span>
+                        <input class="game-input" type="number" name="auras_per_correct" value="{{ old('auras_per_correct', 0) }}" min="0" max="100">
+                    </label>
+                </div>
+                @include('partials.quiz-questions-form')
             </div>
 
             <button class="game-btn" type="submit">
@@ -474,17 +533,27 @@
                             @foreach($class->activities as $activity)
                                 <tr class="border-b border-purple-900/40 last:border-0 {{ $editingActivity?->is($activity) ? 'bg-amber-500/10' : '' }}">
                                     <td class="py-3 pr-3">{{ $activity->name }}</td>
-                                    <td class="py-3 pr-3 text-purple-200/80">{{ $activity->type === 'team' ? 'Guilda' : 'Individual' }}</td>
+                                    <td class="py-3 pr-3 text-purple-200/80">
+                                        @if($activity->type === 'team') Guilda
+                                        @elseif($activity->type === 'event') Evento
+                                        @else Individual
+                                        @endif
+                                    </td>
                                     <td class="py-3 pr-3">{{ $activity->max_score }}</td>
                                     <td class="py-3 pr-3">{{ $activity->weight }}</td>
                                     <td class="py-3">
                                         <div class="flex justify-end flex-wrap gap-2">
+                                            @if($activity->type === 'event' && $activity->gameEvent)
+                                                <a class="game-btn-ghost px-3 py-1 text-xs" href="{{ route('teacher.events.show', [$class, $activity->gameEvent]) }}">Quiz</a>
+                                            @endif
                                             <form method="POST" action="{{ route('teacher.activities.warn', [$class, $activity]) }}" onsubmit="return confirm('Avisar os alunos que ainda não têm nota nesta atividade?')">
                                                 @csrf
                                                 <button class="game-btn-ghost px-3 py-1 text-xs" type="submit">Avisar pendentes</button>
                                             </form>
-                                            <a class="game-btn-ghost px-3 py-1 text-xs"
-                                               href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'atividades', 'activity' => $activity->id]) }}">Editar</a>
+                                            @if($activity->type !== 'event')
+                                                <a class="game-btn-ghost px-3 py-1 text-xs"
+                                                   href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'atividades', 'activity' => $activity->id]) }}">Editar</a>
+                                            @endif
                                             <form method="POST" action="{{ route('teacher.activities.destroy', [$class, $activity]) }}" onsubmit="return confirm('Excluir esta atividade?')">
                                                 @csrf
                                                 @method('DELETE')
@@ -501,12 +570,172 @@
         </div>
     </div>
 
+    <div x-show="tab === 'eventos'" x-cloak class="space-y-6">
+        <form method="POST" action="{{ route('teacher.events.store', $class) }}" class="game-card p-5 space-y-4">
+            @csrf
+            <h2 class="font-display text-xl text-amber-200">Evento da turma (item exclusivo)</h2>
+            <p class="text-sm text-purple-200/70">Competição por ranking. O 1º lugar (mais acertos, depois mais rápido) ganha o item.</p>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <label class="space-y-1 sm:col-span-2">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Título</span>
+                    <input class="game-input" name="title" value="{{ old('title') }}" required maxlength="120">
+                </label>
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Modo</span>
+                    <select class="game-select" name="mode">
+                        <option value="window">Janela de tempo</option>
+                        <option value="live">Ao vivo</option>
+                    </select>
+                </label>
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Segundos / pergunta</span>
+                    <input class="game-input" type="number" name="question_seconds" value="{{ old('question_seconds', 30) }}" min="5" max="300" required>
+                </label>
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Início</span>
+                    <input class="game-input" type="datetime-local" name="starts_at" value="{{ old('starts_at') }}">
+                </label>
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Fim</span>
+                    <input class="game-input" type="datetime-local" name="ends_at" value="{{ old('ends_at') }}">
+                </label>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 border-t border-purple-800/40 pt-4">
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Item — nome</span>
+                    <input class="game-input" name="prize_name" value="{{ old('prize_name') }}" required maxlength="60">
+                </label>
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Slot</span>
+                    <select class="game-select" name="prize_slot">
+                        @foreach(\App\Support\CosmeticCatalog::SLOTS as $slot => $label)
+                            <option value="{{ $slot }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Ícone</span>
+                    <input class="game-input" name="prize_icon" value="{{ old('prize_icon', '🏆') }}" required maxlength="32">
+                </label>
+                <label class="space-y-1">
+                    <span class="text-xs uppercase tracking-wide text-purple-200/70">Raridade</span>
+                    <select class="game-select" name="prize_rarity">
+                        @foreach(\App\Support\CosmeticCatalog::RARITIES as $rarity => $label)
+                            <option value="{{ $rarity }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            </div>
+            @include('partials.quiz-questions-form')
+            <button class="game-btn" type="submit">Criar evento da turma</button>
+        </form>
+
+        @if($class->area_id)
+            <form method="POST" action="{{ route('teacher.events.realm.store', $class) }}" class="game-card p-5 space-y-4">
+                @csrf
+                <h2 class="font-display text-xl text-amber-200">Evento do reino (item exclusivo)</h2>
+                <p class="text-sm text-purple-200/70">Todas as turmas de {{ $class->area?->name }}. Vence o melhor aluno individual.</p>
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <label class="space-y-1 sm:col-span-2">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Título</span>
+                        <input class="game-input" name="title" required maxlength="120">
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Modo</span>
+                        <select class="game-select" name="mode">
+                            <option value="window">Janela de tempo</option>
+                            <option value="live">Ao vivo</option>
+                        </select>
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Segundos / pergunta</span>
+                        <input class="game-input" type="number" name="question_seconds" value="30" min="5" max="300" required>
+                    </label>
+                </div>
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Item — nome</span>
+                        <input class="game-input" name="prize_name" required maxlength="60">
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Slot</span>
+                        <select class="game-select" name="prize_slot">
+                            @foreach(\App\Support\CosmeticCatalog::SLOTS as $slot => $label)
+                                <option value="{{ $slot }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Ícone</span>
+                        <input class="game-input" name="prize_icon" value="👑" required>
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs uppercase tracking-wide text-purple-200/70">Raridade</span>
+                        <select class="game-select" name="prize_rarity">
+                            @foreach(\App\Support\CosmeticCatalog::RARITIES as $rarity => $label)
+                                <option value="{{ $rarity }}" @selected($rarity === 'epic')>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                </div>
+                @include('partials.quiz-questions-form')
+                <button class="game-btn" type="submit">Criar evento do reino</button>
+            </form>
+        @endif
+
+        <div class="game-card p-5">
+            <h2 class="font-display text-xl text-amber-200 mb-4">Eventos da turma</h2>
+            @forelse(($class->gameEvents ?? collect())->where('kind', 'class') as $event)
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-purple-900/40 py-3">
+                    <div>
+                        <p class="font-semibold text-amber-100">{{ $event->title }}</p>
+                        <p class="text-xs text-purple-200/60">{{ $event->modeLabel() }} · {{ $event->statusLabel() }} · {{ $event->questions->count() }} perguntas</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <a class="game-btn-ghost text-xs" href="{{ route('teacher.events.show', [$class, $event]) }}">Ver</a>
+                        @if($event->isLiveMode() && in_array($event->status, ['draft', 'scheduled'], true))
+                            <form method="POST" action="{{ route('teacher.events.start', [$class, $event]) }}">@csrf<button class="game-btn text-xs" type="submit">Iniciar</button></form>
+                        @endif
+                        @if(! $event->isClosed())
+                            <form method="POST" action="{{ route('teacher.events.close', [$class, $event]) }}">@csrf<button class="game-btn-ghost text-xs" type="submit">Encerrar</button></form>
+                        @endif
+                    </div>
+                </div>
+            @empty
+                <p class="text-sm text-purple-200/60">Nenhum evento da turma ainda.</p>
+            @endforelse
+        </div>
+
+        @if($realmEvents->isNotEmpty())
+            <div class="game-card p-5">
+                <h2 class="font-display text-xl text-amber-200 mb-4">Eventos do reino</h2>
+                @foreach($realmEvents as $event)
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-purple-900/40 py-3">
+                        <div>
+                            <p class="font-semibold text-amber-100">{{ $event->title }}</p>
+                            <p class="text-xs text-purple-200/60">{{ $event->statusLabel() }} · prêmio {{ $event->prizeItem?->name }}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <a class="game-btn-ghost text-xs" href="{{ route('teacher.events.show', [$class, $event]) }}">Ver</a>
+                            @if($event->isLiveMode() && in_array($event->status, ['draft', 'scheduled'], true))
+                                <form method="POST" action="{{ route('teacher.events.start', [$class, $event]) }}">@csrf<button class="game-btn text-xs" type="submit">Iniciar</button></form>
+                            @endif
+                            @if(! $event->isClosed())
+                                <form method="POST" action="{{ route('teacher.events.close', [$class, $event]) }}">@csrf<button class="game-btn-ghost text-xs" type="submit">Encerrar</button></form>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
     <div
         x-show="tab === 'notas'"
         x-cloak
         class="space-y-6"
         x-data="{
-            activityId: '{{ old('activity_id', $class->activities->first()?->id) }}',
+            activityId: '{{ old('activity_id', $gradableActivities->first()?->id) }}',
             target: 'student'
         }"
     >
@@ -515,12 +744,12 @@
             <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                 <div>
                     <h2 class="font-display text-xl text-amber-200">Nota de atividade</h2>
-                    <p class="text-sm text-purple-200/70 mt-1">Escolha a atividade e lance as notas de todos de uma vez.</p>
+                    <p class="text-sm text-purple-200/70 mt-1">Atividades-evento não aparecem aqui (nota automática pelo quiz).</p>
                 </div>
                 <div class="sm:w-80">
                     <label class="block text-xs uppercase tracking-wide text-purple-300/70 mb-1">Atividade</label>
                     <select class="game-select" name="activity_id" x-model="activityId" required>
-                        @forelse($class->activities as $activity)
+                        @forelse($gradableActivities as $activity)
                             <option value="{{ $activity->id }}">
                                 {{ $activity->name }}
                                 ({{ $activity->type === 'team' ? 'guilda' : 'individual' }} · máx {{ $activity->max_score }})
@@ -536,7 +765,7 @@
                 <p class="text-sm text-rose-300">{{ $message }}</p>
             @enderror
 
-            @foreach($class->activities as $activity)
+            @foreach($gradableActivities as $activity)
                 <div
                     x-show="String(activityId) === '{{ $activity->id }}'"
                     x-cloak
@@ -918,13 +1147,56 @@
             @endforelse
         </div>
 
-        @if($class->area_id)
+        @if($class->area)
+            @php $realmArea = $class->area; @endphp
+            <form method="POST" action="{{ route('teacher.arena.realm.update', $class) }}" class="game-card p-5 space-y-4 border-violet-400/15">
+                @csrf
+                @method('PUT')
+                <input type="hidden" name="tab" value="arena">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h3 class="font-display text-lg text-violet-200">Configurações da arena entre turmas</h3>
+                        <p class="text-sm text-amber-100/60 mt-1">
+                            Reino {{ $realmArea->name }} · vale para todas as turmas deste reino.
+                            @if(auth()->user()?->isAdmin())
+                                <a href="{{ route('admin.areas.arena', $realmArea) }}" class="text-violet-300 underline ml-1">Abrir painel do reino</a>
+                            @endif
+                        </p>
+                    </div>
+                    <p class="text-xs {{ $realmArea->isRealmArenaOpen() ? 'text-emerald-300' : 'text-rose-300' }}">
+                        {{ $realmArea->isRealmArenaOpen() ? 'Aberta' : 'Fechada' }}
+                        · espera {{ $realmArea->realmArenaCooldownLabel() }}
+                        · {{ $realmArea->realmArenaDailyLimit() }}/dia
+                    </p>
+                </div>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <label class="block">
+                        <span class="text-sm">Estado</span>
+                        <select class="game-select mt-1 w-full" name="realm_arena_open" required>
+                            <option value="1" @selected((string) old('realm_arena_open', $realmArea->isRealmArenaOpen() ? '1' : '0') === '1')>Aberta</option>
+                            <option value="0" @selected((string) old('realm_arena_open', $realmArea->isRealmArenaOpen() ? '1' : '0') === '0')>Fechada</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="text-sm">Espera entre desafios (minutos)</span>
+                        <input class="game-input mt-1 w-full" type="number" name="realm_arena_cooldown_minutes" min="0" max="10080" required
+                            value="{{ old('realm_arena_cooldown_minutes', $realmArea->realmArenaCooldownMinutes()) }}">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm">Duelos do reino no dia</span>
+                        <input class="game-input mt-1 w-full" type="number" name="realm_arena_daily_limit" min="1" max="50" required
+                            value="{{ old('realm_arena_daily_limit', $realmArea->realmArenaDailyLimit()) }}">
+                    </label>
+                </div>
+                <button class="game-btn" type="submit">Salvar arena entre turmas</button>
+            </form>
+
             <div class="grid lg:grid-cols-2 gap-4">
                 <div class="game-card p-5 border-violet-400/15">
                     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                         <h3 class="font-display text-lg text-violet-200">Desafios entre turmas pendentes</h3>
-                        @if(auth()->user()?->isAdmin() && $class->area)
-                            <a href="{{ route('admin.areas.arena', $class->area) }}" class="text-xs text-violet-300 underline">Ver reino inteiro</a>
+                        @if(auth()->user()?->isAdmin())
+                            <a href="{{ route('admin.areas.arena', $realmArea) }}" class="text-xs text-violet-300 underline">Ver reino inteiro</a>
                         @endif
                     </div>
                     @forelse($pendingRealmDuels as $duel)

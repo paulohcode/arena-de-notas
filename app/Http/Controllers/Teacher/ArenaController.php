@@ -83,6 +83,39 @@ class ArenaController extends Controller
         return $this->redirectToArena($schoolClass, 'Desafio entre turmas cancelado.');
     }
 
+    public function updateRealm(Request $request, SchoolClass $schoolClass): RedirectResponse
+    {
+        $this->authorize('manage', $schoolClass);
+
+        $area = $schoolClass->area;
+        abort_unless($area, 404);
+
+        $data = $request->validate([
+            'realm_arena_open' => ['required', 'boolean'],
+            'realm_arena_cooldown_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
+            'realm_arena_daily_limit' => ['required', 'integer', 'min:1', 'max:50'],
+        ], [
+            'realm_arena_open.required' => 'Informe se a arena entre turmas está aberta ou fechada.',
+            'realm_arena_open.boolean' => 'O status da arena entre turmas precisa ser aberto ou fechado.',
+            'realm_arena_cooldown_minutes.required' => 'Informe o tempo de espera entre desafios do reino.',
+            'realm_arena_cooldown_minutes.integer' => 'O tempo de espera precisa ser um número inteiro de minutos.',
+            'realm_arena_cooldown_minutes.min' => 'O tempo de espera não pode ser negativo.',
+            'realm_arena_cooldown_minutes.max' => 'O tempo de espera não pode passar de 7 dias.',
+            'realm_arena_daily_limit.required' => 'Informe quantos duelos do reino são permitidos no dia.',
+            'realm_arena_daily_limit.integer' => 'A quantidade de duelos precisa ser um número inteiro.',
+            'realm_arena_daily_limit.min' => 'É preciso permitir pelo menos 1 duelo do reino por dia.',
+            'realm_arena_daily_limit.max' => 'O limite diário não pode passar de 50 duelos.',
+        ]);
+
+        $this->realmDuels->updateSettings($area, [
+            'realm_arena_open' => $request->boolean('realm_arena_open'),
+            'realm_arena_cooldown_minutes' => (int) $data['realm_arena_cooldown_minutes'],
+            'realm_arena_daily_limit' => (int) $data['realm_arena_daily_limit'],
+        ]);
+
+        return $this->redirectToArena($schoolClass, 'Configurações da arena entre turmas salvas.');
+    }
+
     private function redirectToArena(SchoolClass $schoolClass, ?string $message = null): RedirectResponse
     {
         $response = redirect()

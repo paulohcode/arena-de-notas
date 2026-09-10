@@ -17,7 +17,7 @@
 <div class="game-card p-5 mb-8 reveal space-y-4">
     <div>
         <h2 class="font-display text-xl text-amber-200">Cadastrar item</h2>
-        <p class="text-sm text-amber-100/60 mt-1">Itens criados aqui entram no catálogo de todas as turmas, com o estoque inicial informado.</p>
+        <p class="text-sm text-amber-100/60 mt-1">Itens de Relíquias e Selos entram no catálogo de todas as turmas. Itens de Aura são únicos em cada reino, com estoque compartilhado entre as turmas daquele reino.</p>
     </div>
     @include('partials.shop-item-form', ['action' => route('admin.shop.items.store')])
 </div>
@@ -42,10 +42,12 @@
                                 {{ $slots[$item->slot] ?? $item->slot }}
                                 · {{ $item->price }} {{ $currencies[$item->currency] ?? $item->currency }}
                                 · {{ $rarities[$item->rarity] ?? $item->rarity }}
-                                · {{ $item->isGlobal() ? 'todas as turmas' : ($item->schoolClass?->name ?? 'turma') }}
+                                · +{{ number_format($item->combatBonusPercent(), 1) }}% poder
+                                · {{ $item->scopeLabel() }}
                             </p>
                         </div>
                     </div>
+                    <a class="game-btn-ghost !py-1 !px-3 text-sm" href="{{ route('admin.shop.items.edit', $item) }}">Editar</a>
                 </div>
             @endforeach
         </div>

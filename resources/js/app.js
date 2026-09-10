@@ -8,12 +8,15 @@ import { duelBattle } from './game/duel-battle';
 import { teamBattleSeries } from './game/team-battle-series';
 import { goToBattle } from './game/battle-nav';
 import { bindArenaSoundToggles, unlockArenaAudio } from './game/sound';
+import { quizQuestionBuilder, quizEventPlayer } from './game/quiz-event';
 
 window.Alpine = Alpine;
 window.ArenaGoToBattle = goToBattle;
 Alpine.data('kingdomMapEditor', kingdomMapEditor);
 Alpine.data('duelBattle', duelBattle);
 Alpine.data('teamBattleSeries', teamBattleSeries);
+Alpine.data('quizQuestionBuilder', quizQuestionBuilder);
+Alpine.data('quizEventPlayer', quizEventPlayer);
 Alpine.start();
 
 document.addEventListener('DOMContentLoaded', () => {

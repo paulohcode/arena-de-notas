@@ -27,6 +27,12 @@ class GradeController extends Controller
 
         $activity = Activity::query()->where('class_id', $schoolClass->id)->findOrFail($data['activity_id']);
 
+        if ($activity->isEvent()) {
+            return back()
+                ->withInput(['tab' => 'notas'])
+                ->withErrors(['activity_id' => 'Atividades-evento recebem nota automática pelo quiz.']);
+        }
+
         $scores = collect($data['scores'])
             ->filter(fn ($score) => $score !== null && $score !== '')
             ->mapWithKeys(fn ($score, $id) => [(string) $id => $score])

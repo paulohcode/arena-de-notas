@@ -32,6 +32,8 @@
         @endif
         <a href="{{ route('student.character.edit') }}" class="text-xs text-amber-200/70 hover:text-amber-200 underline mt-1 inline-block">Avatar e nome de jogo</a>
         <a href="{{ route('student.arena.index') }}" class="text-xs text-cyan-300/80 hover:text-cyan-200 underline mt-1 ml-3 inline-block">Entrar na arena</a>
+        <a href="{{ route('student.arena.realm.index') }}" class="text-xs text-violet-300/80 hover:text-violet-200 underline mt-1 ml-3 inline-block">Arena entre turmas</a>
+        <a href="{{ route('student.events.index') }}" class="text-xs text-amber-300/80 hover:text-amber-200 underline mt-1 ml-3 inline-block">Eventos / quizzes</a>
         <a href="{{ route('student.shop.index') }}" class="text-xs text-violet-300/80 hover:text-violet-200 underline mt-1 ml-3 inline-block">Loja de cosméticos</a>
         </div>
     </div>

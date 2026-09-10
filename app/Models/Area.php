@@ -10,7 +10,28 @@ use Illuminate\Support\Str;
 
 class Area extends Model
 {
-    protected $fillable = ['name', 'slug', 'description', 'color', 'emblem', 'map_x', 'map_y', 'is_active'];
+    protected $fillable = [
+        'name',
+        'slug',
+        'description',
+        'color',
+        'emblem',
+        'map_x',
+        'map_y',
+        'is_active',
+        'realm_arena_open',
+        'realm_arena_cooldown_minutes',
+        'realm_arena_daily_limit',
+    ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'realm_arena_open' => true,
+        'realm_arena_cooldown_minutes' => 0,
+        'realm_arena_daily_limit' => RealmDuel::DAILY_RESOLVED_LIMIT,
+    ];
 
     /**
      * @var array<string, string>
@@ -34,6 +55,9 @@ class Area extends Model
             'is_active' => 'boolean',
             'map_x' => 'integer',
             'map_y' => 'integer',
+            'realm_arena_open' => 'boolean',
+            'realm_arena_cooldown_minutes' => 'integer',
+            'realm_arena_daily_limit' => 'integer',
         ];
     }
 
@@ -71,6 +95,21 @@ class Area extends Model
         return $this->hasMany(RealmDuel::class);
     }
 
+    public function gameEvents(): HasMany
+    {
+        return $this->hasMany(GameEvent::class);
+    }
+
+    public function cosmeticStocks(): HasMany
+    {
+        return $this->hasMany(AreaCosmeticStock::class);
+    }
+
+    public function shopItems(): HasMany
+    {
+        return $this->hasMany(ShopItem::class);
+    }
+
     public function emblemIcon(): string
     {
         return self::EMBLEMS[$this->emblem] ?? '🏰';
@@ -83,5 +122,37 @@ class Area extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    public function isRealmArenaOpen(): bool
+    {
+        return (bool) $this->realm_arena_open;
+    }
+
+    public function realmArenaCooldownMinutes(): int
+    {
+        return max(0, (int) ($this->realm_arena_cooldown_minutes ?? 0));
+    }
+
+    public function realmArenaDailyLimit(): int
+    {
+        return max(1, (int) ($this->realm_arena_daily_limit ?? RealmDuel::DAILY_RESOLVED_LIMIT));
+    }
+
+    public function realmArenaCooldownLabel(): string
+    {
+        $minutes = $this->realmArenaCooldownMinutes();
+
+        if ($minutes === 0) {
+            return 'sem espera';
+        }
+
+        if ($minutes % 60 === 0) {
+            $hours = intdiv($minutes, 60);
+
+            return $hours === 1 ? '1 hora' : $hours.' horas';
+        }
+
+        return $minutes === 1 ? '1 minuto' : $minutes.' minutos';
     }
 }

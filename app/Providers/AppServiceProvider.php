@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\GameEvent;
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Policies\GameEventPolicy;
 use App\Policies\SchoolClassPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
@@ -23,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Gate::policy(SchoolClass::class, SchoolClassPolicy::class);
+        Gate::policy(GameEvent::class, GameEventPolicy::class);
 
         Gate::before(function (User $user, string $ability): ?bool {
             return $user->isAdmin() ? true : null;

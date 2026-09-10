@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AreaController as AdminAreaController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\GameEventController as AdminGameEventController;
 use App\Http\Controllers\Admin\RealmArenaController as AdminRealmArenaController;
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\TeacherController as AdminTeacherController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\RankingController;
 use App\Http\Controllers\SeasonRankingController;
 use App\Http\Controllers\Student\ArenaController as StudentArenaController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
+use App\Http\Controllers\Student\GameEventController as StudentGameEventController;
 use App\Http\Controllers\Student\ShopController as StudentShopController;
 use App\Http\Controllers\Teacher\ActivityController;
 use App\Http\Controllers\Teacher\ArenaController as TeacherArenaController;
@@ -19,6 +21,7 @@ use App\Http\Controllers\Teacher\AttendanceController;
 use App\Http\Controllers\Teacher\CharacterApprovalController;
 use App\Http\Controllers\Teacher\ClassController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
+use App\Http\Controllers\Teacher\GameEventController as TeacherGameEventController;
 use App\Http\Controllers\Teacher\GradeController;
 use App\Http\Controllers\Teacher\SeasonController;
 use App\Http\Controllers\Teacher\ShopController as TeacherShopController;
@@ -59,7 +62,16 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
     Route::patch('/reinos/{area}/posicao', [AdminAreaController::class, 'position'])->name('areas.position');
     Route::delete('/reinos/{area}', [AdminAreaController::class, 'destroy'])->name('areas.destroy');
     Route::get('/reinos/{area}/arena', [AdminRealmArenaController::class, 'show'])->name('areas.arena');
+    Route::post('/reinos/{area}/arena/abrir', [AdminRealmArenaController::class, 'open'])->name('areas.arena.open');
+    Route::post('/reinos/{area}/arena/fechar', [AdminRealmArenaController::class, 'close'])->name('areas.arena.close');
+    Route::put('/reinos/{area}/arena', [AdminRealmArenaController::class, 'update'])->name('areas.arena.update');
     Route::post('/reinos/{area}/arena/duelos/{realmDuel}/cancelar', [AdminRealmArenaController::class, 'cancel'])->name('areas.arena.cancel');
+
+    Route::get('/reinos/{area}/eventos', [AdminGameEventController::class, 'index'])->name('areas.events.index');
+    Route::post('/reinos/{area}/eventos', [AdminGameEventController::class, 'store'])->name('areas.events.store');
+    Route::get('/reinos/{area}/eventos/{gameEvent}', [AdminGameEventController::class, 'show'])->name('areas.events.show');
+    Route::post('/reinos/{area}/eventos/{gameEvent}/iniciar', [AdminGameEventController::class, 'start'])->name('areas.events.start');
+    Route::post('/reinos/{area}/eventos/{gameEvent}/encerrar', [AdminGameEventController::class, 'close'])->name('areas.events.close');
 
     Route::get('/professores', [AdminTeacherController::class, 'index'])->name('teachers.index');
     Route::get('/professores/novo', [AdminTeacherController::class, 'create'])->name('teachers.create');
@@ -70,6 +82,8 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
 
     Route::get('/loja', [AdminShopController::class, 'index'])->name('shop.index');
     Route::post('/loja/itens', [AdminShopController::class, 'store'])->name('shop.items.store');
+    Route::get('/loja/itens/{shopItem}/editar', [AdminShopController::class, 'edit'])->name('shop.items.edit');
+    Route::put('/loja/itens/{shopItem}', [AdminShopController::class, 'update'])->name('shop.items.update');
 });
 
 Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('professor')->name('teacher.')->group(function () {
@@ -102,6 +116,13 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::delete('/turmas/{schoolClass}/atividades/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
     Route::post('/turmas/{schoolClass}/atividades/{activity}/avisar', [ActivityController::class, 'warnMissing'])->name('activities.warn');
     Route::put('/turmas/{schoolClass}/pesos', [ActivityController::class, 'weights'])->name('activities.weights');
+    Route::post('/turmas/{schoolClass}/atividades-evento', [TeacherGameEventController::class, 'storeActivity'])->name('activities.event.store');
+
+    Route::post('/turmas/{schoolClass}/eventos', [TeacherGameEventController::class, 'store'])->name('events.store');
+    Route::post('/turmas/{schoolClass}/eventos-reino', [TeacherGameEventController::class, 'storeRealm'])->name('events.realm.store');
+    Route::get('/turmas/{schoolClass}/eventos/{gameEvent}', [TeacherGameEventController::class, 'show'])->name('events.show');
+    Route::post('/turmas/{schoolClass}/eventos/{gameEvent}/iniciar', [TeacherGameEventController::class, 'start'])->name('events.start');
+    Route::post('/turmas/{schoolClass}/eventos/{gameEvent}/encerrar', [TeacherGameEventController::class, 'close'])->name('events.close');
 
     Route::post('/turmas/{schoolClass}/notas', [GradeController::class, 'store'])->name('grades.store');
     Route::post('/turmas/{schoolClass}/ajustes', [GradeController::class, 'adjust'])->name('grades.adjust');
@@ -114,10 +135,13 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::post('/turmas/{schoolClass}/arena/abrir', [TeacherArenaController::class, 'open'])->name('arena.open');
     Route::post('/turmas/{schoolClass}/arena/fechar', [TeacherArenaController::class, 'close'])->name('arena.close');
     Route::put('/turmas/{schoolClass}/arena', [TeacherArenaController::class, 'update'])->name('arena.update');
+    Route::put('/turmas/{schoolClass}/arena/reino', [TeacherArenaController::class, 'updateRealm'])->name('arena.realm.update');
     Route::post('/turmas/{schoolClass}/arena/reino/{realmDuel}/cancelar', [TeacherArenaController::class, 'cancelRealm'])->name('arena.realm.cancel');
 
     Route::get('/turmas/{schoolClass}/loja', [TeacherShopController::class, 'show'])->name('shop.show');
     Route::post('/turmas/{schoolClass}/loja/itens', [TeacherShopController::class, 'store'])->name('shop.items.store');
+    Route::get('/turmas/{schoolClass}/loja/itens/{shopItem}/editar', [TeacherShopController::class, 'edit'])->name('shop.items.edit')->scopeBindings();
+    Route::put('/turmas/{schoolClass}/loja/itens/{shopItem}', [TeacherShopController::class, 'update'])->name('shop.items.update')->scopeBindings();
     Route::post('/turmas/{schoolClass}/loja/estoque', [TeacherShopController::class, 'restock'])->name('shop.restock');
 
     Route::get('/temporadas', [SeasonController::class, 'index'])->name('seasons.index');
@@ -153,6 +177,7 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::post('/arena/guildas/{teamBattle}/aceitar', [StudentArenaController::class, 'acceptGuild'])->name('arena.guild.accept');
         Route::post('/arena/guildas/{teamBattle}/recusar', [StudentArenaController::class, 'declineGuild'])->name('arena.guild.decline');
 
+        Route::get('/arena/reino', [StudentArenaController::class, 'realmIndex'])->name('arena.realm.index');
         Route::post('/arena/reino/desafiar', [StudentArenaController::class, 'challengeRealm'])->name('arena.realm.challenge');
         Route::get('/arena/reino/{realmDuel}', [StudentArenaController::class, 'showRealm'])->name('arena.realm.show');
         Route::get('/arena/reino/{realmDuel}/status', [StudentArenaController::class, 'statusRealm'])->name('arena.realm.status');
@@ -166,5 +191,11 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::post('/loja/anuncios/{listing}/comprar', [StudentShopController::class, 'buyListing'])->name('shop.listings.buy');
         Route::post('/loja/equipar', [StudentShopController::class, 'equip'])->name('shop.equip');
         Route::post('/loja/desequipar', [StudentShopController::class, 'unequip'])->name('shop.unequip');
+
+        Route::get('/eventos', [StudentGameEventController::class, 'index'])->name('events.index');
+        Route::get('/eventos/{gameEvent}', [StudentGameEventController::class, 'show'])->name('events.show');
+        Route::post('/eventos/{gameEvent}/entrar', [StudentGameEventController::class, 'join'])->name('events.join');
+        Route::get('/eventos/{gameEvent}/estado', [StudentGameEventController::class, 'state'])->name('events.state');
+        Route::post('/eventos/{gameEvent}/responder', [StudentGameEventController::class, 'answer'])->name('events.answer');
     });
 });

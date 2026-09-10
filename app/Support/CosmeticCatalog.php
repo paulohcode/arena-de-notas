@@ -58,7 +58,7 @@ class CosmeticCatalog
     ];
 
     /**
-     * @var array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int}>|null
+     * @var array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int, area_id?: ?int}>|null
      */
     private static ?array $customItems = null;
 
@@ -236,12 +236,13 @@ class CosmeticCatalog
     }
 
     /**
-     * @return array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int}>
+     * @return array<string, array{id?: int, slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int, area_id?: ?int, combat_bonus?: ?float}>
      */
     public static function customItems(): array
     {
         if (self::$customItems === null) {
             self::$customItems = ShopItem::query()
+                ->where('prize_only', false)
                 ->orderBy('id')
                 ->get()
                 ->mapWithKeys(fn (ShopItem $item): array => [$item->item_key => $item->toCatalogArray()])
@@ -252,20 +253,41 @@ class CosmeticCatalog
     }
 
     /**
-     * @return array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int}>
+     * @return array<string, array{id?: int, slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int, area_id?: ?int, combat_bonus?: ?float}>
      */
     public static function itemsForClass(SchoolClass $class): array
     {
         $items = self::ITEMS;
 
         foreach (self::customItems() as $key => $item) {
-            $ownerId = $item['class_id'] ?? null;
-            if ($ownerId === null || (int) $ownerId === (int) $class->id) {
+            if (self::customItemIsAvailableTo($item, $class)) {
                 $items[$key] = $item;
             }
         }
 
         return $items;
+    }
+
+    /**
+     * @param  array{currency?: string, class_id?: ?int, area_id?: ?int, prize_only?: bool}  $item
+     */
+    public static function customItemIsAvailableTo(array $item, SchoolClass $class): bool
+    {
+        if (! empty($item['prize_only'])) {
+            return false;
+        }
+
+        $currency = $item['currency'] ?? self::CURRENCY_RELICS;
+
+        if ($currency === self::CURRENCY_AURAS) {
+            $areaId = $item['area_id'] ?? null;
+
+            return $areaId === null || ((int) $class->area_id === (int) $areaId);
+        }
+
+        $ownerId = $item['class_id'] ?? null;
+
+        return $ownerId === null || (int) $ownerId === (int) $class->id;
     }
 
     /**
@@ -314,8 +336,20 @@ class CosmeticCatalog
             'icon' => ['required', 'string', 'max:32'],
             'css' => ['nullable', 'string', Rule::in(array_keys(self::CSS_TONES))],
             'label' => ['nullable', 'string', 'max:60'],
+            'combat_bonus_percent' => ['nullable', 'numeric', 'min:0', 'max:10'],
             'stock' => ['nullable', 'integer', 'min:0', 'max:99'],
         ];
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public static function itemUpdateRules(): array
+    {
+        $rules = self::itemRules();
+        unset($rules['stock']);
+
+        return $rules;
     }
 
     /**
@@ -340,6 +374,9 @@ class CosmeticCatalog
             'icon.max' => 'O ícone pode ter no máximo 32 caracteres.',
             'css.in' => 'O visual do item é inválido.',
             'label.max' => 'O título exibido pode ter no máximo 60 caracteres.',
+            'combat_bonus_percent.numeric' => 'O poder do item precisa ser um número.',
+            'combat_bonus_percent.min' => 'O poder do item não pode ser negativo.',
+            'combat_bonus_percent.max' => 'O poder do item não pode passar de 10%.',
             'stock.integer' => 'O estoque inicial precisa ser um número inteiro.',
             'stock.min' => 'O estoque inicial não pode ser negativo.',
             'stock.max' => 'O estoque inicial não pode passar de 99.',
@@ -347,7 +384,7 @@ class CosmeticCatalog
     }
 
     /**
-     * @return array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int}|null
+     * @return array{id?: int, slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int, area_id?: ?int, combat_bonus?: ?float}|null
      */
     public static function item(string $key): ?array
     {
@@ -462,14 +499,34 @@ class CosmeticCatalog
         return self::RARITIES[$rarity] ?? $rarity;
     }
 
-    public static function combatBonusForKey(string $key): float
+    public static function combatBonusFromPercent(mixed $percent, string $rarity): float
     {
-        $item = self::item($key);
+        if ($percent === null || $percent === '') {
+            return self::COMBAT_BONUS_BY_RARITY[$rarity] ?? 0.0;
+        }
+
+        return round(max(0, min(self::COMBAT_BONUS_CAP, (float) $percent / 100)), 4);
+    }
+
+    /**
+     * @param  array{rarity?: string, combat_bonus?: ?float}|null  $item
+     */
+    public static function combatBonusForItem(?array $item): float
+    {
         if (! $item) {
             return 0.0;
         }
 
-        return self::COMBAT_BONUS_BY_RARITY[$item['rarity']] ?? 0.0;
+        if (array_key_exists('combat_bonus', $item) && $item['combat_bonus'] !== null) {
+            return (float) $item['combat_bonus'];
+        }
+
+        return self::COMBAT_BONUS_BY_RARITY[$item['rarity'] ?? ''] ?? 0.0;
+    }
+
+    public static function combatBonusForKey(string $key): float
+    {
+        return self::combatBonusForItem(self::item($key));
     }
 
     /**
