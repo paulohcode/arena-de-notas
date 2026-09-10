@@ -38,6 +38,12 @@ class ShopItem extends Model
         return $this->belongsTo(SchoolClass::class, 'class_id');
     }
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => CosmeticCatalog::flush());
+        static::deleted(fn () => CosmeticCatalog::flush());
+    }
+
     public function isGlobal(): bool
     {
         return $this->class_id === null;

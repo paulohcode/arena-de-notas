@@ -25,7 +25,22 @@ class ShopController extends Controller
             'class' => $schoolClass,
             'catalog' => $inventory['catalog'],
             'slots' => CosmeticCatalog::SLOTS,
+            'rarities' => CosmeticCatalog::RARITIES,
+            'currencies' => CosmeticCatalog::CURRENCIES,
+            'cssTones' => CosmeticCatalog::CSS_TONES,
         ]);
+    }
+
+    public function store(Request $request, SchoolClass $schoolClass): RedirectResponse
+    {
+        $this->authorize('manage', $schoolClass);
+
+        $data = $request->validate(CosmeticCatalog::itemRules(), CosmeticCatalog::itemMessages());
+        $item = $this->shop->createItem($data, $schoolClass);
+
+        return redirect()
+            ->route('teacher.shop.show', $schoolClass)
+            ->with('success', $item->name.' cadastrado na loja desta turma.');
     }
 
     public function restock(Request $request, SchoolClass $schoolClass): RedirectResponse
@@ -33,7 +48,7 @@ class ShopController extends Controller
         $this->authorize('manage', $schoolClass);
 
         $data = $request->validate([
-            'item' => ['required', 'string', Rule::in(array_keys(CosmeticCatalog::ITEMS))],
+            'item' => ['required', 'string', Rule::in(CosmeticCatalog::keysForClass($schoolClass))],
             'quantity' => ['required', 'integer', 'min:0', 'max:99'],
         ]);
 

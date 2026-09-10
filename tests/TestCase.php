@@ -6,10 +6,17 @@ use App\Models\Area;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Services\CosmeticShopService;
+use App\Support\CosmeticCatalog;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        CosmeticCatalog::flush();
+    }
     /**
      * @param  array<string, mixed>  $overrides
      */

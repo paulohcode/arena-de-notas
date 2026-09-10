@@ -47,7 +47,7 @@ class ShopController extends Controller
         $this->authorize('viewAsStudent', $class);
 
         $data = $request->validate([
-            'item' => ['required', 'string', Rule::in(array_keys(CosmeticCatalog::ITEMS))],
+            'item' => ['required', 'string', Rule::in(CosmeticCatalog::keysForClass($class))],
         ]);
 
         try {
@@ -72,7 +72,7 @@ class ShopController extends Controller
         $this->authorize('viewAsStudent', $class);
 
         $data = $request->validate([
-            'item' => ['required', 'string', Rule::in(array_keys(CosmeticCatalog::ITEMS))],
+            'item' => ['required', 'string', Rule::in(CosmeticCatalog::keysForClass($class))],
             'price' => ['required', 'integer', 'min:1', 'max:9999'],
         ]);
 
@@ -96,7 +96,7 @@ class ShopController extends Controller
         $this->authorize('viewAsStudent', $class);
 
         $data = $request->validate([
-            'item' => ['required', 'string', Rule::in(array_keys(CosmeticCatalog::ITEMS))],
+            'item' => ['required', 'string', Rule::in(CosmeticCatalog::keysForClass($class))],
         ]);
 
         try {
@@ -141,7 +141,7 @@ class ShopController extends Controller
         $this->authorize('viewAsStudent', $class);
 
         $data = $request->validate([
-            'item' => ['required', 'string', Rule::in(array_keys(CosmeticCatalog::ITEMS))],
+            'item' => ['required', 'string', Rule::in(CosmeticCatalog::keysForClass($class))],
         ]);
 
         try {

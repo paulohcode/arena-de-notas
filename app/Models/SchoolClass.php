@@ -117,6 +117,11 @@ class SchoolClass extends Model
         return $this->hasMany(CosmeticListing::class, 'class_id');
     }
 
+    public function shopItems(): HasMany
+    {
+        return $this->hasMany(ShopItem::class, 'class_id');
+    }
+
     public function cosmetics(): HasManyThrough
     {
         return $this->hasManyThrough(

@@ -7,6 +7,7 @@ use App\Models\CosmeticListing;
 use App\Models\Enrollment;
 use App\Models\EnrollmentCosmetic;
 use App\Models\SchoolClass;
+use App\Models\ShopItem;
 use App\Models\User;
 use App\Support\CosmeticCatalog;
 use Illuminate\Support\Collection;
@@ -62,35 +63,35 @@ class CosmeticShopService
 
         foreach (CosmeticCatalog::SLOTS as $slot => $label) {
             $catalog[$slot] = [];
+        }
 
-            foreach (CosmeticCatalog::keysForSlot($slot) as $key) {
-                $item = CosmeticCatalog::item($key);
-                if (! $item) {
-                    continue;
-                }
-
-                $column = CosmeticCatalog::slotColumn($slot);
-                $equippedKey = $column ? ($enrollment->{$column} ?? null) : null;
-
-                $catalog[$slot][] = [
-                    'key' => $key,
-                    'slot' => $item['slot'],
-                    'name' => $item['name'],
-                    'price' => $item['price'],
-                    'currency' => CosmeticCatalog::currency($key),
-                    'currency_label' => CosmeticCatalog::currencyLabel(CosmeticCatalog::currency($key)),
-                    'rarity' => $item['rarity'],
-                    'rarity_label' => CosmeticCatalog::rarityLabel($item['rarity']),
-                    'icon' => CosmeticCatalog::icon($key),
-                    'css' => $item['css'] ?? null,
-                    'label' => $item['label'] ?? null,
-                    'owned' => isset($ownedSet[$key]),
-                    'equipped' => $equippedKey === $key,
-                    'stock' => (int) ($stockByKey[$key] ?? 0),
-                    'listed_price' => isset($ownListings[$key]) ? (int) $ownListings[$key] : null,
-                    'tradable' => ! CosmeticCatalog::usesSeals($key),
-                ];
+        foreach (CosmeticCatalog::itemsForClass($class) as $key => $item) {
+            $slot = $item['slot'];
+            if (! isset($catalog[$slot])) {
+                continue;
             }
+
+            $column = CosmeticCatalog::slotColumn($slot);
+            $equippedKey = $column ? ($enrollment->{$column} ?? null) : null;
+
+            $catalog[$slot][] = [
+                'key' => $key,
+                'slot' => $item['slot'],
+                'name' => $item['name'],
+                'price' => $item['price'],
+                'currency' => CosmeticCatalog::currency($key),
+                'currency_label' => CosmeticCatalog::currencyLabel(CosmeticCatalog::currency($key)),
+                'rarity' => $item['rarity'],
+                'rarity_label' => CosmeticCatalog::rarityLabel($item['rarity']),
+                'icon' => CosmeticCatalog::icon($key),
+                'css' => $item['css'] ?? null,
+                'label' => $item['label'] ?? null,
+                'owned' => isset($ownedSet[$key]),
+                'equipped' => $equippedKey === $key,
+                'stock' => (int) ($stockByKey[$key] ?? 0),
+                'listed_price' => isset($ownListings[$key]) ? (int) $ownListings[$key] : null,
+                'tradable' => ! CosmeticCatalog::usesSeals($key),
+            ];
         }
 
         $listings = [];
@@ -174,31 +175,31 @@ class CosmeticShopService
 
         foreach (CosmeticCatalog::SLOTS as $slot => $label) {
             $catalog[$slot] = [];
+        }
 
-            foreach (CosmeticCatalog::keysForSlot($slot) as $key) {
-                $item = CosmeticCatalog::item($key);
-                if (! $item) {
-                    continue;
-                }
-
-                $catalog[$slot][] = [
-                    'key' => $key,
-                    'slot' => $item['slot'],
-                    'name' => $item['name'],
-                    'price' => $item['price'],
-                    'currency' => CosmeticCatalog::currency($key),
-                    'currency_label' => CosmeticCatalog::currencyLabel(CosmeticCatalog::currency($key)),
-                    'rarity' => $item['rarity'],
-                    'rarity_label' => CosmeticCatalog::rarityLabel($item['rarity']),
-                    'icon' => CosmeticCatalog::icon($key),
-                    'css' => $item['css'] ?? null,
-                    'label' => $item['label'] ?? null,
-                    'stock' => (int) ($stockByKey[$key] ?? 0),
-                    'owners' => $ownersByKey[$key] ?? [],
-                    'listings' => CosmeticCatalog::usesSeals($key) ? [] : ($listingsByKey[$key] ?? []),
-                    'tradable' => ! CosmeticCatalog::usesSeals($key),
-                ];
+        foreach (CosmeticCatalog::itemsForClass($class) as $key => $item) {
+            $slot = $item['slot'];
+            if (! isset($catalog[$slot])) {
+                continue;
             }
+
+            $catalog[$slot][] = [
+                'key' => $key,
+                'slot' => $item['slot'],
+                'name' => $item['name'],
+                'price' => $item['price'],
+                'currency' => CosmeticCatalog::currency($key),
+                'currency_label' => CosmeticCatalog::currencyLabel(CosmeticCatalog::currency($key)),
+                'rarity' => $item['rarity'],
+                'rarity_label' => CosmeticCatalog::rarityLabel($item['rarity']),
+                'icon' => CosmeticCatalog::icon($key),
+                'css' => $item['css'] ?? null,
+                'label' => $item['label'] ?? null,
+                'stock' => (int) ($stockByKey[$key] ?? 0),
+                'owners' => $ownersByKey[$key] ?? [],
+                'listings' => CosmeticCatalog::usesSeals($key) ? [] : ($listingsByKey[$key] ?? []),
+                'tradable' => ! CosmeticCatalog::usesSeals($key),
+            ];
         }
 
         return ['catalog' => $catalog];
@@ -251,7 +252,7 @@ class CosmeticShopService
             ->pluck('item_key')
             ->all();
 
-        $missing = array_diff(array_keys(CosmeticCatalog::ITEMS), $existing);
+        $missing = array_diff(CosmeticCatalog::keysForClass($class), $existing);
 
         if ($missing === []) {
             return;
@@ -273,9 +274,63 @@ class CosmeticShopService
         ClassCosmeticStock::query()->insert($rows);
     }
 
+    /**
+     * @param  array{name: string, slot: string, price: int, currency: string, rarity: string, icon: string, css?: ?string, label?: ?string, stock?: int}  $attributes
+     */
+    public function createItem(array $attributes, ?SchoolClass $forClass = null): ShopItem
+    {
+        $slot = $attributes['slot'];
+        $name = trim($attributes['name']);
+        $label = filled($attributes['label'] ?? null)
+            ? trim((string) $attributes['label'])
+            : ($slot === CosmeticCatalog::SLOT_TITLE ? $name : null);
+        $css = filled($attributes['css'] ?? null) ? $attributes['css'] : null;
+        $stock = array_key_exists('stock', $attributes) && $attributes['stock'] !== null
+            ? (int) $attributes['stock']
+            : self::DEFAULT_STOCK;
+
+        $item = ShopItem::query()->create([
+            'class_id' => $forClass?->id,
+            'item_key' => CosmeticCatalog::uniqueKey($slot, $name),
+            'slot' => $slot,
+            'name' => $name,
+            'price' => (int) $attributes['price'],
+            'currency' => $attributes['currency'],
+            'rarity' => $attributes['rarity'],
+            'icon' => $attributes['icon'],
+            'css' => $css,
+            'label' => $label,
+        ]);
+
+        CosmeticCatalog::flush();
+
+        $classIds = $forClass
+            ? [$forClass->id]
+            : SchoolClass::query()->orderBy('id')->pluck('id')->all();
+
+        if ($classIds !== []) {
+            $now = now();
+            $rows = [];
+
+            foreach ($classIds as $classId) {
+                $rows[] = [
+                    'class_id' => $classId,
+                    'item_key' => $item->item_key,
+                    'quantity' => $stock,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            ClassCosmeticStock::query()->insert($rows);
+        }
+
+        return $item;
+    }
+
     public function restock(SchoolClass $class, string $itemKey, int $quantity): ClassCosmeticStock
     {
-        if (! CosmeticCatalog::has($itemKey)) {
+        if (! CosmeticCatalog::isAvailableTo($itemKey, $class)) {
             throw ValidationException::withMessages([
                 'item' => 'Este item não existe na loja.',
             ]);
@@ -296,7 +351,7 @@ class CosmeticShopService
 
     public function purchase(User $student, SchoolClass $class, string $itemKey): Enrollment
     {
-        if (! CosmeticCatalog::has($itemKey)) {
+        if (! CosmeticCatalog::isAvailableTo($itemKey, $class)) {
             throw ValidationException::withMessages([
                 'item' => 'Este item não existe na loja.',
             ]);

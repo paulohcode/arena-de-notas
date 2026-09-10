@@ -66,6 +66,7 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
     Route::delete('/professores/{teacher}', [AdminTeacherController::class, 'destroy'])->name('teachers.destroy');
 
     Route::get('/loja', [AdminShopController::class, 'index'])->name('shop.index');
+    Route::post('/loja/itens', [AdminShopController::class, 'store'])->name('shop.items.store');
 });
 
 Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('professor')->name('teacher.')->group(function () {
@@ -112,6 +113,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::put('/turmas/{schoolClass}/arena', [TeacherArenaController::class, 'update'])->name('arena.update');
 
     Route::get('/turmas/{schoolClass}/loja', [TeacherShopController::class, 'show'])->name('shop.show');
+    Route::post('/turmas/{schoolClass}/loja/itens', [TeacherShopController::class, 'store'])->name('shop.items.store');
     Route::post('/turmas/{schoolClass}/loja/estoque', [TeacherShopController::class, 'restock'])->name('shop.restock');
 
     Route::get('/temporadas', [SeasonController::class, 'index'])->name('seasons.index');

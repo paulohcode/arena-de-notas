@@ -17,6 +17,14 @@
     <a class="game-btn-ghost" href="{{ route('teacher.classes.show', $class) }}">Voltar à turma</a>
 </div>
 
+<div class="game-card p-5 mb-8 reveal space-y-4">
+    <div>
+        <h2 class="font-display text-xl text-amber-200">Cadastrar item</h2>
+        <p class="text-sm text-amber-100/60 mt-1">O item fica disponível só nesta turma. Depois você pode ajustar quantas cópias estão à venda.</p>
+    </div>
+    @include('partials.shop-item-form', ['action' => route('teacher.shop.items.store', $class)])
+</div>
+
 @foreach($slots as $slot => $slotLabel)
     <section class="mb-8 reveal">
         <h2 class="font-display text-xl text-amber-200 mb-3">{{ $slotLabel }}</h2>

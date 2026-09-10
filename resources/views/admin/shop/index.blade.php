@@ -14,6 +14,44 @@
     </div>
 </div>
 
+<div class="game-card p-5 mb-8 reveal space-y-4">
+    <div>
+        <h2 class="font-display text-xl text-amber-200">Cadastrar item</h2>
+        <p class="text-sm text-amber-100/60 mt-1">Itens criados aqui entram no catálogo de todas as turmas, com o estoque inicial informado.</p>
+    </div>
+    @include('partials.shop-item-form', ['action' => route('admin.shop.items.store')])
+</div>
+
+@if($customItems->isNotEmpty())
+    <div class="game-card p-5 mb-8 reveal">
+        <h2 class="font-display text-xl text-amber-200 mb-3">Itens cadastrados</h2>
+        <div class="space-y-2">
+            @foreach($customItems as $item)
+                <div class="flex flex-wrap items-center justify-between gap-3 py-2 border-b border-purple-900/40">
+                    <div class="flex items-center gap-3 min-w-0">
+                        @include('partials.shop-item-art', [
+                            'icon' => $item->icon,
+                            'rarity' => $item->rarity,
+                            'css' => $item->css,
+                            'slot' => $item->slot,
+                            'size' => 'sm',
+                        ])
+                        <div class="min-w-0">
+                            <p class="font-semibold text-amber-100 truncate">{{ $item->name }}</p>
+                            <p class="text-xs text-amber-100/55">
+                                {{ $slots[$item->slot] ?? $item->slot }}
+                                · {{ $item->price }} {{ $currencies[$item->currency] ?? $item->currency }}
+                                · {{ $rarities[$item->rarity] ?? $item->rarity }}
+                                · {{ $item->isGlobal() ? 'todas as turmas' : ($item->schoolClass?->name ?? 'turma') }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+@endif
+
 <div class="space-y-3">
     @forelse($classes as $class)
         @php
