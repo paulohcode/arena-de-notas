@@ -53,6 +53,12 @@
             Vence quem zerar o HP do outro. Se o tempo acabar, vence quem tiver mais HP.
             Empate de HP: ganha quem tiver mais SPD. Empate total: o desafiante leva.
         </p>
+        <p>
+            Nas <strong class="text-cyan-200">batalhas de guildas</strong>, os lutadores elegíveis são emparelhados por poder
+            (mais forte vs mais forte). Quem sobrar luta de novo contra o mais fraco do outro lado.
+            Vence a guilda com mais vitórias; em empate, soma-se o HP dos vencedores; empate total favorece a desafiante.
+            Cada guilda só pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.
+        </p>
         <p class="text-xs text-amber-100/50">
             Glória e Relíquias da vitória não mudam a média nem o XP. Esta receita completa fica só com o professor.
         </p>
@@ -67,6 +73,11 @@
         </p>
         <p>
             Vence quem derrubar o rival, ou quem tiver mais vida se o tempo acabar.
+        </p>
+        <p>
+            Nas <strong class="text-cyan-200">batalhas de guildas</strong>, todos os lutadores elegíveis entram:
+            mais forte vs mais forte; quem sobrar enfrenta o mais fraco do outro lado.
+            Cada guilda só pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.
         </p>
     @endif
 </div>

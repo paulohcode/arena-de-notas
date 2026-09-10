@@ -107,6 +107,11 @@ class SchoolClass extends Model
         return $this->hasMany(Duel::class, 'class_id');
     }
 
+    public function teamBattles(): HasMany
+    {
+        return $this->hasMany(TeamBattle::class, 'class_id');
+    }
+
     public function cosmeticStocks(): HasMany
     {
         return $this->hasMany(ClassCosmeticStock::class, 'class_id');

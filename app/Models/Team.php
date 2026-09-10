@@ -37,6 +37,16 @@ class Team extends Model
         return $this->hasMany(LedgerEntry::class);
     }
 
+    public function battlesAsChallenger(): HasMany
+    {
+        return $this->hasMany(TeamBattle::class, 'challenger_team_id');
+    }
+
+    public function battlesAsOpponent(): HasMany
+    {
+        return $this->hasMany(TeamBattle::class, 'opponent_team_id');
+    }
+
     public function emblemIcon(): string
     {
         return self::EMBLEMS[$this->emblem] ?? '🛡️';

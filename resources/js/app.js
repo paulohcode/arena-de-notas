@@ -5,11 +5,13 @@ import { startChallengePolling } from './game/duel-challenge-modal';
 import { showToast } from './game/toasts';
 import { kingdomMapEditor } from './game/map-editor';
 import { duelBattle } from './game/duel-battle';
+import { teamBattleSeries } from './game/team-battle-series';
 import { bindArenaSoundToggles, unlockArenaAudio } from './game/sound';
 
 window.Alpine = Alpine;
 Alpine.data('kingdomMapEditor', kingdomMapEditor);
 Alpine.data('duelBattle', duelBattle);
+Alpine.data('teamBattleSeries', teamBattleSeries);
 Alpine.start();
 
 document.addEventListener('DOMContentLoaded', () => {

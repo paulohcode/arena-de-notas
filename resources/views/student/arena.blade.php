@@ -59,6 +59,34 @@
     </div>
 @endif
 
+@if($pendingGuildIncoming->isNotEmpty())
+    <div class="game-card p-5 mb-6 space-y-4 border-cyan-400/20">
+        <h2 class="font-display text-xl text-cyan-200">Desafios de guilda recebidos</h2>
+        @foreach($pendingGuildIncoming as $battle)
+            <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/40">
+                <div class="min-w-0">
+                    <p class="font-semibold truncate">
+                        {{ $battle->challengerTeam->emblemIcon() }} {{ $battle->challengerTeam->name }}
+                    </p>
+                    <p class="text-xs text-amber-100/50">
+                        Enviado por {{ $battle->challenger->arenaName() ?: $battle->challenger->name }}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <form method="POST" action="{{ route('student.arena.guild.accept', $battle) }}">
+                        @csrf
+                        <button class="game-btn !py-1 !px-3 text-sm" type="submit">Aceitar</button>
+                    </form>
+                    <form method="POST" action="{{ route('student.arena.guild.decline', $battle) }}">
+                        @csrf
+                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Recusar</button>
+                    </form>
+                </div>
+            </div>
+        @endforeach
+    </div>
+@endif
+
 <div class="grid lg:grid-cols-2 gap-6 mb-8">
     <div class="game-card p-5">
         <div class="flex items-center justify-between gap-3 mb-3">
@@ -151,6 +179,79 @@
             @endforelse
         </div>
     </div>
+</div>
+
+<div class="game-card p-5 mb-8 reveal">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h2 class="font-display text-xl text-cyan-200">Batalha de Guildas</h2>
+        @if($ownTeam)
+            <p class="text-xs text-amber-100/50">{{ $guildResolvedToday }}/{{ $guildDailyLimit }} batalha hoje · {{ $ownTeam->emblemIcon() }} {{ $ownTeam->name }}</p>
+        @endif
+    </div>
+
+    <div class="mb-4 rounded-lg border border-cyan-400/25 bg-cyan-950/20 p-3 text-xs text-amber-100/75 space-y-1">
+        <p>Cada guilda pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.</p>
+        <p>Todos os lutadores elegíveis entram: mais forte vs mais forte; sobras enfrentam o mais fraco do outro lado.</p>
+        <p>Qualquer membro da guilda desafiada pode aceitar ou recusar. Vitória dá +{{ \App\Models\TeamBattle::GLORY_WIN }} Glória/Relíquias para quem lutou.</p>
+    </div>
+
+    @if(! $ownTeam)
+        <p class="text-sm text-purple-200/60">Você precisa estar em uma guilda para desafiar outra.</p>
+    @else
+        @forelse($otherGuilds as $guild)
+            <div class="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-purple-900/40">
+                <div class="min-w-0">
+                    <p class="font-semibold truncate">{{ $guild->emblemIcon() }} {{ $guild->name }}</p>
+                    <p class="text-xs text-amber-100/50">{{ $guild->members->count() }} {{ $guild->members->count() === 1 ? 'membro' : 'membros' }}</p>
+                </div>
+                @if(! empty($guildNotices[$guild->id]))
+                    <p class="text-xs text-amber-200/90 max-w-64 text-right leading-snug">{{ $guildNotices[$guild->id] }}</p>
+                @elseif($canChallengeGuild)
+                    <form method="POST" action="{{ route('student.arena.guild.challenge') }}">
+                        @csrf
+                        <input type="hidden" name="opponent_team_id" value="{{ $guild->id }}">
+                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Desafiar guilda</button>
+                    </form>
+                @endif
+            </div>
+        @empty
+            <p class="text-sm text-purple-200/60">Não há outras guildas nesta turma.</p>
+        @endforelse
+
+        @if($pendingGuildOutgoing->isNotEmpty())
+            <div class="mt-6">
+                <h3 class="text-sm uppercase tracking-wide text-purple-200/70 mb-2">Desafios de guilda enviados</h3>
+                @foreach($pendingGuildOutgoing as $battle)
+                    <a href="{{ route('student.arena.guild.show', $battle) }}" class="block text-sm py-1 text-cyan-300/90 hover:text-cyan-200 underline">
+                        Aguardando {{ $battle->opponentTeam->name }} — abrir sala de espera
+                    </a>
+                @endforeach
+            </div>
+        @endif
+
+        <div class="mt-6">
+            <h3 class="text-sm uppercase tracking-wide text-purple-200/70 mb-2">Batalhas recentes da guilda</h3>
+            @forelse($guildHistory as $battle)
+                @php
+                    $rival = $battle->challenger_team_id === $ownTeam->id ? $battle->opponentTeam : $battle->challengerTeam;
+                    $won = $battle->winner_team_id === $ownTeam->id;
+                    $score = $battle->log['score'] ?? null;
+                @endphp
+                <a href="{{ route('student.arena.guild.show', $battle) }}" class="flex justify-between py-2 border-b border-purple-900/40 text-sm hover:text-amber-200">
+                    <span>vs {{ $rival->emblemIcon() }} {{ $rival->name }}
+                        @if($score)
+                            <span class="text-amber-100/40">({{ $score['challenger'] }}–{{ $score['opponent'] }})</span>
+                        @endif
+                    </span>
+                    <span class="{{ $won ? 'text-emerald-300' : 'text-rose-300' }}">
+                        {{ $won ? 'Vitória' : 'Derrota' }}
+                    </span>
+                </a>
+            @empty
+                <p class="text-sm text-purple-200/60">Nenhuma batalha de guilda resolvida ainda.</p>
+            @endforelse
+        </div>
+    @endif
 </div>
 
 <div class="mb-8 reveal">

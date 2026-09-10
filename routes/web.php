@@ -143,6 +143,12 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::post('/arena/duelos/{duel}/aceitar', [StudentArenaController::class, 'accept'])->name('arena.accept');
         Route::post('/arena/duelos/{duel}/recusar', [StudentArenaController::class, 'decline'])->name('arena.decline');
 
+        Route::post('/arena/guildas/desafiar', [StudentArenaController::class, 'challengeGuild'])->name('arena.guild.challenge');
+        Route::get('/arena/guildas/{teamBattle}', [StudentArenaController::class, 'showGuild'])->name('arena.guild.show');
+        Route::get('/arena/guildas/{teamBattle}/status', [StudentArenaController::class, 'statusGuild'])->name('arena.guild.status');
+        Route::post('/arena/guildas/{teamBattle}/aceitar', [StudentArenaController::class, 'acceptGuild'])->name('arena.guild.accept');
+        Route::post('/arena/guildas/{teamBattle}/recusar', [StudentArenaController::class, 'declineGuild'])->name('arena.guild.decline');
+
         Route::get('/loja', [StudentShopController::class, 'index'])->name('shop.index');
         Route::post('/loja/comprar', [StudentShopController::class, 'purchase'])->name('shop.purchase');
         Route::post('/loja/anunciar', [StudentShopController::class, 'list'])->name('shop.list');
