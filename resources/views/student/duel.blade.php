@@ -118,17 +118,51 @@
             <a class="game-btn-ghost" href="{{ route('student.arena.index') }}">Voltar à arena</a>
         </div>
 
-        <div class="duel-stage game-card overflow-hidden">
+        <div
+            class="duel-stage game-card overflow-hidden"
+            :class="{
+                'duel-stage--flash': stageFlash === 'hit',
+                'duel-stage--heavy': stageFlash === 'heavy',
+                'duel-stage--ko': stageFlash === 'ko',
+                'duel-stage--heal': stageFlash === 'heal'
+            }"
+        >
             <div class="duel-stage__floor" aria-hidden="true"></div>
+            <div class="duel-fx" aria-hidden="true">
+                <template x-for="fx in effects" :key="fx.id">
+                    <span class="duel-fx__item" :class="fx.className"></span>
+                </template>
+                <template x-for="float in floats" :key="float.id">
+                    <span
+                        class="duel-float"
+                        :class="{
+                            'duel-float--left': float.side === 'left',
+                            'duel-float--right': float.side === 'right',
+                            'duel-float--heal': float.kind === 'heal',
+                            'duel-float--dmg': float.kind === 'dmg',
+                            'duel-float--heavy': float.heavy
+                        }"
+                        x-text="float.text"
+                    ></span>
+                </template>
+            </div>
 
-            <div class="relative z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-2 md:gap-6 px-3 md:px-8 pt-8 pb-6 min-h-[280px] md:min-h-[340px]">
-                <div class="text-center" :class="{ 'duel-shake': left.hit, 'duel-heal-flash': left.healed }">
+            <div class="relative z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-2 md:gap-6 px-3 md:px-8 pt-10 pb-8 min-h-[360px] md:min-h-[460px]">
+                <div
+                    class="duel-fighter duel-fighter--left text-center"
+                    :class="{
+                        'duel-fighter--hit': left.hit,
+                        'duel-fighter--heal': left.healed,
+                        'duel-fighter--strike': left.striking,
+                        'duel-fighter--down': left.hp <= 0
+                    }"
+                >
                     <div
                         class="duel-portrait mx-auto mb-3"
                         :style="'--portrait-tone:' + left.tone"
                         :class="{ 'duel-portrait--winner': finished && winnerId === left.id, 'duel-portrait--down': left.hp <= 0 }"
                     >
-                        <span class="text-4xl md:text-5xl" x-text="left.icon"></span>
+                        <span class="text-4xl md:text-6xl" x-text="left.icon"></span>
                     </div>
                     <p class="font-semibold text-sm md:text-base truncate" x-text="left.arena || left.name"></p>
                     <p class="text-xs text-amber-100/50" x-text="left.class"></p>
@@ -143,40 +177,25 @@
                     </div>
                 </div>
 
-                <div class="relative self-center w-16 md:w-28 h-24 md:h-32 flex items-center justify-center">
-                    <p class="font-display text-xl md:text-2xl text-amber-200/40" x-show="!finished">VS</p>
-                    <template x-for="bolt in bolts" :key="bolt.id">
-                        <span
-                            class="duel-bolt"
-                            :class="{
-                                'duel-bolt--right': bolt.dir === 'right',
-                                'duel-bolt--left': bolt.dir === 'left',
-                                'duel-bolt--heal': bolt.kind === 'heal'
-                            }"
-                            x-text="bolt.kind === 'heal' ? '✚' : '✦'"
-                        ></span>
-                    </template>
-                    <template x-for="float in floats" :key="float.id">
-                        <span
-                            class="duel-float"
-                            :class="{
-                                'duel-float--left': float.side === 'left',
-                                'duel-float--right': float.side === 'right',
-                                'duel-float--heal': float.kind === 'heal',
-                                'duel-float--dmg': float.kind === 'dmg'
-                            }"
-                            x-text="float.text"
-                        ></span>
-                    </template>
+                <div class="relative self-center w-16 md:w-24 h-24 md:h-32 flex items-center justify-center">
+                    <p class="font-display text-xl md:text-3xl text-amber-200/40" x-show="!finished">VS</p>
                 </div>
 
-                <div class="text-center" :class="{ 'duel-shake': right.hit, 'duel-heal-flash': right.healed }">
+                <div
+                    class="duel-fighter duel-fighter--right text-center"
+                    :class="{
+                        'duel-fighter--hit': right.hit,
+                        'duel-fighter--heal': right.healed,
+                        'duel-fighter--strike': right.striking,
+                        'duel-fighter--down': right.hp <= 0
+                    }"
+                >
                     <div
                         class="duel-portrait mx-auto mb-3"
                         :style="'--portrait-tone:' + right.tone"
                         :class="{ 'duel-portrait--winner': finished && winnerId === right.id, 'duel-portrait--down': right.hp <= 0 }"
                     >
-                        <span class="text-4xl md:text-5xl" x-text="right.icon"></span>
+                        <span class="text-4xl md:text-6xl" x-text="right.icon"></span>
                     </div>
                     <p class="font-semibold text-sm md:text-base truncate" x-text="right.arena || right.name"></p>
                     <p class="text-xs text-amber-100/50" x-text="right.class"></p>

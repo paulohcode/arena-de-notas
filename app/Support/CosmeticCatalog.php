@@ -2,6 +2,11 @@
 
 namespace App\Support;
 
+use App\Models\SchoolClass;
+use App\Models\ShopItem;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+
 class CosmeticCatalog
 {
     public const SLOT_FRAME = 'frame';
@@ -15,6 +20,44 @@ class CosmeticCatalog
     public const CURRENCY_RELICS = 'relics';
 
     public const CURRENCY_SEALS = 'seals';
+
+    /**
+     * @var array<string, string>
+     */
+    public const CURRENCIES = [
+        self::CURRENCY_RELICS => 'Relíquias',
+        self::CURRENCY_SEALS => 'Selos',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    public const RARITIES = [
+        'common' => 'Comum',
+        'uncommon' => 'Incomum',
+        'rare' => 'Raro',
+        'epic' => 'Épico',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    public const CSS_TONES = [
+        'bronze' => 'Bronze',
+        'silver' => 'Prata',
+        'gold' => 'Ouro',
+        'rune' => 'Rúnico',
+        'aurora' => 'Aurora',
+        'ember' => 'Brasa',
+        'frost' => 'Gelo',
+        'storm' => 'Relâmpago',
+        'vigil' => 'Vigília',
+    ];
+
+    /**
+     * @var array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int}>|null
+     */
+    private static ?array $customItems = null;
 
     /**
      * @var array<string, string>
@@ -184,12 +227,128 @@ class CosmeticCatalog
         ],
     ];
 
+    public static function flush(): void
+    {
+        self::$customItems = null;
+    }
+
     /**
-     * @return array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: string, label?: string}|null
+     * @return array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int}>
+     */
+    public static function customItems(): array
+    {
+        if (self::$customItems === null) {
+            self::$customItems = ShopItem::query()
+                ->orderBy('id')
+                ->get()
+                ->mapWithKeys(fn (ShopItem $item): array => [$item->item_key => $item->toCatalogArray()])
+                ->all();
+        }
+
+        return self::$customItems;
+    }
+
+    /**
+     * @return array<string, array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int}>
+     */
+    public static function itemsForClass(SchoolClass $class): array
+    {
+        $items = self::ITEMS;
+
+        foreach (self::customItems() as $key => $item) {
+            $ownerId = $item['class_id'] ?? null;
+            if ($ownerId === null || (int) $ownerId === (int) $class->id) {
+                $items[$key] = $item;
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function keysForClass(SchoolClass $class): array
+    {
+        return array_keys(self::itemsForClass($class));
+    }
+
+    public static function isAvailableTo(string $key, SchoolClass $class): bool
+    {
+        return array_key_exists($key, self::itemsForClass($class));
+    }
+
+    public static function uniqueKey(string $slot, string $name): string
+    {
+        $slug = str_replace('-', '_', Str::slug($name));
+        if ($slug === '') {
+            $slug = 'item';
+        }
+
+        $base = 'custom_'.$slot.'_'.$slug;
+        $key = $base;
+        $suffix = 2;
+
+        while (self::has($key)) {
+            $key = $base.'_'.$suffix;
+            $suffix++;
+        }
+
+        return $key;
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public static function itemRules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:60'],
+            'slot' => ['required', 'string', Rule::in(array_keys(self::SLOTS))],
+            'price' => ['required', 'integer', 'min:1', 'max:9999'],
+            'currency' => ['required', 'string', Rule::in(array_keys(self::CURRENCIES))],
+            'rarity' => ['required', 'string', Rule::in(array_keys(self::RARITIES))],
+            'icon' => ['required', 'string', 'max:32'],
+            'css' => ['nullable', 'string', Rule::in(array_keys(self::CSS_TONES))],
+            'label' => ['nullable', 'string', 'max:60'],
+            'stock' => ['nullable', 'integer', 'min:0', 'max:99'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function itemMessages(): array
+    {
+        return [
+            'name.required' => 'Informe o nome do item.',
+            'name.max' => 'O nome do item pode ter no máximo 60 caracteres.',
+            'slot.required' => 'Escolha o tipo do item.',
+            'slot.in' => 'O tipo do item é inválido.',
+            'price.required' => 'Informe o preço do item.',
+            'price.integer' => 'O preço precisa ser um número inteiro.',
+            'price.min' => 'O preço mínimo é 1.',
+            'price.max' => 'O preço máximo é 9999.',
+            'currency.required' => 'Escolha a moeda do item.',
+            'currency.in' => 'A moeda do item é inválida.',
+            'rarity.required' => 'Escolha a raridade do item.',
+            'rarity.in' => 'A raridade do item é inválida.',
+            'icon.required' => 'Informe um ícone para o item.',
+            'icon.max' => 'O ícone pode ter no máximo 32 caracteres.',
+            'css.in' => 'O visual do item é inválido.',
+            'label.max' => 'O título exibido pode ter no máximo 60 caracteres.',
+            'stock.integer' => 'O estoque inicial precisa ser um número inteiro.',
+            'stock.min' => 'O estoque inicial não pode ser negativo.',
+            'stock.max' => 'O estoque inicial não pode passar de 99.',
+        ];
+    }
+
+    /**
+     * @return array{slot: string, name: string, price: int, rarity: string, icon: string, currency?: string, css?: ?string, label?: ?string, class_id?: ?int}|null
      */
     public static function item(string $key): ?array
     {
-        return self::ITEMS[$key] ?? null;
+        return self::ITEMS[$key] ?? (self::customItems()[$key] ?? null);
     }
 
     public static function icon(string $key): string
@@ -199,7 +358,7 @@ class CosmeticCatalog
 
     public static function has(string $key): bool
     {
-        return isset(self::ITEMS[$key]);
+        return self::item($key) !== null;
     }
 
     public static function currency(string $key): string
@@ -236,11 +395,12 @@ class CosmeticCatalog
     /**
      * @return list<string>
      */
-    public static function keysForSlot(string $slot): array
+    public static function keysForSlot(string $slot, ?SchoolClass $class = null): array
     {
+        $source = $class ? self::itemsForClass($class) : array_merge(self::ITEMS, self::customItems());
         $keys = [];
 
-        foreach (self::ITEMS as $key => $item) {
+        foreach ($source as $key => $item) {
             if ($item['slot'] === $slot) {
                 $keys[] = $key;
             }
@@ -289,13 +449,7 @@ class CosmeticCatalog
 
     public static function rarityLabel(string $rarity): string
     {
-        return match ($rarity) {
-            'common' => 'Comum',
-            'uncommon' => 'Incomum',
-            'rare' => 'Raro',
-            'epic' => 'Épico',
-            default => $rarity,
-        };
+        return self::RARITIES[$rarity] ?? $rarity;
     }
 
     public static function combatBonusForKey(string $key): float

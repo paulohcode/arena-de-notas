@@ -1,7 +1,7 @@
 export function duelBattle(payload) {
     return {
-        left: { ...payload.left, hp: payload.left.maxHp, hit: false, healed: false },
-        right: { ...payload.right, hp: payload.right.maxHp, hit: false, healed: false },
+        left: { ...payload.left, hp: payload.left.maxHp, hit: false, healed: false, striking: false },
+        right: { ...payload.right, hp: payload.right.maxHp, hit: false, healed: false, striking: false },
         turns: payload.turns || [],
         winnerId: payload.winnerId,
         viewerId: payload.viewerId,
@@ -9,12 +9,13 @@ export function duelBattle(payload) {
         gloryLoss: payload.gloryLoss,
         index: 0,
         log: [],
-        bolts: [],
+        effects: [],
         floats: [],
         finished: false,
         playing: false,
         victoryOpen: false,
-        boltSeq: 0,
+        stageFlash: null,
+        effectSeq: 0,
         floatSeq: 0,
 
         get leftPct() {
@@ -69,13 +70,17 @@ export function duelBattle(payload) {
             return `${name} leva +${this.gloryWin} Glória`;
         },
 
+        prefersReducedMotion() {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        },
+
         start() {
             if (this.playing) {
                 return;
             }
 
             this.playing = true;
-            setTimeout(() => this.tick(), 700);
+            setTimeout(() => this.tick(), 800);
         },
 
         skip() {
@@ -100,7 +105,7 @@ export function duelBattle(payload) {
 
             this.applyTurn(this.turns[this.index], true);
             this.index += 1;
-            setTimeout(() => this.tick(), 1100);
+            setTimeout(() => this.tick(), this.prefersReducedMotion() ? 400 : 1450);
         },
 
         applyTurn(turn, animate) {
@@ -113,12 +118,7 @@ export function duelBattle(payload) {
                 this.log.push(turn);
 
                 if (animate) {
-                    this.spawnBolt(fromLeft ? 'right' : 'left', 'heal');
-                    this.spawnFloat(fromLeft ? 'left' : 'right', 'heal', `+${turn.amount}`);
-                    actor.healed = true;
-                    setTimeout(() => {
-                        actor.healed = false;
-                    }, 450);
+                    this.playHeal(fromLeft, turn.amount);
                 }
             } else {
                 target.hp = Math.max(0, turn.target_hp);
@@ -126,12 +126,7 @@ export function duelBattle(payload) {
                 this.log.push(turn);
 
                 if (animate) {
-                    this.spawnBolt(fromLeft ? 'right' : 'left', 'attack');
-                    this.spawnFloat(fromLeft ? 'right' : 'left', 'dmg', `-${turn.amount}`);
-                    target.hit = true;
-                    setTimeout(() => {
-                        target.hit = false;
-                    }, 450);
+                    this.playAttack(fromLeft, turn.amount, turn.target_hp <= 0);
                 }
             }
 
@@ -143,20 +138,73 @@ export function duelBattle(payload) {
             });
         },
 
-        spawnBolt(dir, kind) {
-            const id = ++this.boltSeq;
-            this.bolts.push({ id, dir, kind });
+        playAttack(fromLeft, amount, isKo) {
+            if (this.prefersReducedMotion()) {
+                const target = fromLeft ? this.right : this.left;
+                target.hit = true;
+                setTimeout(() => {
+                    target.hit = false;
+                }, 280);
+
+                return;
+            }
+
+            const actor = fromLeft ? this.left : this.right;
+            const target = fromLeft ? this.right : this.left;
+            const dir = fromLeft ? 'right' : 'left';
+            const impactSide = fromLeft ? 'right' : 'left';
+            const heavy = amount >= 16;
+
+            actor.striking = true;
+            this.spawnEffect(`duel-slash duel-slash--${dir}${heavy ? ' duel-slash--heavy' : ''}`, 700);
+            if (heavy) {
+                setTimeout(() => {
+                    this.spawnEffect(`duel-slash duel-slash--${dir} duel-slash--follow`, 650);
+                }, 80);
+            }
+
             setTimeout(() => {
-                this.bolts = this.bolts.filter((bolt) => bolt.id !== id);
-            }, 700);
+                actor.striking = false;
+                this.spawnEffect(`duel-impact duel-impact--${impactSide}${heavy ? ' duel-impact--heavy' : ''}`, 750);
+                this.spawnEffect(`duel-shock duel-shock--${impactSide}`, 650);
+                this.spawnFloat(impactSide, 'dmg', `-${amount}`, heavy);
+                target.hit = true;
+                this.stageFlash = isKo ? 'ko' : (heavy ? 'heavy' : 'hit');
+                setTimeout(() => {
+                    target.hit = false;
+                    this.stageFlash = null;
+                }, 520);
+            }, 280);
         },
 
-        spawnFloat(side, kind, text) {
-            const id = ++this.floatSeq;
-            this.floats.push({ id, side, kind, text });
+        playHeal(fromLeft, amount) {
+            const actor = fromLeft ? this.left : this.right;
+            const side = fromLeft ? 'left' : 'right';
+
+            actor.healed = true;
+            this.stageFlash = 'heal';
+            this.spawnEffect(`duel-heal-burst duel-heal-burst--${side}`, 900);
+            this.spawnFloat(side, 'heal', `+${amount}`, false);
             setTimeout(() => {
-                this.floats = this.floats.filter((float) => float.id !== id);
-            }, 900);
+                actor.healed = false;
+                this.stageFlash = null;
+            }, 620);
+        },
+
+        spawnEffect(className, ttl = 800) {
+            const id = ++this.effectSeq;
+            this.effects.push({ id, className });
+            setTimeout(() => {
+                this.effects = this.effects.filter((effect) => effect.id !== id);
+            }, ttl);
+        },
+
+        spawnFloat(side, kind, text, heavy) {
+            const id = ++this.floatSeq;
+            this.floats.push({ id, side, kind, text, heavy: Boolean(heavy) });
+            setTimeout(() => {
+                this.floats = this.floats.filter((item) => item.id !== id);
+            }, 1100);
         },
 
         finish() {
@@ -165,7 +213,7 @@ export function duelBattle(payload) {
             this.syncFinalHp();
             setTimeout(() => {
                 this.victoryOpen = true;
-            }, 420);
+            }, 520);
         },
 
         syncFinalHp() {
