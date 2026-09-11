@@ -26,6 +26,21 @@ class StudentSheetTest extends TestCase
             ->assertRedirectToRoute('login');
     }
 
+    public function test_student_header_links_arena_events_and_shop(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class);
+
+        $this->actingAs($student)
+            ->get(route('student.dashboard'))
+            ->assertOk()
+            ->assertSee('href="'.route('student.dashboard').'"', false)
+            ->assertSee('href="'.route('student.arena.index').'"', false)
+            ->assertSee('href="'.route('student.events.index').'"', false)
+            ->assertSee('href="'.route('student.shop.index').'"', false);
+    }
+
     public function test_student_is_redirected_away_from_teacher_sheet(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);

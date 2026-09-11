@@ -65,7 +65,7 @@
             A sorte da arena nestas guerras é menor (±6%) do que no duelo 1v1 (±12%).
         </p>
         <p class="text-xs text-amber-100/50">
-            Glória e Relíquias da vitória não mudam a média nem o XP. Esta receita completa fica só com o professor.
+            {{ \App\Models\GameCurrency::label('glory') }} e {{ \App\Models\GameCurrency::label('relics') }} da vitória não mudam a média nem o XP. Esta receita completa fica só com o professor.
             Os alunos leem a versão de sala em
             <a href="{{ route('arena.rules') }}" class="text-amber-200 underline">Regras da arena</a>.
         </p>

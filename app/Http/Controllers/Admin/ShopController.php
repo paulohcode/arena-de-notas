@@ -32,7 +32,7 @@ class ShopController extends Controller
                 ->get(),
             'slots' => CosmeticCatalog::SLOTS,
             'rarities' => CosmeticCatalog::RARITIES,
-            'currencies' => CosmeticCatalog::CURRENCIES,
+            'currencies' => CosmeticCatalog::currencies(),
             'cssTones' => CosmeticCatalog::CSS_TONES,
         ]);
     }
@@ -56,7 +56,7 @@ class ShopController extends Controller
             'item' => $shopItem,
             'slots' => CosmeticCatalog::SLOTS,
             'rarities' => CosmeticCatalog::RARITIES,
-            'currencies' => CosmeticCatalog::CURRENCIES,
+            'currencies' => CosmeticCatalog::currencies(),
             'cssTones' => CosmeticCatalog::CSS_TONES,
         ]);
     }

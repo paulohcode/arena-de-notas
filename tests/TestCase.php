@@ -3,6 +3,7 @@
 namespace Tests;
 
 use App\Models\Area;
+use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Services\CosmeticShopService;
@@ -16,7 +17,9 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         CosmeticCatalog::flush();
+        GameCurrency::flush();
     }
+
     /**
      * @param  array<string, mixed>  $overrides
      */

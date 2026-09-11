@@ -227,6 +227,103 @@ class CharacterPersonaTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_unauthenticated_approve_all_redirects_to_login(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+
+        $this->post(route('teacher.characters.approve-all', $class))
+            ->assertRedirectToRoute('login');
+    }
+
+    public function test_teacher_approves_all_pending_personas_in_the_class(): void
+    {
+        Notification::fake();
+
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+        $ana = $this->enrollStudent($class, 'Ana Souza');
+        $ana->update([
+            'pending_character_name' => 'Luna Arcana',
+            'pending_character_avatar' => 'lua',
+            'character_approval_status' => 'pending',
+        ]);
+        $bruno = $this->enrollStudent($class, 'Bruno Lima');
+        $bruno->update([
+            'pending_character_name' => 'Escudo de Ferro',
+            'pending_character_avatar' => 'elmo',
+            'character_approval_status' => 'pending',
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.characters.approve-all', $class))
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'personagens']))
+            ->assertSessionHas('success', '2 personagens aprovados.');
+
+        $this->assertSame('Luna Arcana', $ana->fresh()->character_name);
+        $this->assertSame('approved', $ana->fresh()->character_approval_status);
+        $this->assertSame('Escudo de Ferro', $bruno->fresh()->character_name);
+        $this->assertSame('approved', $bruno->fresh()->character_approval_status);
+
+        Notification::assertSentTo($ana, GameAlert::class);
+        Notification::assertSentTo($bruno, GameAlert::class);
+    }
+
+    public function test_approve_all_skips_duplicate_names_and_approves_the_rest(): void
+    {
+        Notification::fake();
+
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+        $ana = $this->enrollStudent($class, 'Ana Souza');
+        $ana->update([
+            'pending_character_name' => 'Luna Arcana',
+            'pending_character_avatar' => 'lua',
+            'character_approval_status' => 'pending',
+        ]);
+        $bruno = $this->enrollStudent($class, 'Bruno Lima');
+        $bruno->update([
+            'pending_character_name' => 'Luna Arcana',
+            'pending_character_avatar' => 'elmo',
+            'character_approval_status' => 'pending',
+        ]);
+        $carla = $this->enrollStudent($class, 'Carla Dias');
+        $carla->update([
+            'pending_character_name' => 'Flecha Certa',
+            'pending_character_avatar' => 'aguia',
+            'character_approval_status' => 'pending',
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.characters.approve-all', $class))
+            ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'personagens']))
+            ->assertSessionHas('success', '2 personagem(ns) aprovado(s). 1 ignorado(s) por nome duplicado.');
+
+        $this->assertSame('approved', $ana->fresh()->character_approval_status);
+        $this->assertSame('pending', $bruno->fresh()->character_approval_status);
+        $this->assertNull($bruno->fresh()->character_name);
+        $this->assertSame('approved', $carla->fresh()->character_approval_status);
+    }
+
+    public function test_forbids_another_teacher_from_approving_all_personas(): void
+    {
+        $owner = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($owner);
+        $student = $this->enrollStudent($class);
+        $student->update([
+            'pending_character_name' => 'Luna Arcana',
+            'pending_character_avatar' => 'lua',
+            'character_approval_status' => 'pending',
+        ]);
+        $other = User::factory()->create(['role' => 'teacher']);
+
+        $this->actingAs($other)
+            ->post(route('teacher.characters.approve-all', $class))
+            ->assertForbidden();
+
+        $this->assertSame('pending', $student->fresh()->character_approval_status);
+    }
+
     public function test_escapes_pending_character_name_on_the_teacher_tab(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher']);

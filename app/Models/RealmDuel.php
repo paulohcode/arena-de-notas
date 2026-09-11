@@ -28,6 +28,8 @@ class RealmDuel extends Model
 
     public const STATUS_RESOLVED = 'resolved';
 
+    public const STATUS_EXPIRED = 'expired';
+
     public const AURA_WIN = 10;
 
     public const AURA_LOSS = 2;

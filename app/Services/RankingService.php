@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Duel;
 use App\Models\SchoolClass;
 use App\Models\Team;
 use App\Models\User;
@@ -49,8 +50,16 @@ class RankingService
             ];
         }
 
-        usort($rows, function (array $a, array $b) {
-            return [$b['average'], $b['xp'], $a['student']->name] <=> [$a['average'], $a['xp'], $b['student']->name];
+        $headToHeadWins = $this->headToHeadWinsByPair($class);
+
+        usort($rows, function (array $a, array $b) use ($headToHeadWins) {
+            $aId = (int) $a['student']->id;
+            $bId = (int) $b['student']->id;
+            $aWinsVsB = $headToHeadWins[$aId][$bId] ?? 0;
+            $bWinsVsA = $headToHeadWins[$bId][$aId] ?? 0;
+
+            return [$b['average'], $b['xp'], $bWinsVsA, $a['student']->name]
+                <=> [$a['average'], $a['xp'], $aWinsVsB, $b['student']->name];
         });
 
         $ranked = [];
@@ -137,5 +146,36 @@ class RankingService
         }
 
         return null;
+    }
+
+    /**
+     * Vitórias em duelos 1x1 resolvidos da turma: [vencedorId][perdedorId] => quantidade.
+     *
+     * @return array<int, array<int, int>>
+     */
+    private function headToHeadWinsByPair(SchoolClass $class): array
+    {
+        $duels = Duel::query()
+            ->where('class_id', $class->id)
+            ->where('status', Duel::STATUS_RESOLVED)
+            ->whereNotNull('winner_id')
+            ->get(['challenger_id', 'opponent_id', 'winner_id']);
+
+        $wins = [];
+
+        foreach ($duels as $duel) {
+            $winnerId = (int) $duel->winner_id;
+            $loserId = $winnerId === (int) $duel->challenger_id
+                ? (int) $duel->opponent_id
+                : (int) $duel->challenger_id;
+
+            if ($winnerId === $loserId) {
+                continue;
+            }
+
+            $wins[$winnerId][$loserId] = ($wins[$winnerId][$loserId] ?? 0) + 1;
+        }
+
+        return $wins;
     }
 }

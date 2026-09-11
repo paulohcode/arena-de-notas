@@ -12,6 +12,7 @@ use App\Models\SchoolClass;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\DuelService;
+use App\Services\GameEventService;
 use App\Services\RankingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -22,6 +23,7 @@ class DashboardController extends Controller
     public function __construct(
         private RankingService $ranking,
         private DuelService $duels,
+        private GameEventService $events,
     ) {}
 
     public function index(Request $request): View
@@ -205,6 +207,7 @@ class DashboardController extends Controller
             'arenaHall' => $this->duels->hall($schoolClass),
             'attendanceSessions' => $attendanceSessions,
             'activeAttendanceSession' => $activeAttendanceSession,
+            'eventsTickStale' => $this->events->tickIsStale(),
         ]);
     }
 

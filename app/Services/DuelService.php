@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Duel;
 use App\Models\Enrollment;
+use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Notifications\GameAlert;
@@ -130,8 +131,8 @@ class DuelService
                 'duel_result',
                 'Duelo resolvido',
                 $winnerId === $locked->challenger_id
-                    ? 'Você venceu o duelo e ganhou '.Duel::GLORY_WIN.' de Glória!'
-                    : "{$winnerLabel} venceu o duelo. Você ganhou ".Duel::GLORY_LOSS.' de Glória.',
+                    ? 'Você venceu o duelo e ganhou '.Duel::GLORY_WIN.' de '.GameCurrency::label('glory').'!'
+                    : "{$winnerLabel} venceu o duelo. Você ganhou ".Duel::GLORY_LOSS.' de '.GameCurrency::label('glory').'.',
                 [
                     'duel_id' => $locked->id,
                     'class_id' => $class->id,
@@ -143,8 +144,8 @@ class DuelService
                 'duel_result',
                 'Duelo resolvido',
                 $winnerId === $opponent->id
-                    ? 'Você venceu o duelo e ganhou '.Duel::GLORY_WIN.' de Glória!'
-                    : "{$winnerLabel} venceu o duelo. Você ganhou ".Duel::GLORY_LOSS.' de Glória.',
+                    ? 'Você venceu o duelo e ganhou '.Duel::GLORY_WIN.' de '.GameCurrency::label('glory').'!'
+                    : "{$winnerLabel} venceu o duelo. Você ganhou ".Duel::GLORY_LOSS.' de '.GameCurrency::label('glory').'.',
                 [
                     'duel_id' => $locked->id,
                     'class_id' => $class->id,

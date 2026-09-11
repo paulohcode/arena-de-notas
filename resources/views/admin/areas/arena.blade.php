@@ -9,7 +9,7 @@
         <p class="hero-kicker !mb-1">Mediação</p>
         <h1 class="font-display text-4xl text-amber-300">{{ $area->emblemIcon() }} Arena do reino</h1>
         <p class="text-amber-100/65 mt-1">
-            {{ $area->name }} · duelos entre turmas por Aura (+{{ \App\Models\RealmDuel::AURA_WIN }}/+{{ \App\Models\RealmDuel::AURA_LOSS }})
+            {{ $area->name }} · duelos entre turmas por {{ \App\Models\GameCurrency::label('auras') }} (+{{ \App\Models\RealmDuel::AURA_WIN }}/+{{ \App\Models\RealmDuel::AURA_LOSS }})
             · Status:
             <span class="{{ $area->isRealmArenaOpen() ? 'text-emerald-300' : 'text-rose-300' }}">
                 {{ $area->isRealmArenaOpen() ? 'aberta' : 'fechada' }}
@@ -38,7 +38,7 @@
     @method('PUT')
     <div>
         <h2 class="font-display text-xl text-amber-200">Configurações da arena entre turmas</h2>
-        <p class="text-sm text-amber-100/60 mt-1">Define se o reino aceita duelos entre turmas, a espera entre desafios e o limite diário de Aura.</p>
+        <p class="text-sm text-amber-100/60 mt-1">Define se o reino aceita duelos entre turmas, a espera entre desafios e o limite diário de {{ \App\Models\GameCurrency::label('auras') }}.</p>
     </div>
     <div class="grid md:grid-cols-3 gap-4">
         <label class="block">
@@ -110,14 +110,14 @@
     </div>
 
     <div class="game-card p-5">
-        <h2 class="font-display text-xl text-violet-200 mb-3">Saldo de Aura</h2>
+        <h2 class="font-display text-xl text-violet-200 mb-3">Saldo de {{ \App\Models\GameCurrency::label('auras') }}</h2>
         @forelse($auraLeaders as $row)
             <div class="flex justify-between py-2 border-b border-purple-900/40 text-sm">
                 <span>{{ $row->student?->arenaName() ?: $row->student?->name }}</span>
-                <span class="text-violet-300">{{ $row->auras }} Aura</span>
+                <span class="text-violet-300">{{ \App\Models\GameCurrency::format('auras', $row->auras) }}</span>
             </div>
         @empty
-            <p class="text-sm text-purple-200/60">Ninguém acumulou Aura ainda.</p>
+            <p class="text-sm text-purple-200/60">Ninguém acumulou {{ \App\Models\GameCurrency::label('auras') }} ainda.</p>
         @endforelse
     </div>
 </div>
@@ -136,7 +136,7 @@
             @if($duel->isResolved())
                 <span class="text-emerald-300">
                     Venceu: {{ $duel->winner?->arenaName() ?: $duel->winner?->name }}
-                    · +{{ $duel->aura_winner }}/+{{ $duel->aura_loser }} Aura
+                    · +{{ $duel->aura_winner }}/+{{ $duel->aura_loser }} {{ \App\Models\GameCurrency::label('auras') }}
                 </span>
             @else
                 <span class="text-rose-300/80">Cancelado / recusado</span>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
+use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Services\AttendanceService;
 use Illuminate\Http\RedirectResponse;
@@ -52,7 +53,7 @@ class AttendanceController extends Controller
                 'tab' => 'chamada',
                 'session' => $attendanceSession->id,
             ])
-            ->with('success', 'Chamada salva. A frequência e os Selos foram atualizados.');
+            ->with('success', 'Chamada salva. A frequência e '.GameCurrency::label('seals').' foram atualizados.');
     }
 
     public function destroy(SchoolClass $schoolClass, AttendanceSession $attendanceSession): RedirectResponse

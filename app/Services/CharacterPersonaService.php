@@ -10,15 +10,18 @@ use Illuminate\Validation\ValidationException;
 
 class CharacterPersonaService
 {
-    public function nameIsTaken(User $student, string $name): bool
+    public function nameIsTaken(User $student, string $name, bool $includePending = true): bool
     {
         $needle = Str::lower($name);
 
         return User::query()
             ->where('id', '!=', $student->id)
-            ->where(function ($query) use ($needle) {
-                $query->whereRaw('LOWER(character_name) = ?', [$needle])
-                    ->orWhereRaw('LOWER(pending_character_name) = ?', [$needle]);
+            ->where(function ($query) use ($needle, $includePending) {
+                $query->whereRaw('LOWER(character_name) = ?', [$needle]);
+
+                if ($includePending) {
+                    $query->orWhereRaw('LOWER(pending_character_name) = ?', [$needle]);
+                }
             })
             ->exists();
     }
@@ -91,7 +94,7 @@ class CharacterPersonaService
             ]);
         }
 
-        if ($this->nameIsTaken($student, $name)) {
+        if ($this->nameIsTaken($student, $name, includePending: false)) {
             throw ValidationException::withMessages([
                 'character_name' => 'Este nome de personagem já está em uso.',
             ]);
@@ -112,6 +115,35 @@ class CharacterPersonaService
             "Agora você aparece como {$name} na arena.",
             ['character_name' => $name],
         ));
+    }
+
+    /**
+     * @return array{approved: int, skipped: int}
+     */
+    public function approvePendingInClass(SchoolClass $schoolClass): array
+    {
+        $approved = 0;
+        $skipped = 0;
+
+        $pending = $schoolClass->students()
+            ->orderBy('users.name')
+            ->orderBy('users.id')
+            ->get()
+            ->filter(fn (User $student) => $student->isPersonaPending());
+
+        foreach ($pending as $student) {
+            try {
+                $this->approve($schoolClass, $student);
+                $approved++;
+            } catch (ValidationException) {
+                $skipped++;
+            }
+        }
+
+        return [
+            'approved' => $approved,
+            'skipped' => $skipped,
+        ];
     }
 
     public function reject(SchoolClass $schoolClass, User $student, ?string $reason = null): void

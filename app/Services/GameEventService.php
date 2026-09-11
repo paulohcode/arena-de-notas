@@ -18,11 +18,16 @@ use App\Notifications\GameAlert;
 use App\Support\CosmeticCatalog;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class GameEventService
 {
+    public const LAST_TICK_CACHE_KEY = 'game-events.last_tick_at';
+
+    public const TICK_STALE_AFTER_SECONDS = 300;
+
     public function __construct(
         private GameLoopService $gameLoop,
         private CosmeticShopService $shop,
@@ -231,6 +236,22 @@ class GameEventService
         }
 
         return $advanced;
+    }
+
+    public function markTicked(): void
+    {
+        Cache::forever(self::LAST_TICK_CACHE_KEY, now()->timestamp);
+    }
+
+    public function tickIsStale(): bool
+    {
+        $lastTickAt = Cache::get(self::LAST_TICK_CACHE_KEY);
+
+        if (! is_numeric($lastTickAt)) {
+            return true;
+        }
+
+        return ((int) $lastTickAt) < now()->timestamp - self::TICK_STALE_AFTER_SECONDS;
     }
 
     public function advanceLiveIfDue(GameEvent $event): bool

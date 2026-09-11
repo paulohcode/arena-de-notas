@@ -17,7 +17,7 @@
 <div class="game-card p-5 mb-8 reveal space-y-4">
     <div>
         <h2 class="font-display text-xl text-amber-200">Cadastrar item</h2>
-        <p class="text-sm text-amber-100/60 mt-1">Itens de Relíquias e Selos entram no catálogo de todas as turmas. Itens de Aura são únicos em cada reino, com estoque compartilhado entre as turmas daquele reino.</p>
+        <p class="text-sm text-amber-100/60 mt-1">Itens de {{ \App\Models\GameCurrency::label('relics') }} e {{ \App\Models\GameCurrency::label('seals') }} entram no catálogo de todas as turmas. Itens de {{ \App\Models\GameCurrency::label('auras') }} são únicos em cada reino, com estoque compartilhado entre as turmas daquele reino.</p>
     </div>
     @include('partials.shop-item-form', ['action' => route('admin.shop.items.store')])
 </div>

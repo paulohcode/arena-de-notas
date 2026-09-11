@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\ShopItem;
 use Illuminate\Support\Str;
@@ -425,7 +426,20 @@ class CosmeticCatalog
 
     public static function currencyLabel(string $currency): string
     {
-        return self::CURRENCIES[$currency] ?? 'Relíquias';
+        return GameCurrency::label($currency);
+    }
+
+    public static function currencyIcon(string $currency): string
+    {
+        return GameCurrency::icon($currency);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function currencies(): array
+    {
+        return GameCurrency::shopLabels();
     }
 
     public static function slotColumn(string $slot): ?string

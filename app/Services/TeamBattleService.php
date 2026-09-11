@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Enrollment;
+use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\Team;
 use App\Models\TeamBattle;
@@ -196,6 +197,7 @@ class TeamBattleService
                     $class,
                     $studentId,
                     $won ? TeamBattle::GLORY_WIN : TeamBattle::GLORY_LOSS,
+                    $won,
                 );
             }
 
@@ -530,10 +532,10 @@ class TeamBattleService
                 $fought = isset($fighterSet[$member->id]);
                 $message = $teamWon
                     ? ($fought
-                        ? "A guilda {$winnerName} venceu! Você ganhou ".TeamBattle::GLORY_WIN.' de Glória.'
+                        ? "A guilda {$winnerName} venceu! Você ganhou ".TeamBattle::GLORY_WIN.' de '.GameCurrency::label('glory').'.'
                         : "A guilda {$winnerName} venceu a batalha.")
                     : ($fought
-                        ? "A guilda {$winnerName} venceu. Você ganhou ".TeamBattle::GLORY_LOSS.' de Glória.'
+                        ? "A guilda {$winnerName} venceu. Você ganhou ".TeamBattle::GLORY_LOSS.' de '.GameCurrency::label('glory').'.'
                         : "A guilda {$winnerName} venceu a batalha.");
 
                 $member->notify(new GameAlert(
@@ -550,7 +552,7 @@ class TeamBattleService
         }
     }
 
-    private function awardGlory(SchoolClass $class, int $studentId, int $amount): void
+    private function awardGlory(SchoolClass $class, int $studentId, int $amount, bool $won): void
     {
         $enrollment = Enrollment::query()
             ->where('class_id', $class->id)
@@ -564,6 +566,13 @@ class TeamBattleService
 
         $enrollment->glory = (int) $enrollment->glory + $amount;
         $enrollment->relics = (int) $enrollment->relics + $amount;
+
+        if ($won) {
+            $enrollment->arena_wins = (int) $enrollment->arena_wins + 1;
+        } else {
+            $enrollment->arena_losses = (int) $enrollment->arena_losses + 1;
+        }
+
         $enrollment->save();
     }
 

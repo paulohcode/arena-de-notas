@@ -39,7 +39,7 @@
         'viewerId' => (int) $student->id,
         'gloryWin' => (int) ($rewardWin ?? $duel->glory_winner ?? $duel->aura_winner ?? 0),
         'gloryLoss' => (int) ($rewardLoss ?? $duel->glory_loser ?? $duel->aura_loser ?? 0),
-        'rewardLabel' => $rewardLabel ?? 'Glória',
+        'rewardLabel' => $rewardLabel ?? \App\Models\GameCurrency::label('glory'),
         'winnerReason' => (string) ($log['winner_reason'] ?? 'hp'),
     ] : null;
 

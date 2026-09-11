@@ -55,6 +55,18 @@ O administrador cadastra **reinos** (áreas de atuação) e **professores**, vin
 
 Novos alunos cadastrados pelo professor também começam com `aluno123`.
 
+## Agendador (obrigatório na hospedagem)
+
+Quizzes ao vivo e a expiração de desafios (24h) usam o comando `php artisan game-events:tick`, disparado pelo agendador do Laravel.
+
+No crontab do servidor (KingHost e equivalentes):
+
+```
+* * * * * cd /caminho/do/projeto && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Sem isso, o evento ao vivo não avança de pergunta e os desafios pendentes nunca expiram. A aba Eventos da turma avisa quando o agendador está parado.
+
 ## Como usar
 
 1. Professor cria a turma e escolhe se as notas **começam em 0** ou **em 100**.

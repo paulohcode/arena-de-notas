@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\Duel;
+use App\Models\GameCurrency;
 use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Models\Team;
@@ -229,6 +230,12 @@ class ArenaController extends Controller
                 ->with('success', 'Este desafio foi recusado.');
         }
 
+        if ($duel->status === Duel::STATUS_EXPIRED) {
+            return redirect()
+                ->route('student.arena.index')
+                ->with('success', 'Este desafio expirou.');
+        }
+
         $duel->load(['challenger', 'opponent', 'winner']);
 
         $challengerEnrollment = $duel->challenger->enrollmentIn($class);
@@ -450,6 +457,12 @@ class ArenaController extends Controller
                 ->with('success', 'Este desafio de guilda foi recusado.');
         }
 
+        if ($teamBattle->status === TeamBattle::STATUS_EXPIRED) {
+            return redirect()
+                ->route('student.arena.index')
+                ->with('success', 'Este desafio de guilda expirou.');
+        }
+
         $teamBattle->load(['challengerTeam', 'opponentTeam', 'winnerTeam', 'challenger', 'acceptedBy']);
 
         return view('student.team-battle', [
@@ -475,7 +488,7 @@ class ArenaController extends Controller
             'status' => $teamBattle->status,
             'redirect' => match ($teamBattle->status) {
                 TeamBattle::STATUS_RESOLVED => ArenaUrl::route('student.arena.guild.show', $teamBattle).'?replay=1',
-                TeamBattle::STATUS_DECLINED => ArenaUrl::route('student.arena.index'),
+                TeamBattle::STATUS_DECLINED, TeamBattle::STATUS_EXPIRED => ArenaUrl::route('student.arena.index'),
                 default => null,
             },
         ]);
@@ -592,6 +605,12 @@ class ArenaController extends Controller
                 ->with('success', 'Este desafio do reino foi recusado.');
         }
 
+        if ($realmDuel->status === RealmDuel::STATUS_EXPIRED) {
+            return redirect()
+                ->route('student.arena.realm.index')
+                ->with('success', 'Este desafio do reino expirou.');
+        }
+
         $realmDuel->load(['challenger', 'opponent', 'winner', 'challengerClass', 'opponentClass']);
 
         $challengerEnrollment = $realmDuel->challenger->enrollmentIn($realmDuel->challengerClass);
@@ -605,7 +624,7 @@ class ArenaController extends Controller
             'opponentEnrollment' => $opponentEnrollment,
             'rewardWin' => (int) $realmDuel->aura_winner,
             'rewardLoss' => (int) $realmDuel->aura_loser,
-            'rewardLabel' => 'Aura',
+            'rewardLabel' => GameCurrency::label('auras'),
             'statusUrl' => ArenaUrl::route('student.arena.realm.status', $realmDuel),
             'notifyUrl' => ArenaUrl::route('student.notifications'),
             'markReadUrl' => ArenaUrl::route('student.notifications.read'),
@@ -627,7 +646,7 @@ class ArenaController extends Controller
             'status' => $realmDuel->status,
             'redirect' => match ($realmDuel->status) {
                 RealmDuel::STATUS_RESOLVED => ArenaUrl::route('student.arena.realm.show', $realmDuel).'?replay=1',
-                RealmDuel::STATUS_DECLINED => ArenaUrl::route('student.arena.realm.index'),
+                RealmDuel::STATUS_DECLINED, RealmDuel::STATUS_EXPIRED => ArenaUrl::route('student.arena.realm.index'),
                 default => null,
             },
         ]);

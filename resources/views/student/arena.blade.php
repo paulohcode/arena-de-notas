@@ -7,7 +7,7 @@
     <div>
         <p class="hero-kicker !mb-1">Campo de duelos</p>
         <h1 class="font-display text-4xl text-amber-300">Arena da turma</h1>
-        <p class="text-amber-100/60 mt-1">{{ $class->name }} · Glória {{ $enrollment?->glory ?? 0 }} · Relíquias {{ $enrollment?->relics ?? 0 }} · Selos {{ $enrollment?->seals ?? 0 }} · Aura {{ $realmAuras }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
+        <p class="text-amber-100/60 mt-1">{{ $class->name }} · {{ \App\Models\GameCurrency::format('glory', $enrollment?->glory ?? 0) }} · {{ \App\Models\GameCurrency::format('relics', $enrollment?->relics ?? 0) }} · {{ \App\Models\GameCurrency::format('seals', $enrollment?->seals ?? 0) }} · {{ \App\Models\GameCurrency::format('auras', $realmAuras) }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
         <a class="game-btn" href="{{ route('arena.rules') }}">Regras da arena</a>
@@ -194,10 +194,10 @@
                         @endif
                         @include('partials.cosmetic-title', ['student' => $row['student']])
                     </span>
-                    <span class="text-cyan-300">{{ $row['glory'] }} Glória · {{ $row['arena_wins'] }}V</span>
+                    <span class="text-cyan-300">{{ \App\Models\GameCurrency::format('glory', $row['glory']) }} · {{ $row['arena_wins'] }}V</span>
                 </div>
             @empty
-                <p class="text-sm text-purple-200/60">Ninguém conquistou Glória ainda (ou ninguém está visível no ranking).</p>
+                <p class="text-sm text-purple-200/60">Ninguém conquistou {{ \App\Models\GameCurrency::label('glory') }} ainda (ou ninguém está visível no ranking).</p>
             @endforelse
         </div>
 
@@ -234,7 +234,7 @@
     <div class="mb-4 rounded-lg border border-cyan-400/25 bg-cyan-950/20 p-3 text-xs text-amber-100/75 space-y-1">
         <p>Cada guilda pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.</p>
         <p>Todos os lutadores elegíveis entram: mais forte vs mais forte; sobras enfrentam o mais fraco do outro lado.</p>
-        <p>Qualquer membro da guilda desafiada pode aceitar ou recusar. Vitória dá +{{ \App\Models\TeamBattle::GLORY_WIN }} Glória/Relíquias para quem lutou.</p>
+        <p>Qualquer membro da guilda desafiada pode aceitar ou recusar. Vitória dá +{{ \App\Models\TeamBattle::GLORY_WIN }} {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }} para quem lutou.</p>
     </div>
 
     @if(! $ownTeam)

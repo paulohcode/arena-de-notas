@@ -111,12 +111,12 @@
     <div class="game-card p-6 md:p-8 space-y-3">
         <h2 class="font-display text-3xl text-amber-300">O que você ganha</h2>
         <p class="text-lg md:text-xl text-amber-100/90 leading-relaxed">
-            Vitória: <strong class="text-amber-200">+{{ $gloryWin }} Glória</strong> e Relíquias para a loja.
+            Vitória: <strong class="text-amber-200">+{{ $gloryWin }} {{ \App\Models\GameCurrency::label('glory') }}</strong> e {{ \App\Models\GameCurrency::label('relics') }} para a loja.
             Derrota: <strong class="text-amber-200">+{{ $gloryLoss }}</strong> (também conta, só que menos).
         </p>
         <p class="text-lg text-amber-100/80 leading-relaxed">
-            Entre turmas, a recompensa é <strong class="text-violet-200">Aura</strong>.
-            Nas guerras de guilda, quem lutou também ganha Glória e Relíquias.
+            Entre turmas, a recompensa é <strong class="text-violet-200">{{ \App\Models\GameCurrency::label('auras') }}</strong>.
+            Nas guerras de guilda, quem lutou também ganha {{ \App\Models\GameCurrency::label('glory') }} e {{ \App\Models\GameCurrency::label('relics') }}.
         </p>
     </div>
     <div class="game-card p-6 md:p-8 space-y-3 border-rose-400/30">

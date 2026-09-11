@@ -41,6 +41,7 @@
                     @if(auth()->user()->isAdmin())
                         <a class="game-btn-ghost" href="{{ route('admin.dashboard') }}">Admin</a>
                         <a class="game-btn-ghost" href="{{ route('admin.shop.index') }}">Loja</a>
+                        <a class="game-btn-ghost" href="{{ route('admin.currencies.index') }}">Moedas</a>
                         <a class="game-btn-ghost" href="{{ route('teacher.dashboard') }}">Turmas</a>
                         <a class="game-btn-ghost" href="{{ route('teacher.seasons.index') }}">Campanhas</a>
                     @elseif(auth()->user()->isTeacher())
@@ -48,6 +49,9 @@
                         <a class="game-btn-ghost" href="{{ route('teacher.seasons.index') }}">Campanhas</a>
                     @else
                         <a class="game-btn-ghost" href="{{ route('student.dashboard') }}">Minha ficha</a>
+                        <a class="game-btn-ghost" href="{{ route('student.arena.index') }}">Arena</a>
+                        <a class="game-btn-ghost" href="{{ route('student.events.index') }}">Eventos</a>
+                        <a class="game-btn-ghost" href="{{ route('student.shop.index') }}">Loja</a>
                     @endif
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf

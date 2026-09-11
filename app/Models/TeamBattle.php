@@ -28,6 +28,8 @@ class TeamBattle extends Model
 
     public const STATUS_RESOLVED = 'resolved';
 
+    public const STATUS_EXPIRED = 'expired';
+
     public const GLORY_WIN = 10;
 
     public const GLORY_LOSS = 2;

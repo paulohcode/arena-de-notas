@@ -91,14 +91,13 @@ class ArenaGuildBattleTest extends TestCase
                 ->where('student_id', $studentId)
                 ->firstOrFail();
 
-            $expected = $this->studentOnWinningTeam($studentId, $battle, $alpha, $beta)
-                ? TeamBattle::GLORY_WIN
-                : TeamBattle::GLORY_LOSS;
+            $won = $this->studentOnWinningTeam($studentId, $battle, $alpha, $beta);
+            $expected = $won ? TeamBattle::GLORY_WIN : TeamBattle::GLORY_LOSS;
 
             $this->assertSame($expected, (int) $enrollment->glory);
             $this->assertSame($expected, (int) $enrollment->relics);
-            $this->assertSame(0, (int) $enrollment->arena_wins);
-            $this->assertSame(0, (int) $enrollment->arena_losses);
+            $this->assertSame($won ? 1 : 0, (int) $enrollment->arena_wins);
+            $this->assertSame($won ? 0 : 1, (int) $enrollment->arena_losses);
         }
 
         $this->assertSame(250, (int) $challenger->enrollmentIn($class)->fresh()->xp);

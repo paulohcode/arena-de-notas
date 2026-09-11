@@ -130,9 +130,9 @@
     <div x-show="tab === 'arena'" x-cloak class="space-y-3">
         <div class="game-card p-4 mb-2">
             <p class="text-sm text-amber-100/65">
-                Placar de Glória dos duelos RPG.
+                Placar de {{ \App\Models\GameCurrency::label('glory') }} dos duelos RPG.
                 {{ $arenaOpen ? 'A arena desta turma está aberta.' : 'A arena desta turma está fechada no momento.' }}
-                Glória não altera a média nem o ranking acadêmico.
+                {{ \App\Models\GameCurrency::label('glory') }} não altera a média nem o ranking acadêmico.
             </p>
         </div>
         @forelse($arenaHall as $row)
@@ -158,11 +158,11 @@
                 </div>
                 <div class="text-right shrink-0">
                     <p class="score-chip">{{ $row['glory'] }}</p>
-                    <p class="text-xs text-amber-100/45">glória</p>
+                    <p class="text-xs text-amber-100/45">{{ \Illuminate\Support\Str::lower(\App\Models\GameCurrency::label('glory')) }}</p>
                 </div>
             </div>
         @empty
-            <div class="game-card p-6 text-center text-amber-100/70">Ninguém conquistou Glória ainda.</div>
+            <div class="game-card p-6 text-center text-amber-100/70">Ninguém conquistou {{ \App\Models\GameCurrency::label('glory') }} ainda.</div>
         @endforelse
     </div>
 </div>

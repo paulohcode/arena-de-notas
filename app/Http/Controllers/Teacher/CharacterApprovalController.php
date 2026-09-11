@@ -66,6 +66,31 @@ class CharacterApprovalController extends Controller
                 : "Personagem de {$student->name} aprovado.");
     }
 
+    public function approveAll(SchoolClass $schoolClass): RedirectResponse
+    {
+        $this->authorize('manage', $schoolClass);
+
+        $result = $this->personas->approvePendingInClass($schoolClass);
+
+        if ($result['approved'] === 0 && $result['skipped'] === 0) {
+            $message = 'Não há personagens aguardando aprovação.';
+        } elseif ($result['skipped'] === 0) {
+            $message = $result['approved'] === 1
+                ? '1 personagem aprovado.'
+                : "{$result['approved']} personagens aprovados.";
+        } elseif ($result['approved'] === 0) {
+            $message = $result['skipped'] === 1
+                ? 'Nenhum personagem aprovado. 1 nome em conflito.'
+                : "Nenhum personagem aprovado. {$result['skipped']} nomes em conflito.";
+        } else {
+            $message = "{$result['approved']} personagem(ns) aprovado(s). {$result['skipped']} ignorado(s) por nome duplicado.";
+        }
+
+        return redirect()
+            ->route('teacher.classes.show', ['schoolClass' => $schoolClass, 'tab' => 'personagens'])
+            ->with('success', $message);
+    }
+
     public function reject(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse
     {
         $this->authorize('manage', $schoolClass);

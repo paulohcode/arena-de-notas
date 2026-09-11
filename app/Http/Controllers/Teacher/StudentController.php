@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
 use App\Models\Duel;
+use App\Models\GameCurrency;
 use App\Models\LedgerEntry;
 use App\Models\SchoolClass;
 use App\Models\User;
@@ -166,7 +167,7 @@ class StudentController extends Controller
             ->route('teacher.classes.show', ['schoolClass' => $schoolClass, 'tab' => 'alunos'])
             ->with(
                 'success',
-                "{$student->name} foi transferido para {$target->name}. Notas, XP, Glória, Relíquias, medalhas, guilda e histórico da turma anterior foram apagados."
+                "{$student->name} foi transferido para {$target->name}. Notas, XP, ".GameCurrency::label('glory').', '.GameCurrency::label('relics').', medalhas, guilda e histórico da turma anterior foram apagados.'
             );
     }
 

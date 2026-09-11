@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AreaController as AdminAreaController;
+use App\Http\Controllers\Admin\CurrencyController as AdminCurrencyController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\GameEventController as AdminGameEventController;
 use App\Http\Controllers\Admin\RealmArenaController as AdminRealmArenaController;
@@ -86,6 +87,9 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
     Route::post('/loja/itens', [AdminShopController::class, 'store'])->name('shop.items.store');
     Route::get('/loja/itens/{shopItem}/editar', [AdminShopController::class, 'edit'])->name('shop.items.edit');
     Route::put('/loja/itens/{shopItem}', [AdminShopController::class, 'update'])->name('shop.items.update');
+
+    Route::get('/moedas', [AdminCurrencyController::class, 'index'])->name('currencies.index');
+    Route::put('/moedas', [AdminCurrencyController::class, 'update'])->name('currencies.update');
 });
 
 Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('professor')->name('teacher.')->group(function () {
@@ -107,6 +111,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::delete('/turmas/{schoolClass}/alunos/{student}', [StudentController::class, 'destroy'])->name('students.destroy');
     Route::put('/turmas/{schoolClass}/alunos/{student}/personagem', [CharacterApprovalController::class, 'update'])->name('characters.update');
     Route::post('/turmas/{schoolClass}/alunos/{student}/personagem/aprovar', [CharacterApprovalController::class, 'approve'])->name('characters.approve');
+    Route::post('/turmas/{schoolClass}/personagens/aprovar', [CharacterApprovalController::class, 'approveAll'])->name('characters.approve-all');
     Route::post('/turmas/{schoolClass}/alunos/{student}/personagem/rejeitar', [CharacterApprovalController::class, 'reject'])->name('characters.reject');
 
     Route::post('/turmas/{schoolClass}/guildas', [TeamController::class, 'store'])->name('teams.store');

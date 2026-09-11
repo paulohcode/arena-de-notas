@@ -99,6 +99,7 @@ class CosmeticShopService
                 'price' => $item['price'],
                 'currency' => CosmeticCatalog::currency($key),
                 'currency_label' => CosmeticCatalog::currencyLabel(CosmeticCatalog::currency($key)),
+                'currency_icon' => CosmeticCatalog::currencyIcon(CosmeticCatalog::currency($key)),
                 'rarity' => $item['rarity'],
                 'rarity_label' => CosmeticCatalog::rarityLabel($item['rarity']),
                 'icon' => CosmeticCatalog::icon($key),
@@ -230,6 +231,7 @@ class CosmeticShopService
                 'price' => $item['price'],
                 'currency' => CosmeticCatalog::currency($key),
                 'currency_label' => CosmeticCatalog::currencyLabel(CosmeticCatalog::currency($key)),
+                'currency_icon' => CosmeticCatalog::currencyIcon(CosmeticCatalog::currency($key)),
                 'rarity' => $item['rarity'],
                 'rarity_label' => CosmeticCatalog::rarityLabel($item['rarity']),
                 'icon' => CosmeticCatalog::icon($key),
@@ -761,8 +763,9 @@ class CosmeticShopService
             }
 
             if ((int) $buyerEnrollment->relics < $price) {
+                $label = CosmeticCatalog::currencyLabel(CosmeticCatalog::CURRENCY_RELICS);
                 throw ValidationException::withMessages([
-                    'listing' => 'Relíquias insuficientes para esta negociação.',
+                    'listing' => "{$label} insuficientes para esta negociação.",
                 ]);
             }
 

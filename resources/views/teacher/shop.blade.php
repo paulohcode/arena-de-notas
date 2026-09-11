@@ -20,7 +20,7 @@
 <div class="game-card p-5 mb-8 reveal space-y-4">
     <div>
         <h2 class="font-display text-xl text-amber-200">Cadastrar item</h2>
-        <p class="text-sm text-amber-100/60 mt-1">Itens pagos com Relíquias ou Selos ficam só nesta turma. Itens de Aura são únicos no reino: todas as turmas compartilham o mesmo item e o mesmo estoque.</p>
+        <p class="text-sm text-amber-100/60 mt-1">Itens pagos com {{ \App\Models\GameCurrency::label('relics') }} ou {{ \App\Models\GameCurrency::label('seals') }} ficam só nesta turma. Itens de {{ \App\Models\GameCurrency::label('auras') }} são únicos no reino: todas as turmas compartilham o mesmo item e o mesmo estoque.</p>
     </div>
     @include('partials.shop-item-form', ['action' => route('teacher.shop.items.store', $class)])
 </div>
@@ -47,7 +47,7 @@
                                 @endif
                             </div>
                             <p class="text-sm mt-3 {{ ($item['currency'] ?? 'relics') === 'seals' ? 'text-emerald-300' : 'text-cyan-300' }}">
-                                {{ $item['price'] }} {{ $item['currency_label'] ?? 'Relíquias' }}
+                                {{ $item['currency_icon'] ?? '' }} {{ $item['price'] }} {{ $item['currency_label'] ?? \App\Models\GameCurrency::label('relics') }}
                             </p>
                             <p class="text-sm mt-1 {{ $item['stock'] > 0 ? 'text-cyan-300/80' : 'text-rose-300/80' }}">
                                 {{ $item['stock'] > 0 ? $item['stock'].' à venda na loja' : 'Esgotado na loja' }}

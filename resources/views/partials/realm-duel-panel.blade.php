@@ -2,21 +2,21 @@
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
             @unless($hideKicker ?? false)
-                <p class="text-xs uppercase tracking-wide text-violet-300/80 mb-1">Novo · moeda Aura</p>
+                <p class="text-xs uppercase tracking-wide text-violet-300/80 mb-1">Novo · moeda {{ \App\Models\GameCurrency::label('auras') }}</p>
             @endunless
             <h2 class="font-display text-xl text-violet-200">{{ $heading ?? 'Desafio entre turmas' }}</h2>
         </div>
         @if($area)
-            <p class="text-xs text-amber-100/50">{{ $realmResolvedToday }}/{{ $realmDailyLimit }} duelos do reino hoje · {{ $realmAuras }} Aura</p>
+            <p class="text-xs text-amber-100/50">{{ $realmResolvedToday }}/{{ $realmDailyLimit }} duelos do reino hoje · {{ \App\Models\GameCurrency::format('auras', $realmAuras) }}</p>
         @endif
     </div>
 
     @if(! $area)
-        <p class="text-sm text-amber-100/70">Esta turma ainda não pertence a um reino. Peça ao professor ou admin para vincular a turma — aí você poderá desafiar outras turmas por Aura.</p>
+        <p class="text-sm text-amber-100/70">Esta turma ainda não pertence a um reino. Peça ao professor ou admin para vincular a turma — aí você poderá desafiar outras turmas por {{ \App\Models\GameCurrency::label('auras') }}.</p>
     @else
         <div class="mb-4 rounded-lg border border-violet-400/25 bg-violet-950/20 p-3 text-xs text-amber-100/75 space-y-1">
             <p>Desafie alunos de <strong class="text-violet-200">outras turmas do reino {{ $area->name }}</strong>.</p>
-            <p>Vitória: +{{ \App\Models\RealmDuel::AURA_WIN }} Aura · Derrota: +{{ \App\Models\RealmDuel::AURA_LOSS }} Aura. Sem Glória nem Relíquias.</p>
+            <p>Vitória: +{{ \App\Models\RealmDuel::AURA_WIN }} {{ \App\Models\GameCurrency::label('auras') }} · Derrota: +{{ \App\Models\RealmDuel::AURA_LOSS }} {{ \App\Models\GameCurrency::label('auras') }}. Sem {{ \App\Models\GameCurrency::label('glory') }} nem {{ \App\Models\GameCurrency::label('relics') }}.</p>
             <p>Mesmo par 1×/dia · até {{ $realmDailyLimit }} duelos resolvidos por dia.</p>
             @if($realmCooldownMinutes > 0)
                 <p>Espere <strong class="text-violet-200">{{ $realmCooldownLabel }}</strong> entre um desafio do reino e outro.</p>

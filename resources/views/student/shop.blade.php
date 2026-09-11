@@ -9,15 +9,15 @@
         <h1 class="font-display text-4xl text-amber-300">Loja de cosméticos</h1>
         <p class="text-amber-100/60 mt-1">
             {{ $class->name }} ·
-            <span class="text-cyan-300">{{ $enrollment->relics }} Relíquias</span>
+            <span class="text-cyan-300">{{ \App\Models\GameCurrency::format('relics', $enrollment->relics) }}</span>
             ·
-            <span class="text-emerald-300">{{ $enrollment->seals }} Selos</span>
+            <span class="text-emerald-300">{{ \App\Models\GameCurrency::format('seals', $enrollment->seals) }}</span>
             ·
-            <span class="text-violet-300">{{ $auras }} Aura</span>
-            · Glória {{ $enrollment->glory }}
+            <span class="text-violet-300">{{ \App\Models\GameCurrency::format('auras', $auras) }}</span>
+            · {{ \App\Models\GameCurrency::format('glory', $enrollment->glory) }}
         </p>
         <p class="text-sm text-amber-100/45 mt-2 max-w-xl">
-            Relíquias vêm da arena da turma. Selos vêm da presença. Aura vem de duelos entre turmas do mesmo reino e compra só itens da Loja de Aura.
+            {{ \App\Models\GameCurrency::label('relics') }} vêm da arena da turma. {{ \App\Models\GameCurrency::label('seals') }} vêm da presença. {{ \App\Models\GameCurrency::label('auras') }} vem de duelos entre turmas do mesmo reino e compra só itens da Loja de {{ \App\Models\GameCurrency::label('auras') }}.
             Itens <strong>equipados</strong> fortalecem você na arena. Há poucas cópias na loja.
         </p>
     </div>
@@ -70,7 +70,7 @@
                                 <span class="shop-item-card__badge">{{ $listing['rarity_label'] }}</span>
                             </div>
                             <p class="text-xs text-purple-200/60 mt-2">{{ $listing['seller_name'] }}</p>
-                            <p class="text-sm text-cyan-300 mt-1">{{ $listing['price'] }} Relíquias</p>
+                            <p class="text-sm text-cyan-300 mt-1">{{ \App\Models\GameCurrency::format('relics', $listing['price']) }}</p>
                         </div>
                         <form method="POST" action="{{ route('student.shop.listings.buy', $listing['id']) }}" class="mt-auto">
                             @csrf
@@ -92,7 +92,7 @@
 <section class="mb-8 reveal" x-data="{ tab: 'turma' }">
     <div class="flex flex-wrap gap-2 mb-4">
         <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="tab === 'turma' && 'ring-1 ring-amber-400/50'" @click="tab = 'turma'">Loja da turma</button>
-        <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="tab === 'aura' && 'ring-1 ring-violet-400/50'" @click="tab = 'aura'">Loja de Aura</button>
+        <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" :class="tab === 'aura' && 'ring-1 ring-violet-400/50'" @click="tab = 'aura'">Loja de {{ \App\Models\GameCurrency::label('auras') }}</button>
     </div>
 
     <div x-show="tab === 'turma'" x-cloak>
@@ -122,10 +122,10 @@
     </div>
 
     <div x-show="tab === 'aura'" x-cloak>
-        <p class="text-sm text-violet-200/70 mb-4">Itens compráveis só com Aura do reino. São únicos no reino: todas as turmas compartilham o mesmo estoque. Não entram no mercado P2P.</p>
+        <p class="text-sm text-violet-200/70 mb-4">Itens compráveis só com {{ \App\Models\GameCurrency::label('auras') }} do reino. São únicos no reino: todas as turmas compartilham o mesmo estoque. Não entram no mercado P2P.</p>
         @php $auraItems = collect($catalog)->flatten(1)->filter(fn ($item) => ($item['currency'] ?? '') === 'auras'); @endphp
         @if($auraItems->isEmpty())
-            <div class="game-card p-4 text-sm text-amber-100/55">Nenhum item de Aura cadastrado ainda.</div>
+            <div class="game-card p-4 text-sm text-amber-100/55">Nenhum item de {{ \App\Models\GameCurrency::label('auras') }} cadastrado ainda.</div>
         @else
             <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 @foreach($auraItems as $item)

@@ -32,7 +32,7 @@
             </div>
             @if($showShopPrice)
                 <p class="text-sm mt-3 {{ $priceClass }}">
-                    {{ $item['price'] }} {{ $item['currency_label'] ?? 'Relíquias' }}
+                    {{ $item['currency_icon'] ?? '' }} {{ $item['price'] }} {{ $item['currency_label'] ?? \App\Models\GameCurrency::label('relics') }}
                 </p>
             @endif
             <p class="text-xs {{ $showShopPrice ? 'mt-1' : 'mt-3' }} {{ $item['stock'] > 0 ? 'text-amber-100/50' : 'text-rose-300/70' }}">
@@ -79,7 +79,7 @@
                     @endif
                 @else
                     <p class="text-xs {{ $currency === 'auras' ? 'text-violet-200/60' : 'text-emerald-200/60' }}">
-                        {{ $currency === 'auras' ? 'Item de Aura — não pode ser negociado.' : 'Item de presença — não pode ser negociado.' }}
+                        {{ $currency === 'auras' ? 'Item de '.\App\Models\GameCurrency::label('auras').' — não pode ser negociado.' : 'Item de presença — não pode ser negociado.' }}
                     </p>
                 @endif
             @else
