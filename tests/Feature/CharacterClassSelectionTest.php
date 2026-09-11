@@ -85,7 +85,12 @@ class CharacterClassSelectionTest extends TestCase
             ->assertSee('class-aura--anao', false)
             ->assertSee('Anão')
             ->assertSee('class-aura--frankenstein', false)
-            ->assertSee('Frankenstein');
+            ->assertSee('Frankenstein')
+            ->assertSee('Linha de frente')
+            ->assertSee('A classe muda o')
+            ->assertSee('não substitui a prova')
+            ->assertSee('Menos vida, feitiços mais fortes.')
+            ->assertSee('Ler as regras da arena');
     }
 
     public function test_student_can_choose_dwarf_class(): void

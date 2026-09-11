@@ -292,6 +292,91 @@ class CosmeticShopTest extends TestCase
             ->assertSee('📅');
     }
 
+    public function test_student_sees_shop_price_only_while_item_is_for_sale_in_shop(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $owner = $this->enrollStudent($class, 'Ana Souza', relics: 100);
+        $classmate = $this->enrollStudent($class, 'Bruno Lima', relics: 80);
+        $shopPrice = CosmeticCatalog::item('acc_star')['price'].' Relíquias';
+
+        $this->actingAs($owner)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertSee($shopPrice);
+
+        $this->actingAs($owner)
+            ->post(route('student.shop.purchase'), ['item' => 'acc_star'])
+            ->assertRedirect(route('student.shop.index'));
+
+        $this->actingAs($owner)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertSee('Estrela Guardiã')
+            ->assertSee('Anunciar')
+            ->assertDontSee($shopPrice)
+            ->assertDontSee('value="'.CosmeticCatalog::item('acc_star')['price'].'"', false);
+
+        $this->actingAs($classmate)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertSee('Estrela Guardiã')
+            ->assertSee('Esgotado na loja')
+            ->assertDontSee($shopPrice);
+    }
+
+    public function test_classmate_still_sees_shop_price_when_copies_remain(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $owner = $this->enrollStudent($class, 'Ana Souza', relics: 100);
+        $classmate = $this->enrollStudent($class, 'Bruno Lima', relics: 80);
+        $shopPrice = CosmeticCatalog::item('acc_star')['price'].' Relíquias';
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.shop.restock', $class), [
+                'item' => 'acc_star',
+                'quantity' => 2,
+            ]);
+
+        $this->actingAs($owner)
+            ->post(route('student.shop.purchase'), ['item' => 'acc_star']);
+
+        $this->actingAs($owner)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertDontSee($shopPrice);
+
+        $this->actingAs($classmate)
+            ->get(route('student.shop.index'))
+            ->assertOk()
+            ->assertSee($shopPrice);
+    }
+
+    public function test_teacher_and_admin_still_see_shop_price_after_purchase(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Souza', relics: 100);
+        $shopPrice = CosmeticCatalog::item('acc_star')['price'].' Relíquias';
+
+        $this->actingAs($student)
+            ->post(route('student.shop.purchase'), ['item' => 'acc_star']);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.shop.show', $class))
+            ->assertOk()
+            ->assertSee('Estrela Guardiã')
+            ->assertSee($shopPrice);
+
+        $this->actingAs($admin)
+            ->get(route('teacher.shop.show', $class))
+            ->assertOk()
+            ->assertSee('Estrela Guardiã')
+            ->assertSee($shopPrice);
+    }
+
     public function test_student_can_purchase_seal_item_with_seals(): void
     {
         [$class, $student] = $this->readyStudent(relics: 100, seals: 20);

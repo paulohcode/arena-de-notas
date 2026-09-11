@@ -35,16 +35,46 @@ class User extends Authenticatable
     ];
 
     /**
-     * Classes de personagem disponíveis para os alunos.
-     * Só visual na arena (nome, ícone, tom); HP/ATK/DEF/SPD do duelo são iguais para todos.
+     * Papéis de combate. A classe só redistribui estilo; o poder vem da nota.
      *
-     * @var array<string, array{name: string, icon: string, blurb: string, tone: string, hp: int, atk: int, def: int, spd: int, heal_chance: float}>
+     * @var array<string, string>
+     */
+    public const CHARACTER_ROLES = [
+        'tank' => 'Linha de frente',
+        'damage' => 'Dano',
+        'skirmisher' => 'Velocidade',
+        'support' => 'Suporte',
+        'bruiser' => 'Bruto',
+    ];
+
+    /**
+     * Texto de sala para cada papel. Sem números de combate.
+     *
+     * @var array<string, string>
+     */
+    public const CHARACTER_ROLE_BLURBS = [
+        'tank' => 'Mais vida e defesa. Aguenta o golpe do rival.',
+        'damage' => 'Golpe mais forte, menos vida. Precisa acertar para vencer.',
+        'skirmisher' => 'Mais velocidade. Costuma agir no primeiro turno.',
+        'support' => 'Se cura mais vezes no meio da luta.',
+        'bruiser' => 'Resistente, com um golpe pesado de choque.',
+    ];
+
+    /**
+     * Classes de personagem disponíveis para os alunos.
+     * Atributos de HP/ATK/DEF/SPD/cura entram no duelo com peso leve (ver ArenaCombatService).
+     *
+     * @var array<string, array{name: string, icon: string, blurb: string, combat_blurb: string, role: string, strike: string, heal_verb: string, tone: string, hp: int, atk: int, def: int, spd: int, heal_chance: float}>
      */
     public const CHARACTER_CLASSES = [
         'guerreiro' => [
             'name' => 'Guerreiro',
             'icon' => '⚔',
             'blurb' => 'Força bruta e linha de frente.',
+            'combat_blurb' => 'Aguenta mais no corpo a corpo.',
+            'role' => 'tank',
+            'strike' => 'golpeia',
+            'heal_verb' => 'recupera',
             'tone' => '#ea580c',
             'hp' => 120,
             'atk' => 18,
@@ -56,6 +86,10 @@ class User extends Authenticatable
             'name' => 'Mago',
             'icon' => '✦',
             'blurb' => 'Magia arcana e conhecimento.',
+            'combat_blurb' => 'Menos vida, feitiços mais fortes.',
+            'role' => 'damage',
+            'strike' => 'lança um feitiço em',
+            'heal_verb' => 'recupera',
             'tone' => '#7c3aed',
             'hp' => 85,
             'atk' => 24,
@@ -67,6 +101,10 @@ class User extends Authenticatable
             'name' => 'Feiticeira',
             'icon' => '☽',
             'blurb' => 'Poder místico e presença.',
+            'combat_blurb' => 'Magia ofensiva com um pouco de cura.',
+            'role' => 'damage',
+            'strike' => 'envolve em magia',
+            'heal_verb' => 'tece vitalidade e recupera',
             'tone' => '#c084fc',
             'hp' => 88,
             'atk' => 23,
@@ -78,6 +116,10 @@ class User extends Authenticatable
             'name' => 'Arqueiro',
             'icon' => '➶',
             'blurb' => 'Precisão e alcance.',
+            'combat_blurb' => 'Rápido e preciso: costuma agir primeiro.',
+            'role' => 'skirmisher',
+            'strike' => 'acerta uma flecha em',
+            'heal_verb' => 'recupera',
             'tone' => '#4ade80',
             'hp' => 95,
             'atk' => 20,
@@ -89,6 +131,10 @@ class User extends Authenticatable
             'name' => 'Ladino',
             'icon' => '🗡',
             'blurb' => 'Astúcia e velocidade.',
+            'combat_blurb' => 'O mais veloz da arena.',
+            'role' => 'skirmisher',
+            'strike' => 'apunhala',
+            'heal_verb' => 'recupera',
             'tone' => '#64748b',
             'hp' => 90,
             'atk' => 21,
@@ -100,6 +146,10 @@ class User extends Authenticatable
             'name' => 'Paladino',
             'icon' => '⛨',
             'blurb' => 'Honra, defesa e disciplina.',
+            'combat_blurb' => 'Escudo firme e um pouco de cura sagrada.',
+            'role' => 'tank',
+            'strike' => 'investe contra',
+            'heal_verb' => 'sela as feridas e recupera',
             'tone' => '#f5c56b',
             'hp' => 115,
             'atk' => 16,
@@ -111,6 +161,10 @@ class User extends Authenticatable
             'name' => 'Druida',
             'icon' => '❧',
             'blurb' => 'Natureza e equilíbrio.',
+            'combat_blurb' => 'Equilíbrio: cura com mais frequência.',
+            'role' => 'support',
+            'strike' => 'fustiga',
+            'heal_verb' => 'invoca a natureza e recupera',
             'tone' => '#22c55e',
             'hp' => 100,
             'atk' => 15,
@@ -122,6 +176,10 @@ class User extends Authenticatable
             'name' => 'Bardo',
             'icon' => '♫',
             'blurb' => 'Carisma e inspiração.',
+            'combat_blurb' => 'Inspira e se recupera no meio da luta.',
+            'role' => 'support',
+            'strike' => 'desfere um acorde em',
+            'heal_verb' => 'canta e recupera',
             'tone' => '#f472b6',
             'hp' => 98,
             'atk' => 16,
@@ -133,6 +191,10 @@ class User extends Authenticatable
             'name' => 'Clérigo',
             'icon' => '✚',
             'blurb' => 'Cura e proteção sagrada.',
+            'combat_blurb' => 'Quem mais se cura durante o combate.',
+            'role' => 'support',
+            'strike' => 'golpeia com fé',
+            'heal_verb' => 'canaliza cura e recupera',
             'tone' => '#fde68a',
             'hp' => 105,
             'atk' => 14,
@@ -144,6 +206,10 @@ class User extends Authenticatable
             'name' => 'Necromante',
             'icon' => '☠',
             'blurb' => 'Sombras e poder proibido.',
+            'combat_blurb' => 'Frágil, mas com o golpe mais pesado.',
+            'role' => 'damage',
+            'strike' => 'lança uma maldição em',
+            'heal_verb' => 'drena sombra e recupera',
             'tone' => '#4ade80',
             'hp' => 82,
             'atk' => 25,
@@ -155,6 +221,10 @@ class User extends Authenticatable
             'name' => 'Anão',
             'icon' => '⚒',
             'blurb' => 'Forja, pedra e resistência.',
+            'combat_blurb' => 'A muralha: muita vida e defesa, lento.',
+            'role' => 'tank',
+            'strike' => 'desfere uma martelada em',
+            'heal_verb' => 'recupera',
             'tone' => '#b45309',
             'hp' => 125,
             'atk' => 15,
@@ -166,6 +236,10 @@ class User extends Authenticatable
             'name' => 'Frankenstein',
             'icon' => '⚡',
             'blurb' => 'Relâmpago, laboratório e força reconstruída.',
+            'combat_blurb' => 'Resistente, com choque no golpe.',
+            'role' => 'bruiser',
+            'strike' => 'descarrega um raio em',
+            'heal_verb' => 'reanima o corpo e recupera',
             'tone' => '#22d3ee',
             'hp' => 118,
             'atk' => 19,
@@ -271,7 +345,7 @@ class User extends Authenticatable
     }
 
     /**
-     * @return array{name: string, icon: string, blurb: string, tone: string, hp: int, atk: int, def: int, spd: int, heal_chance: float}|null
+     * @return array{name: string, icon: string, blurb: string, combat_blurb: string, role: string, strike: string, heal_verb: string, tone: string, hp: int, atk: int, def: int, spd: int, heal_chance: float}|null
      */
     public function characterClassMeta(): ?array
     {
@@ -280,6 +354,42 @@ class User extends Authenticatable
         }
 
         return self::CHARACTER_CLASSES[$this->character_class];
+    }
+
+    public function characterRoleLabel(): string
+    {
+        $role = $this->characterClassMeta()['role'] ?? null;
+
+        return self::CHARACTER_ROLES[$role] ?? 'Estilo';
+    }
+
+    /**
+     * Classes agrupadas pelo papel de combate, na ordem da sala.
+     *
+     * @return array<string, array{label: string, blurb: string, classes: array<string, array{name: string, icon: string, blurb: string, combat_blurb: string, role: string, strike: string, heal_verb: string, tone: string, hp: int, atk: int, def: int, spd: int, heal_chance: float}>}>
+     */
+    public static function characterClassesGroupedByRole(): array
+    {
+        $groups = [];
+
+        foreach (self::CHARACTER_ROLES as $role => $label) {
+            $classes = array_filter(
+                self::CHARACTER_CLASSES,
+                fn (array $meta): bool => $meta['role'] === $role,
+            );
+
+            if ($classes === []) {
+                continue;
+            }
+
+            $groups[$role] = [
+                'label' => $label,
+                'blurb' => self::CHARACTER_ROLE_BLURBS[$role],
+                'classes' => $classes,
+            ];
+        }
+
+        return $groups;
     }
 
     public function hasApprovedPersona(): bool

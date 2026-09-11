@@ -10,6 +10,7 @@
         <p class="text-amber-100/60 mt-1">{{ $class->name }} · Glória {{ $enrollment?->glory ?? 0 }} · Relíquias {{ $enrollment?->relics ?? 0 }} · Selos {{ $enrollment?->seals ?? 0 }} · Aura {{ $realmAuras }} · V{{ $enrollment?->arena_wins ?? 0 }}–D{{ $enrollment?->arena_losses ?? 0 }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
+        <a class="game-btn" href="{{ route('arena.rules') }}">Regras da arena</a>
         <a class="game-btn-ghost" href="{{ route('student.shop.index') }}">Loja</a>
         <a class="game-btn-ghost" href="{{ route('student.dashboard') }}">Voltar à ficha</a>
     </div>

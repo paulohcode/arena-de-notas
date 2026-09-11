@@ -11,9 +11,11 @@
     <h2 class="font-display text-lg text-amber-200">Como o vencedor é definido</h2>
     @if($detailed)
         <p>
-            Todos começam com os mesmos atributos
+            Todos começam com a mesma base
             (HP {{ $rules['base_hp'] }}, ATK {{ $rules['base_atk'] }}, DEF {{ $rules['base_def'] }}, SPD {{ $rules['base_spd'] }}).
-            A <strong class="text-amber-200">classe de personagem</strong> é só visual — não muda o combate.
+            A <strong class="text-amber-200">classe de personagem</strong> mistura
+            {{ (int) round($rules['class_influence'] * 100) }}% do próprio estilo nisso
+            (Guerreiro aguenta mais, Mago acerta mais forte, Clérigo se cura mais).
             Esses números são multiplicados pelo <strong class="text-amber-200">poder</strong>, que soma bônus independentes:
         </p>
         <ul class="list-disc pl-5 space-y-1">
@@ -49,7 +51,7 @@
         </ul>
         <p>
             Quem tem mais SPD age primeiro. Cada turno: golpe (ATK menos metade da DEF do rival, com variação)
-            ou cura (a mesma chance para todos). O combate dura no máximo {{ $rules['max_turns'] }} turnos.
+            ou cura (suporte recupera mais vezes). O combate dura no máximo {{ $rules['max_turns'] }} turnos.
         </p>
         <p>
             Vence quem zerar o HP do outro. Se o tempo acabar, vence quem tiver mais HP.
@@ -64,11 +66,14 @@
         </p>
         <p class="text-xs text-amber-100/50">
             Glória e Relíquias da vitória não mudam a média nem o XP. Esta receita completa fica só com o professor.
+            Os alunos leem a versão de sala em
+            <a href="{{ route('arena.rules') }}" class="text-amber-200 underline">Regras da arena</a>.
         </p>
     @else
         <p>
-            Notas, presença, guilda, itens da loja e o nível de XP influenciam o combate.
-            A <strong class="text-amber-200">classe de personagem</strong> é só visual.
+            Notas, presença, guilda, itens da loja e o nível de XP mandam no poder.
+            A <strong class="text-amber-200">classe</strong> muda o estilo da luta
+            (mais vida, mais dano, mais velocidade ou mais cura) — não substitui a prova.
         </p>
         <p>
             Cada duelo também tem um <strong class="text-amber-200">fator de sorte</strong> da arena:
@@ -82,6 +87,9 @@
             mais forte vs mais forte; quem sobrar enfrenta o mais fraco do outro lado.
             Cada guilda só pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.
             A sorte nestas guerras é menor (±6%) do que no duelo individual (±12%).
+        </p>
+        <p>
+            <a href="{{ route('arena.rules') }}" class="text-amber-200 underline font-semibold">Ler as regras completas da arena</a>
         </p>
     @endif
 </div>

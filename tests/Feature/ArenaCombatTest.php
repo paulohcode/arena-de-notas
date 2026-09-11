@@ -36,7 +36,58 @@ class ArenaCombatTest extends TestCase
         $this->assertSame(0.0, $strongFighter['breakdown']['team_bonus']);
     }
 
-    public function test_character_class_does_not_change_combat_stats(): void
+    public function test_character_class_redistributes_style_without_changing_academic_power(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher, ['arena_open' => true]);
+        $warrior = $this->enrollFighter($class, 'Ana Souza', 'guerreiro');
+        $mage = $this->enrollFighter($class, 'Bruno Lima', 'mago');
+        $cleric = $this->enrollFighter($class, 'Carla Nunes', 'clerigo');
+
+        $this->gradeStudent($class, $warrior, 70);
+        $this->gradeStudent($class, $mage, 70);
+        $this->gradeStudent($class, $cleric, 70);
+
+        $combat = app(ArenaCombatService::class);
+        $warriorFighter = $combat->buildFighter($warrior, $class);
+        $mageFighter = $combat->buildFighter($mage, $class);
+        $clericFighter = $combat->buildFighter($cleric, $class);
+
+        $this->assertSame($warriorFighter['power'], $mageFighter['power']);
+        $this->assertSame($warriorFighter['power'], $clericFighter['power']);
+        $this->assertGreaterThan($mageFighter['max_hp'], $warriorFighter['max_hp']);
+        $this->assertGreaterThan($warriorFighter['atk'], $mageFighter['atk']);
+        $this->assertGreaterThan($mageFighter['def'], $warriorFighter['def']);
+        $this->assertGreaterThan($warriorFighter['spd'], $mageFighter['spd']);
+        $this->assertSame(0.075, $warriorFighter['heal_chance']);
+        $this->assertSame(0.075, $mageFighter['heal_chance']);
+        $this->assertSame(0.145, $clericFighter['heal_chance']);
+        $this->assertSame(0.25, $warriorFighter['breakdown']['class_influence']);
+        $this->assertSame('tank', $warriorFighter['class_role']);
+        $this->assertSame('damage', $mageFighter['class_role']);
+        $this->assertSame('support', $clericFighter['class_role']);
+    }
+
+    public function test_high_grade_warrior_keeps_more_power_than_low_grade_mage(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher, ['arena_open' => true]);
+        $warrior = $this->enrollFighter($class, 'Ana Souza', 'guerreiro');
+        $mage = $this->enrollFighter($class, 'Bruno Lima', 'mago');
+
+        $this->gradeStudent($class, $warrior, 90);
+        $this->gradeStudent($class, $mage, 40);
+
+        $combat = app(ArenaCombatService::class);
+        $warriorFighter = $combat->buildFighter($warrior, $class);
+        $mageFighter = $combat->buildFighter($mage, $class);
+
+        $this->assertGreaterThan($mageFighter['power'], $warriorFighter['power']);
+        $this->assertGreaterThan($mageFighter['max_hp'], $warriorFighter['max_hp']);
+        $this->assertGreaterThan($mageFighter['atk'], $warriorFighter['atk']);
+    }
+
+    public function test_resolve_uses_class_flavor_in_combat_text(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
         $class = $this->createClassForTeacher($teacher, ['arena_open' => true]);
@@ -46,18 +97,26 @@ class ArenaCombatTest extends TestCase
         $this->gradeStudent($class, $warrior, 70);
         $this->gradeStudent($class, $mage, 70);
 
-        $combat = app(ArenaCombatService::class);
-        $warriorFighter = $combat->buildFighter($warrior, $class);
-        $mageFighter = $combat->buildFighter($mage, $class);
+        $result = app(ArenaCombatService::class)->resolve($warrior, $mage, $class, 42_001, luckRange: 0);
 
-        $this->assertSame($warriorFighter['max_hp'], $mageFighter['max_hp']);
-        $this->assertSame($warriorFighter['atk'], $mageFighter['atk']);
-        $this->assertSame($warriorFighter['def'], $mageFighter['def']);
-        $this->assertSame($warriorFighter['spd'], $mageFighter['spd']);
-        $this->assertSame($warriorFighter['heal_chance'], $mageFighter['heal_chance']);
-        $this->assertSame($warriorFighter['power'], $mageFighter['power']);
-        $this->assertSame('Guerreiro', $warriorFighter['class']);
-        $this->assertSame('Mago', $mageFighter['class']);
+        $warriorAttack = null;
+        $mageAttack = null;
+        foreach ($result['turns'] as $turn) {
+            if ($turn['action'] !== 'attack') {
+                continue;
+            }
+            if ($turn['actor_id'] === $warrior->id && $warriorAttack === null) {
+                $warriorAttack = $turn;
+            }
+            if ($turn['actor_id'] === $mage->id && $mageAttack === null) {
+                $mageAttack = $turn;
+            }
+        }
+
+        $this->assertIsArray($warriorAttack);
+        $this->assertIsArray($mageAttack);
+        $this->assertStringContainsString('golpeia', $warriorAttack['text']);
+        $this->assertStringContainsString('lança um feitiço em', $mageAttack['text']);
     }
 
     public function test_guild_grade_raises_combat_power_without_entering_academic_average(): void
@@ -242,8 +301,12 @@ class ArenaCombatTest extends TestCase
             ->assertSee('Como o vencedor é definido')
             ->assertSee('fator de sorte')
             ->assertSee('ninguém chega sabendo quem vai ganhar')
+            ->assertSee('classe')
+            ->assertSee('não substitui a prova')
+            ->assertSee('Ler as regras completas da arena')
             ->assertDontSee('até +30%')
-            ->assertDontSee('HP 100');
+            ->assertDontSee('HP 100')
+            ->assertDontSee('só visual');
     }
 
     /**

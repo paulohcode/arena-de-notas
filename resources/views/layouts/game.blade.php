@@ -36,6 +36,7 @@
             </a>
             <nav class="flex flex-wrap items-center gap-2 text-sm">
                 <a class="game-btn-ghost" href="{{ route('home') }}">Mapa</a>
+                <a class="game-btn-ghost" href="{{ route('arena.rules') }}">Regras</a>
                 @auth
                     @if(auth()->user()->isAdmin())
                         <a class="game-btn-ghost" href="{{ route('admin.dashboard') }}">Admin</a>

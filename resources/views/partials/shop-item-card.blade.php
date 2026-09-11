@@ -10,6 +10,7 @@
         'auras' => 'text-violet-300',
         default => 'text-cyan-300',
     };
+    $showShopPrice = ! $item['owned'] && $item['stock'] > 0;
 @endphp
 <article class="game-card shop-item-card {{ $item['equipped'] ? 'is-equipped' : '' }}">
     @include('partials.shop-item-art', [
@@ -29,10 +30,12 @@
                     <span class="shop-item-card__badge">só reino</span>
                 @endif
             </div>
-            <p class="text-sm mt-3 {{ $priceClass }}">
-                {{ $item['price'] }} {{ $item['currency_label'] ?? 'Relíquias' }}
-            </p>
-            <p class="text-xs mt-1 {{ $item['stock'] > 0 ? 'text-amber-100/50' : 'text-rose-300/70' }}">
+            @if($showShopPrice)
+                <p class="text-sm mt-3 {{ $priceClass }}">
+                    {{ $item['price'] }} {{ $item['currency_label'] ?? 'Relíquias' }}
+                </p>
+            @endif
+            <p class="text-xs {{ $showShopPrice ? 'mt-1' : 'mt-3' }} {{ $item['stock'] > 0 ? 'text-amber-100/50' : 'text-rose-300/70' }}">
                 {{ $item['stock'] > 0 ? 'Restam '.$item['stock'].' na loja' : 'Esgotado na loja' }}
             </p>
             <p class="text-xs text-amber-200/70 mt-1">
@@ -69,7 +72,7 @@
                             <input type="hidden" name="item" value="{{ $item['key'] }}">
                             <label class="space-y-1">
                                 <span class="text-xs uppercase tracking-wide text-purple-200/70">Preço</span>
-                                <input class="game-input w-24 !py-1" type="number" name="price" min="1" max="9999" value="{{ $item['price'] }}" required>
+                                <input class="game-input w-24 !py-1" type="number" name="price" min="1" max="9999" value="{{ old('item') === $item['key'] ? old('price') : '' }}" required>
                             </label>
                             <button type="submit" class="game-btn-ghost !py-1 !px-3 text-sm">Anunciar</button>
                         </form>

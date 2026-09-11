@@ -14,6 +14,7 @@
         @endif
     </p>
     <div class="mt-6 flex flex-wrap justify-center gap-3">
+        <a href="{{ route('arena.rules') }}" class="game-btn-ghost">Regras da arena</a>
         @guest
             <a href="{{ route('login') }}" class="game-btn">Entrar na arena</a>
         @endguest

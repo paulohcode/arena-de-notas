@@ -422,7 +422,8 @@ class ArenaDuelTest extends TestCase
             ->assertSee('Batalhas permitidas no dia')
             ->assertSee('Como o vencedor é definido')
             ->assertSee('até +30%')
-            ->assertSee('Sorte da arena');
+            ->assertSee('Sorte da arena')
+            ->assertSee('Regras para a turma');
     }
 
     public function test_unauthenticated_arena_settings_update_redirects_to_login(): void

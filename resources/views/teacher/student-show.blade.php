@@ -101,8 +101,10 @@
                     <div class="flex items-start gap-3">
                         <span class="rank-badge !min-w-10 !h-10 text-lg">{{ $meta['icon'] }}</span>
                         <div>
+                            <p class="text-[10px] uppercase tracking-wide text-cyan-200/80">{{ \App\Models\User::CHARACTER_ROLES[$meta['role']] }}</p>
                             <p class="font-display text-lg text-amber-200">{{ $meta['name'] }}</p>
                             <p class="text-xs text-amber-100/60 mt-1">{{ $meta['blurb'] }}</p>
+                            <p class="text-[11px] text-cyan-200/70 mt-1">{{ $meta['combat_blurb'] }}</p>
                         </div>
                     </div>
                 </label>

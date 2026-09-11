@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\RealmArenaController as AdminRealmArenaController
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\TeacherController as AdminTeacherController;
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\ArenaRulesController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\RankingController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Teacher\TeamController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [RankingController::class, 'home'])->name('home');
+Route::get('/regras', [ArenaRulesController::class, 'show'])->name('arena.rules');
 Route::get('/reinos/{area:slug}', [AreaController::class, 'show'])->name('areas.show');
 
 Route::get('/ranking/{schoolClass}', [RankingController::class, 'show'])->name('ranking.show');

@@ -55,6 +55,14 @@
 
     <section class="space-y-3">
         <h2 class="font-display text-xl text-amber-200">Classe</h2>
+        <p class="text-base md:text-lg text-amber-100/80 max-w-2xl leading-relaxed">
+            A classe muda o <strong class="text-amber-200">estilo</strong> da luta: mais vida, mais dano, mais velocidade ou mais cura.
+            O <strong class="text-amber-200">poder</strong> continua vindo das notas, da presença e da guilda.
+            Quem estuda bem vence na maioria das vezes — a classe não substitui a prova.
+        </p>
+        <p class="mt-4">
+            <a href="{{ route('arena.rules') }}" class="game-btn">Ler as regras da arena</a>
+        </p>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($classes as $key => $meta)
                 <label class="game-card game-card-glow choice-card class-aura class-aura--{{ $key }} p-5 cursor-pointer block">
@@ -64,8 +72,10 @@
                     <div class="flex items-start gap-3">
                         <span class="rank-badge !min-w-12 !h-12 text-xl">{{ $meta['icon'] }}</span>
                         <div>
+                            <p class="text-[10px] uppercase tracking-wide text-cyan-200/80">{{ \App\Models\User::CHARACTER_ROLES[$meta['role']] }}</p>
                             <p class="font-display text-xl text-amber-200">{{ $meta['name'] }}</p>
                             <p class="text-sm text-amber-100/60 mt-1">{{ $meta['blurb'] }}</p>
+                            <p class="text-xs text-cyan-200/75 mt-2">{{ $meta['combat_blurb'] }}</p>
                         </div>
                     </div>
                 </label>

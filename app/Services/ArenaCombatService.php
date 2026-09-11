@@ -34,7 +34,13 @@ class ArenaCombatService
     public const LUCK_RANGE = 0.12;
 
     /**
-     * Atributos base iguais para todos os lutadores. A classe de personagem é só visual.
+     * Fração dos atributos da classe que entra no duelo. O restante é a base comum.
+     * Notas, frequência, guilda, nível e itens continuam mandando no poder.
+     */
+    public const CLASS_INFLUENCE = 0.25;
+
+    /**
+     * Atributos base iguais para todos. A classe mistura um quarto do próprio estilo nisto.
      */
     public const BASE_HP = 100;
 
@@ -69,6 +75,7 @@ class ArenaCombatService
      *     team_weight: float,
      *     luck_range: float,
      *     gear_cap: float,
+     *     class_influence: float,
      *     level_power: array<string, float>,
      *     gear_by_rarity: array<string, float>,
      *     base_hp: int,
@@ -86,6 +93,7 @@ class ArenaCombatService
             'team_weight' => self::TEAM_WEIGHT,
             'luck_range' => self::LUCK_RANGE,
             'gear_cap' => CosmeticCatalog::COMBAT_BONUS_CAP,
+            'class_influence' => self::CLASS_INFLUENCE,
             'level_power' => self::LEVEL_POWER,
             'gear_by_rarity' => CosmeticCatalog::COMBAT_BONUS_BY_RARITY,
             'base_hp' => self::BASE_HP,
@@ -176,6 +184,10 @@ class ArenaCombatService
      *     name: string,
      *     arena_name: ?string,
      *     class: string,
+     *     class_key: string,
+     *     class_role: string,
+     *     strike: string,
+     *     heal_verb: string,
      *     max_hp: int,
      *     hp: int,
      *     atk: int,
@@ -204,10 +216,11 @@ class ArenaCombatService
         $gear = CosmeticCatalog::equippedCombatBonus($enrollment ?? new Enrollment);
         $power = $this->powerMultiplier($level['key'], $academic, $attendanceScore, $teamScore, $gear['bonus']);
 
-        $maxHp = max(1, (int) round(self::BASE_HP * $power));
-        $atk = max(1, (int) round(self::BASE_ATK * $power));
-        $def = max(0, (int) round(self::BASE_DEF * $power));
-        $spd = max(1, (int) round(self::BASE_SPD * $power));
+        $maxHp = max(1, (int) round($this->blendClassStat(self::BASE_HP, $meta['hp']) * $power));
+        $atk = max(1, (int) round($this->blendClassStat(self::BASE_ATK, $meta['atk']) * $power));
+        $def = max(0, (int) round($this->blendClassStat(self::BASE_DEF, $meta['def']) * $power));
+        $spd = max(1, (int) round($this->blendClassStat(self::BASE_SPD, $meta['spd']) * $power));
+        $healChance = round($this->blendClassStat(self::BASE_HEAL_CHANCE, $meta['heal_chance']), 4);
 
         $gradeBonus = $this->gradeBonus($academic);
         $attendanceBonus = $this->attendanceBonus($attendanceScore);
@@ -218,12 +231,16 @@ class ArenaCombatService
             'name' => $student->name,
             'arena_name' => $student->arenaName(),
             'class' => $meta['name'],
+            'class_key' => (string) $student->character_class,
+            'class_role' => $meta['role'],
+            'strike' => $meta['strike'],
+            'heal_verb' => $meta['heal_verb'],
             'max_hp' => $maxHp,
             'hp' => $maxHp,
             'atk' => $atk,
             'def' => $def,
             'spd' => $spd,
-            'heal_chance' => self::BASE_HEAL_CHANCE,
+            'heal_chance' => $healChance,
             'power' => round($power, 3),
             'breakdown' => [
                 'level_name' => $level['name'],
@@ -236,6 +253,9 @@ class ArenaCombatService
                 'team_bonus' => $teamBonus,
                 'gear_bonus' => $gear['bonus'],
                 'gear_items' => $gear['items'],
+                'class_key' => (string) $student->character_class,
+                'class_role' => $meta['role'],
+                'class_influence' => self::CLASS_INFLUENCE,
             ],
         ];
     }
@@ -265,6 +285,13 @@ class ArenaCombatService
         return (max(0, min(100, $teamScore)) / 100) * self::TEAM_WEIGHT;
     }
 
+    private function blendClassStat(float $base, float $classStat): float
+    {
+        $influence = self::CLASS_INFLUENCE;
+
+        return $base * (1 - $influence) + $classStat * $influence;
+    }
+
     /**
      * @param  array<string, mixed>  $fighter
      * @return array<string, mixed>
@@ -287,8 +314,8 @@ class ArenaCombatService
     }
 
     /**
-     * @param  array{id: int, name: string, arena_name: ?string, class: string, max_hp: int, hp: int, atk: int, def: int, spd: int, heal_chance: float, power: float}  $actor
-     * @param  array{id: int, name: string, arena_name: ?string, class: string, max_hp: int, hp: int, atk: int, def: int, spd: int, heal_chance: float, power: float}  $target
+     * @param  array{id: int, name: string, arena_name: ?string, class: string, strike: string, heal_verb: string, max_hp: int, hp: int, atk: int, def: int, spd: int, heal_chance: float, power: float}  $actor
+     * @param  array{id: int, name: string, arena_name: ?string, class: string, strike: string, heal_verb: string, max_hp: int, hp: int, atk: int, def: int, spd: int, heal_chance: float, power: float}  $target
      * @return array{turn: int, actor_id: int, action: string, amount: int, actor_hp: int, target_hp: int, text: string}
      */
     private function act(SeededRandom $rng, int $turn, array &$actor, array &$target): array
@@ -307,7 +334,7 @@ class ArenaCombatService
                 'amount' => $heal,
                 'actor_hp' => $actor['hp'],
                 'target_hp' => $target['hp'],
-                'text' => "{$label} recupera {$heal} de vida.",
+                'text' => "{$label} {$actor['heal_verb']} {$heal} de vida.",
             ];
         }
 
@@ -323,7 +350,7 @@ class ArenaCombatService
             'amount' => $damage,
             'actor_hp' => $actor['hp'],
             'target_hp' => $target['hp'],
-            'text' => "{$label} golpeia {$targetLabel} por {$damage} de dano.",
+            'text' => "{$label} {$actor['strike']} {$targetLabel} por {$damage} de dano.",
         ];
     }
 

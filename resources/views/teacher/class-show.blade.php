@@ -1049,15 +1049,21 @@
                 </p>
             </div>
             @if($class->isArenaOpen())
-                <form method="POST" action="{{ route('teacher.arena.close', $class) }}">
-                    @csrf
-                    <button class="game-btn-ghost" type="submit">Fechar arena</button>
-                </form>
+                <div class="flex flex-wrap gap-2">
+                    <a class="game-btn-ghost" href="{{ route('arena.rules') }}">Regras para a turma</a>
+                    <form method="POST" action="{{ route('teacher.arena.close', $class) }}">
+                        @csrf
+                        <button class="game-btn-ghost" type="submit">Fechar arena</button>
+                    </form>
+                </div>
             @else
-                <form method="POST" action="{{ route('teacher.arena.open', $class) }}">
-                    @csrf
-                    <button class="game-btn" type="submit">Abrir arena</button>
-                </form>
+                <div class="flex flex-wrap gap-2">
+                    <a class="game-btn-ghost" href="{{ route('arena.rules') }}">Regras para a turma</a>
+                    <form method="POST" action="{{ route('teacher.arena.open', $class) }}">
+                        @csrf
+                        <button class="game-btn" type="submit">Abrir arena</button>
+                    </form>
+                </div>
             @endif
         </div>
 
