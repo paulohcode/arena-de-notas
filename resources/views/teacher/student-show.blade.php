@@ -68,7 +68,7 @@
     @method('PUT')
     <div>
         <h2 class="font-display text-xl text-amber-200">Identidade do aluno</h2>
-        <p class="text-sm text-amber-100/60 mt-1">Altere o nome de jogo, o avatar e a classe. A mudança entra na arena na hora, sem pedido de aprovação.</p>
+        <p class="text-sm text-amber-100/60 mt-1">Altere o nome de jogo, o avatar e a classe. Depois da escolha do aluno, só professor e admin podem trocar a classe. A mudança entra na arena na hora, sem pedido de aprovação.</p>
     </div>
 
     <label class="space-y-1 block max-w-md">

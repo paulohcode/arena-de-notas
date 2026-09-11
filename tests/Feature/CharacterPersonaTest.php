@@ -33,7 +33,7 @@ class CharacterPersonaTest extends TestCase
 
         $this->actingAs($student)
             ->post(route('student.character.update'), [
-                'character_class' => 'feiticeira',
+                'character_class' => 'guerreiro',
                 'character_name' => 'Luna Arcana',
                 'character_avatar' => 'lua',
             ])
@@ -41,7 +41,7 @@ class CharacterPersonaTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'id' => $student->id,
-            'character_class' => 'feiticeira',
+            'character_class' => 'guerreiro',
             'pending_character_name' => 'Luna Arcana',
             'pending_character_avatar' => 'lua',
             'character_name' => null,
@@ -61,7 +61,8 @@ class CharacterPersonaTest extends TestCase
             ->from(route('student.character.edit'))
             ->post(route('student.character.update'), [])
             ->assertRedirect()
-            ->assertSessionHasErrors(['character_class', 'character_name', 'character_avatar']);
+            ->assertSessionHasErrors(['character_name', 'character_avatar'])
+            ->assertSessionDoesntHaveErrors(['character_class']);
     }
 
     public function test_rejects_a_character_name_already_in_use(): void

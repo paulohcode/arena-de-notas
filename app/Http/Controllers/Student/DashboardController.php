@@ -34,7 +34,7 @@ class DashboardController extends Controller
             'selected' => $student->character_class,
             'selectedAvatar' => $student->pending_character_avatar ?? $student->character_avatar,
             'characterName' => $student->pending_character_name ?? $student->character_name,
-            'firstTime' => blank($student->character_class),
+            'firstTime' => ! $student->hasCharacterClass(),
             'student' => $student,
         ]);
     }
@@ -42,9 +42,9 @@ class DashboardController extends Controller
     public function updateCharacter(Request $request): RedirectResponse
     {
         $student = $request->user();
+        $canChooseClass = ! $student->hasCharacterClass();
 
-        $data = $request->validate([
-            'character_class' => ['required', Rule::in(array_keys(User::CHARACTER_CLASSES))],
+        $rules = [
             'character_name' => [
                 'required',
                 'string',
@@ -58,11 +58,17 @@ class DashboardController extends Controller
                 },
             ],
             'character_avatar' => ['required', Rule::in(array_keys(User::CHARACTER_AVATARS))],
-        ]);
+        ];
+
+        if ($canChooseClass) {
+            $rules['character_class'] = ['required', Rule::in(array_keys(User::CHARACTER_CLASSES))];
+        }
+
+        $data = $request->validate($rules);
 
         $this->personas->submit(
             $student,
-            $data['character_class'],
+            $canChooseClass ? $data['character_class'] : $student->character_class,
             $data['character_name'],
             $data['character_avatar'],
         );

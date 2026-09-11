@@ -115,6 +115,7 @@ class TeacherStudentCharacterTest extends TestCase
             ->assertOk()
             ->assertSee('Identidade do aluno')
             ->assertSee('Salvar identidade')
+            ->assertSee('name="character_class"', false)
             ->assertSee(route('teacher.characters.update', [$class, $student]), false);
     }
 

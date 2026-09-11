@@ -34,6 +34,10 @@ class CharacterPersonaService
             ]);
         }
 
+        if ($student->hasCharacterClass()) {
+            $characterClass = $student->character_class;
+        }
+
         $student->update([
             'character_class' => $characterClass,
             'pending_character_name' => $characterName,
