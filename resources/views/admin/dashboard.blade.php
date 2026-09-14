@@ -37,6 +37,11 @@
         <h2 class="font-display text-3xl text-amber-200">Moedas</h2>
         <p class="text-sm text-amber-100/60 mt-2">Nomes e ícones de {{ \App\Models\GameCurrency::label('relics') }}, {{ \App\Models\GameCurrency::label('seals') }} e {{ \App\Models\GameCurrency::label('auras') }} →</p>
     </a>
+    <a href="{{ route('admin.reports.daily') }}" class="game-card game-card-glow p-6 block reveal reveal-delay-4">
+        <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Diário</p>
+        <h2 class="font-display text-3xl text-amber-200">Relatório</h2>
+        <p class="text-sm text-amber-100/60 mt-2">Faltas, batalhas, notas e itens do dia →</p>
+    </a>
 </div>
 
 <div class="game-card p-5 reveal">

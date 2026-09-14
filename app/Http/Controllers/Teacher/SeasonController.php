@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\SchoolClass;
 use App\Models\Season;
-use App\Models\SeasonClassRite;
 use App\Models\User;
 use App\Services\BossRiteService;
 use App\Support\BossArchetypeCatalog;
