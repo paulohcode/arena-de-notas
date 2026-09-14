@@ -115,6 +115,37 @@ class AdminDailyReportTest extends TestCase
             ->assertSee('Nenhuma chamada registrada neste dia.');
     }
 
+    public function test_absentees_are_listed_alphabetically_by_student_name(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $laterClass = $this->createClassForTeacher($teacher, ['name' => 'Turma Zebra']);
+        $earlierClass = $this->createClassForTeacher($teacher, ['name' => 'Turma Alpha']);
+        $laterName = $this->enrollStudent($laterClass, 'Ana Alves');
+        $earlierName = $this->enrollStudent($earlierClass, 'Zelia Costa');
+
+        foreach ([[$laterClass, $laterName], [$earlierClass, $earlierName]] as [$class, $student]) {
+            $session = AttendanceSession::query()->create([
+                'class_id' => $class->id,
+                'held_on' => '2026-09-14',
+                'created_by' => $teacher->id,
+            ]);
+            AttendanceRecord::query()->create([
+                'attendance_session_id' => $session->id,
+                'student_id' => $student->id,
+                'status' => AttendanceRecord::STATUS_ABSENT,
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('admin.reports.daily', ['date' => '2026-09-14']))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Ana Alves',
+                'Zelia Costa',
+            ]);
+    }
+
     public function test_resolved_duel_appears_but_expired_does_not(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);

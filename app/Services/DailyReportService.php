@@ -186,8 +186,8 @@ class DailyReportService
             ];
         }
 
-        usort($absentees, fn (array $a, array $b): int => [$a['area_name'], $a['class_name'], $a['student_name'], $a['status']]
-            <=> [$b['area_name'], $b['class_name'], $b['student_name'], $b['status']]);
+        usort($sessionRows, fn (array $a, array $b): int => $this->alphabeticalKeys($a, $b, ['class_name', 'area_name']));
+        usort($absentees, fn (array $a, array $b): int => $this->alphabeticalKeys($a, $b, ['student_name', 'class_name', 'area_name', 'status']));
 
         $classesWithoutSession = SchoolClass::query()
             ->with('area')
@@ -199,6 +199,11 @@ class DailyReportService
                 'class_name' => $class->name,
                 'area_name' => $class->area?->name ?? '—',
             ])
+            ->sortBy([
+                fn (array $row): string => mb_strtolower($row['class_name']),
+                fn (array $row): string => mb_strtolower($row['area_name']),
+            ], SORT_NATURAL)
+            ->values()
             ->all();
 
         return [
@@ -519,5 +524,18 @@ class DailyReportService
             'behavior' => 'Comportamento',
             default => $type,
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $left
+     * @param  array<string, mixed>  $right
+     * @param  list<string>  $keys
+     */
+    private function alphabeticalKeys(array $left, array $right, array $keys): int
+    {
+        $normalize = fn (mixed $value): string => mb_strtolower((string) $value);
+
+        return array_map(fn (string $key): string => $normalize($left[$key] ?? ''), $keys)
+            <=> array_map(fn (string $key): string => $normalize($right[$key] ?? ''), $keys);
     }
 }
