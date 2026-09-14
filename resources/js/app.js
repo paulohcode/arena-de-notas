@@ -9,6 +9,7 @@ import { teamBattleSeries } from './game/team-battle-series';
 import { goToBattle } from './game/battle-nav';
 import { bindArenaSoundToggles, unlockArenaAudio } from './game/sound';
 import { quizQuestionBuilder, quizEventPlayer } from './game/quiz-event';
+import { bindStudentRoster } from './game/student-roster';
 
 window.Alpine = Alpine;
 window.ArenaGoToBattle = goToBattle;
@@ -33,6 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-flash-toast]').forEach((el) => {
         const tone = el.dataset.flashTone === 'warn' ? 'warn' : 'info';
         showToast(el.dataset.flashTitle || 'Arena', el.dataset.flashToast, tone);
+    });
+
+    document.querySelectorAll('[data-student-roster]').forEach((root) => {
+        bindStudentRoster(root);
     });
 
     document.querySelectorAll('[data-attendance-form]').forEach((form) => {

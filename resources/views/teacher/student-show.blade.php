@@ -58,6 +58,12 @@
         </div>
     </div>
     <div class="flex flex-wrap gap-2">
+        @if(auth()->user()?->isAdmin())
+            <form method="POST" action="{{ route('admin.impersonate.start', [$class, $student]) }}">
+                @csrf
+                <button class="game-btn !py-1 !px-3 text-sm" type="submit">Ver como aluno</button>
+            </form>
+        @endif
         <a class="game-btn-ghost" href="{{ route('ranking.show', $class) }}">Voltar ao ranking</a>
         <a class="game-btn-ghost" href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']) }}">Voltar à turma</a>
     </div>

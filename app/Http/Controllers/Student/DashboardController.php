@@ -88,7 +88,7 @@ class DashboardController extends Controller
         $student = $request->user();
 
         return view('student.dashboard', array_merge(
-            $this->sheet->data($student, $class, publicPlayersOnly: true),
+            $this->sheet->data($student, $class),
             [
                 'viewerIsTeacher' => false,
                 'classes' => $student->classes()->orderBy('name')->get(),
@@ -96,7 +96,6 @@ class DashboardController extends Controller
                 'pendingMissions' => $this->reminders->pendingMissions($student, $class),
                 'notifyUrl' => ArenaUrl::route('student.notifications'),
                 'markReadUrl' => ArenaUrl::route('student.notifications.read'),
-                'rankingUrl' => ArenaUrl::route('ranking.live', $class),
             ],
         ));
     }

@@ -3,12 +3,17 @@
 namespace Tests\Feature;
 
 use App\Models\Activity;
+use App\Models\AreaBalance;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
 use App\Models\Badge;
+use App\Models\EnrollmentCosmetic;
+use App\Models\GameCurrency;
 use App\Models\SchoolClass;
+use App\Models\ShopItem;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\CosmeticCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -397,6 +402,105 @@ class StudentSheetTest extends TestCase
             ->get(route('ranking.show', $class))
             ->assertOk()
             ->assertSee(route('teacher.students.show', [$class, $student]), false);
+    }
+
+    public function test_teacher_sheet_shows_currencies_wins_and_hides_league_lists(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana Moedas');
+
+        $enrollment = $student->enrollmentIn($class);
+        $enrollment->update([
+            'relics' => 12,
+            'seals' => 4,
+            'glory' => 7,
+            'arena_wins' => 3,
+            'arena_losses' => 1,
+        ]);
+
+        AreaBalance::query()->create([
+            'area_id' => $class->area_id,
+            'student_id' => $student->id,
+            'auras' => 9,
+        ]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.students.show', [$class, $student]))
+            ->assertOk()
+            ->assertSee(GameCurrency::format('relics', 12), false)
+            ->assertSee(GameCurrency::format('seals', 4), false)
+            ->assertSee(GameCurrency::format('auras', 9), false)
+            ->assertSee(GameCurrency::format('glory', 7), false)
+            ->assertSee('Vitórias')
+            ->assertSee('Derrotas')
+            ->assertSee('>3<', false)
+            ->assertSee('>1<', false)
+            ->assertSee('Itens comprados')
+            ->assertSee('Nenhum item comprado nesta turma.')
+            ->assertSee('Ver ranking da turma')
+            ->assertDontSee('Liga de jogadores')
+            ->assertDontSee('Hall das Guildas')
+            ->assertDontSee('Ver como aluno');
+    }
+
+    public function test_admin_sheet_shows_owned_and_equipped_items(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Bruno Itens');
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+
+        $enrollment = $student->enrollmentIn($class);
+        EnrollmentCosmetic::query()->create([
+            'enrollment_id' => $enrollment->id,
+            'item_key' => 'frame_bronze',
+        ]);
+        $enrollment->update(['equipped_frame' => 'frame_bronze']);
+
+        $this->actingAs($admin)
+            ->get(route('teacher.students.show', [$class, $student]))
+            ->assertOk()
+            ->assertSee('Ver como aluno')
+            ->assertSee('Anel de Bronze')
+            ->assertSee('Equipado')
+            ->assertSee('Molduras')
+            ->assertDontSee('Nenhum item comprado nesta turma.')
+            ->assertDontSee('Liga de jogadores')
+            ->assertDontSee('Hall das Guildas');
+    }
+
+    public function test_escapes_owned_item_name_on_the_sheet(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Ana XSS Item');
+
+        $shopItem = ShopItem::query()->create([
+            'slot' => 'accessory',
+            'name' => "<script>alert('xss')</script>",
+            'item_key' => 'acc_xss_sheet',
+            'price' => 10,
+            'rarity' => 'common',
+            'icon' => '⭐',
+            'currency' => 'relics',
+        ]);
+
+        CosmeticCatalog::flush();
+
+        $enrollment = $student->enrollmentIn($class);
+        EnrollmentCosmetic::query()->create([
+            'enrollment_id' => $enrollment->id,
+            'item_key' => $shopItem->item_key,
+        ]);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.students.show', [$class, $student]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+        $this->assertStringNotContainsString("<script>alert('xss')</script>", $html);
     }
 
     public function test_guild_page_links_teacher_to_the_student_sheet(): void

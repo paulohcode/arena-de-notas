@@ -172,7 +172,11 @@ class GameLoopService
         $enrollment = $student->enrollmentIn($class);
         abort_unless($enrollment !== null, 404);
 
-        return $this->commit($class, function () use ($class, $student, $delta, $author, $enrollment) {
+        $oldAverage = $this->grades->studentAverage($student, $class);
+        $oldXp = (int) $enrollment->xp;
+        $oldLevel = $this->grades->levelFromXp($oldXp)['name'];
+
+        $entry = DB::transaction(function () use ($class, $student, $delta, $author, $enrollment) {
             $old = (float) $enrollment->behavior_score;
             $new = $this->grades->clamp($old + $delta);
             $applied = $new - $old;
@@ -189,11 +193,17 @@ class GameLoopService
                 'delta' => $applied,
                 'reason' => 'Comportamento',
             ]);
-        }, $student, null, [
+        });
+
+        $this->notifyGrade($class, $student, null, [
             'kind' => $delta >= 0 ? 'gain' : 'loss',
             'delta' => $delta,
             'label' => 'Comportamento',
         ]);
+
+        $this->applyStudentBehaviorProgress($student, $class, $oldAverage, $oldXp, $oldLevel);
+
+        return $entry;
     }
 
     /**
@@ -307,6 +317,40 @@ class GameLoopService
                 : "Você perdeu {$sign} ({$event['label']}).";
             $user->notify(new GameAlert($delta >= 0 ? 'gain' : 'loss', $title, $message, $event));
         }
+    }
+
+    /**
+     * XP e medalhas de média deste aluno, sem recalcular ranking da turma.
+     * Ajustes rápidos de comportamento não devem varrer todos os alunos.
+     */
+    private function applyStudentBehaviorProgress(
+        User $student,
+        SchoolClass $class,
+        float $oldAverage,
+        int $oldXp,
+        string $oldLevel,
+    ): void {
+        $enrollment = $student->enrollmentIn($class);
+        if (! $enrollment) {
+            return;
+        }
+
+        $newAverage = $this->grades->studentAverage($student, $class);
+        $gain = max(0, $newAverage - $oldAverage);
+        if ($gain > 0) {
+            $enrollment->xp = $oldXp + (int) round($gain * 10);
+            $enrollment->save();
+        }
+
+        $newLevel = $this->grades->levelFromXp((int) $enrollment->xp);
+        if ($newLevel['name'] !== $oldLevel && $enrollment->xp > $oldXp) {
+            $student->notify(new GameAlert('level', 'Subiu de nível!', "Você agora é {$newLevel['name']}.", [
+                'level' => $newLevel['name'],
+            ]));
+        }
+
+        $this->grant($student, $class, 'media-70', $newAverage >= 70);
+        $this->grant($student, $class, 'media-90', $newAverage >= 90);
     }
 
     /**

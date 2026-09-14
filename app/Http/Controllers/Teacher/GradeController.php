@@ -8,6 +8,7 @@ use App\Models\SchoolClass;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\GameLoopService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -91,16 +92,30 @@ class GradeController extends Controller
         return back()->with('success', 'Ajuste lançado. O ranking foi atualizado.');
     }
 
-    public function behavior(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse
+    public function behavior(Request $request, SchoolClass $schoolClass, User $student): RedirectResponse|JsonResponse
     {
         $this->authorize('manage', $schoolClass);
         abort_unless($schoolClass->students()->where('users.id', $student->id)->exists(), 404);
 
         $data = $request->validate([
-            'delta' => ['required', 'numeric', 'in:-5,-1,1,5'],
+            'delta' => ['required', 'numeric', 'min:-100', 'max:100', 'not_in:0'],
+        ], [
+            'delta.required' => 'Informe a quantidade de pontos.',
+            'delta.numeric' => 'Informe um número válido de pontos.',
+            'delta.min' => 'O ajuste deve ser no máximo 100 pontos.',
+            'delta.max' => 'O ajuste deve ser no máximo 100 pontos.',
+            'delta.not_in' => 'Informe um valor diferente de zero.',
         ]);
 
-        $this->loop->adjustBehavior($schoolClass, $student, (float) $data['delta'], $request->user());
+        $entry = $this->loop->adjustBehavior($schoolClass, $student, (float) $data['delta'], $request->user());
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'behavior_score' => (float) $entry->raw_score,
+                'message' => 'Comportamento atualizado.',
+            ]);
+        }
 
         return back()
             ->withInput(['tab' => 'alunos'])

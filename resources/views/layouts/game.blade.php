@@ -64,6 +64,23 @@
             </nav>
         </header>
 
+        @php
+            $impersonation = app(\App\Services\ImpersonationService::class);
+            $impersonating = $impersonation->isActive();
+        @endphp
+        @if($impersonating)
+            <div class="game-card mb-6 p-4 border-amber-400/60 bg-amber-950/40 text-amber-50 flex flex-wrap items-center justify-between gap-3 reveal" role="status">
+                <div>
+                    <p class="font-semibold text-amber-200">Vendo como {{ auth()->user()?->name }}</p>
+                    <p class="text-sm text-amber-100/70 mt-1">Alterações estão bloqueadas — esta visão é só para análise.</p>
+                </div>
+                <form method="POST" action="{{ route('admin.impersonate.stop') }}">
+                    @csrf
+                    <button class="game-btn !py-1 !px-3 text-sm" type="submit">Voltar ao admin</button>
+                </form>
+            </div>
+        @endif
+
         @if(session('success'))
             <div class="hidden" data-flash-toast="{{ session('success') }}" data-flash-title="Arena"></div>
         @endif

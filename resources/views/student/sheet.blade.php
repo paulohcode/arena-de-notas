@@ -9,7 +9,6 @@
             <div class="text-right">
                 <p class="font-display text-2xl text-amber-300">{{ $level['name'] }}</p>
                 <p class="text-sm text-purple-200/70">{{ $enrollment?->xp ?? 0 }} XP</p>
-                <p class="text-sm text-cyan-300/80">{{ \App\Models\GameCurrency::format('glory', $enrollment?->glory ?? 0) }} · {{ \App\Models\GameCurrency::format('relics', $enrollment?->relics ?? 0) }} · {{ \App\Models\GameCurrency::format('seals', $enrollment?->seals ?? 0) }} · {{ $enrollment?->arena_wins ?? 0 }}V–{{ $enrollment?->arena_losses ?? 0 }}D</p>
                 <p class="text-sm">Jogador: {{ $position ? $position.'º' : '—' }} · Guilda: {{ $guildPosition ? $guildPosition.'º' : '—' }}</p>
             </div>
         </div>
@@ -20,6 +19,45 @@
             </div>
             <div class="xp-track"><div class="xp-fill" data-xp-fill="{{ $level['progress'] }}"></div></div>
         </div>
+
+        <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="rounded-xl border border-purple-900/50 bg-purple-950/40 px-3 py-2">
+                <p class="text-[10px] uppercase tracking-wide text-purple-200/60">{{ \App\Models\GameCurrency::label('relics') }}</p>
+                <p class="text-sm text-cyan-300 mt-1">{{ \App\Models\GameCurrency::format('relics', $enrollment?->relics ?? 0) }}</p>
+            </div>
+            <div class="rounded-xl border border-purple-900/50 bg-purple-950/40 px-3 py-2">
+                <p class="text-[10px] uppercase tracking-wide text-purple-200/60">{{ \App\Models\GameCurrency::label('seals') }}</p>
+                <p class="text-sm text-emerald-300 mt-1">{{ \App\Models\GameCurrency::format('seals', $enrollment?->seals ?? 0) }}</p>
+            </div>
+            <div class="rounded-xl border border-purple-900/50 bg-purple-950/40 px-3 py-2">
+                <p class="text-[10px] uppercase tracking-wide text-purple-200/60">{{ \App\Models\GameCurrency::label('auras') }}</p>
+                <p class="text-sm text-violet-300 mt-1">{{ \App\Models\GameCurrency::format('auras', $auras ?? 0) }}</p>
+            </div>
+            <div class="rounded-xl border border-purple-900/50 bg-purple-950/40 px-3 py-2">
+                <p class="text-[10px] uppercase tracking-wide text-purple-200/60">{{ \App\Models\GameCurrency::label('glory') }}</p>
+                <p class="text-sm text-amber-200 mt-1">{{ \App\Models\GameCurrency::format('glory', $enrollment?->glory ?? 0) }}</p>
+            </div>
+        </div>
+
+        @php
+            $wins = (int) ($enrollment?->arena_wins ?? 0);
+            $losses = (int) ($enrollment?->arena_losses ?? 0);
+        @endphp
+        <div class="mt-3 grid grid-cols-3 gap-3">
+            <div class="rounded-xl border border-emerald-900/40 bg-emerald-950/30 px-3 py-2 text-center">
+                <p class="text-[10px] uppercase tracking-wide text-emerald-200/60">Vitórias</p>
+                <p class="font-display text-xl text-emerald-300 mt-1">{{ $wins }}</p>
+            </div>
+            <div class="rounded-xl border border-rose-900/40 bg-rose-950/30 px-3 py-2 text-center">
+                <p class="text-[10px] uppercase tracking-wide text-rose-200/60">Derrotas</p>
+                <p class="font-display text-xl text-rose-300 mt-1">{{ $losses }}</p>
+            </div>
+            <div class="rounded-xl border border-purple-900/50 bg-purple-950/40 px-3 py-2 text-center">
+                <p class="text-[10px] uppercase tracking-wide text-purple-200/60">Total</p>
+                <p class="font-display text-xl text-cyan-300 mt-1">{{ $wins + $losses }}</p>
+            </div>
+        </div>
+
         @unless($viewerIsTeacher)
             <label class="block mt-4">
                 <span class="text-xs uppercase tracking-wide text-purple-200/70">Chamada</span>
@@ -70,6 +108,7 @@
             <a href="{{ route('student.arena.index') }}" class="game-btn !py-1 !px-3 text-sm mt-4 inline-block">Arena de batalha</a>
             <a href="{{ route('student.arena.realm.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm mt-2 inline-block">Arena entre turmas</a>
         @endif
+        <a href="{{ route('ranking.show', $class) }}" class="text-xs text-amber-200/70 hover:text-amber-200 underline mt-4 inline-block">Ver ranking da turma</a>
     </div>
 </div>
 
@@ -142,6 +181,47 @@
 </div>
 
 <div class="game-card p-6 mb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h2 class="font-display text-xl text-amber-200">Itens comprados</h2>
+        @unless($viewerIsTeacher)
+            <a href="{{ route('student.shop.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm">Abrir loja</a>
+        @endunless
+    </div>
+    @php $ownedItems = $ownedItems ?? []; @endphp
+    @if(count($ownedItems) === 0)
+        <p class="text-purple-200/60">Nenhum item comprado nesta turma.</p>
+    @else
+        <div class="space-y-5">
+            @foreach($ownedItems as $slot => $items)
+                <div>
+                    <h3 class="text-xs uppercase tracking-wide text-purple-200/70 mb-2">{{ \App\Support\CosmeticCatalog::SLOTS[$slot] ?? $slot }}</h3>
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @foreach($items as $item)
+                            <article class="game-card p-3 flex items-center gap-3 {{ $item['equipped'] ? 'border-emerald-400/40' : '' }}">
+                                @include('partials.shop-item-art', [
+                                    'icon' => $item['icon'],
+                                    'rarity' => $item['rarity'],
+                                    'css' => $item['css'] ?? null,
+                                    'slot' => $item['slot'],
+                                    'size' => 'sm',
+                                ])
+                                <div class="min-w-0">
+                                    <p class="font-display text-amber-100 truncate">{{ $item['name'] }}</p>
+                                    <p class="text-xs text-purple-200/60">{{ $item['rarity_label'] }}</p>
+                                    @if($item['equipped'])
+                                        <p class="text-xs text-emerald-300 mt-1">Equipado</p>
+                                    @endif
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
+</div>
+
+<div class="game-card p-6 mb-8">
     <h2 class="font-display text-xl text-amber-200 mb-3">Medalhas</h2>
     <div class="flex flex-wrap gap-3">
         @forelse($badges as $badge)
@@ -149,48 +229,5 @@
         @empty
             <p class="text-purple-200/60">{{ $viewerIsTeacher ? 'Nenhuma medalha nesta turma ainda.' : 'Nenhuma medalha ainda. Jogue a temporada.' }}</p>
         @endforelse
-    </div>
-</div>
-
-<div class="grid lg:grid-cols-2 gap-6">
-    <div>
-        <h2 class="font-display text-xl text-amber-200 mb-3">Liga de jogadores</h2>
-        <div class="space-y-2" data-player-list>
-            @foreach($players as $row)
-                <div class="game-card p-3 flex justify-between {{ $row['student']->characterAuraClass(true) }} {{ $row['student']->is($student) ? 'border-amber-300/50' : '' }}" data-player-id="{{ $row['student']->id }}">
-                    @include('partials.class-fx', ['characterClass' => $row['student']->character_class])
-                    <span class="flex items-center gap-2 min-w-0">
-                        <span data-pos>{{ $row['position'] }}º</span>
-                        @include('partials.player-avatar', ['student' => $row['student'], 'size' => 'sm'])
-                        @if($viewerIsTeacher)
-                            <a
-                                href="{{ route('teacher.students.show', [$class, $row['student']]) }}"
-                                class="hover:text-amber-300 transition-colors underline decoration-amber-300/40 underline-offset-2"
-                                title="Ver ficha de {{ $row['student']->name }}"
-                            >{{ $row['student']->name }}</a>
-                        @else
-                            {{ $row['student']->name }}
-                        @endif
-                        @if($row['student']->arenaName())
-                            <span class="text-amber-300"> · {{ $row['student']->arenaName() }}</span>
-                        @endif
-                        @include('partials.cosmetic-title', ['student' => $row['student']])
-                        <span class="text-xs text-amber-100/45">{{ $row['student']->characterClassLabel() }}</span>
-                    </span>
-                    <span class="text-cyan-300" data-avg>{{ number_format($row['average'], 1) }}</span>
-                </div>
-            @endforeach
-        </div>
-    </div>
-    <div>
-        <h2 class="font-display text-xl text-amber-200 mb-3">Hall das Guildas</h2>
-        <div class="space-y-2" data-guild-list>
-            @foreach($guilds as $row)
-                <a href="{{ route('ranking.guild', [$class, $row['team']]) }}" class="game-card game-card-glow p-3 flex items-center justify-between" data-guild-id="{{ $row['team']->id }}">
-                    <span>{{ $row['team']->emblemIcon() }} <span data-pos>{{ $row['position'] }}º</span> {{ $row['team']->name }}</span>
-                    <span class="text-cyan-300" data-score>{{ number_format($row['score'], 1) }}</span>
-                </a>
-            @endforeach
-        </div>
     </div>
 </div>

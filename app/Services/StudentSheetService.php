@@ -15,6 +15,7 @@ class StudentSheetService
         private GradeCalculator $grades,
         private RankingService $ranking,
         private ActivityReminderService $reminders,
+        private CosmeticShopService $shop,
     ) {}
 
     /**
@@ -36,17 +37,18 @@ class StudentSheetService
      *     level: array{key: string, name: string, min: int, next: int|null, progress: float},
      *     position: int|null,
      *     guildPosition: int|null,
-     *     players: list<array<string, mixed>>,
-     *     guilds: list<array<string, mixed>>,
+     *     auras: int,
+     *     ownedItems: array<string, list<array{key: string, slot: string, name: string, rarity: string, rarity_label: string, icon: string, css: ?string, label: ?string, equipped: bool}>>,
      *     entries: Collection,
      *     badges: Collection,
      *     guildMissionAlerts: Collection,
      *     attendanceRecords: Collection<int, AttendanceRecord>
      * }
      */
-    public function data(User $student, SchoolClass $class, bool $publicPlayersOnly = false): array
+    public function data(User $student, SchoolClass $class): array
     {
         $enrollment = $student->enrollmentIn($class);
+        $enrollment?->loadMissing('cosmetics');
         $team = $student->teamInClass($class);
 
         $entries = $class->ledgerEntries()
@@ -75,8 +77,8 @@ class StudentSheetService
             'level' => $this->grades->levelFromXp((int) ($enrollment?->xp ?? 0)),
             'position' => $this->ranking->playerPosition($student, $class),
             'guildPosition' => $team ? $this->ranking->guildPosition($team->id, $class) : null,
-            'players' => $this->ranking->players($class, $publicPlayersOnly),
-            'guilds' => $this->ranking->guilds($class),
+            'auras' => $this->shop->aurasBalance($student, $class),
+            'ownedItems' => $this->shop->ownedItemsForStudent($student, $class),
             'entries' => $entries,
             'badges' => $student->badges()->wherePivot('class_id', $class->id)->orderBy('name')->get(),
             'guildMissionAlerts' => $team

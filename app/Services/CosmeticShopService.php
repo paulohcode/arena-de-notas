@@ -164,6 +164,66 @@ class CosmeticShopService
     }
 
     /**
+     * Itens que o aluno possui nesta turma (somente leitura — não semeia estoque).
+     *
+     * @return array<string, list<array{key: string, slot: string, name: string, rarity: string, rarity_label: string, icon: string, css: ?string, label: ?string, equipped: bool}>>
+     */
+    public function ownedItemsForStudent(User $student, SchoolClass $class): array
+    {
+        $enrollment = $student->enrollmentIn($class);
+
+        if (! $enrollment) {
+            return [];
+        }
+
+        $enrollment->loadMissing('cosmetics');
+
+        $ownedKeys = $enrollment->cosmetics->pluck('item_key')->all();
+
+        if ($class->area_id) {
+            foreach ($this->itemKeysOwnedInArea($student, (int) $class->area_id) as $itemKey) {
+                if (CosmeticCatalog::usesAuras($itemKey)) {
+                    $ownedKeys[] = $itemKey;
+                }
+            }
+        }
+
+        $ownedKeys = array_values(array_unique($ownedKeys));
+        $loadout = $enrollment->cosmeticLoadout();
+        $grouped = [];
+
+        foreach (CosmeticCatalog::SLOTS as $slot => $label) {
+            $grouped[$slot] = [];
+        }
+
+        foreach ($ownedKeys as $key) {
+            $item = CosmeticCatalog::item($key);
+            if (! $item) {
+                continue;
+            }
+
+            $slot = $item['slot'];
+            if (! isset($grouped[$slot])) {
+                continue;
+            }
+
+            $grouped[$slot][] = [
+                'key' => $key,
+                'slot' => $slot,
+                'name' => $item['name'],
+                'rarity' => $item['rarity'],
+                'rarity_label' => CosmeticCatalog::rarityLabel($item['rarity']),
+                'icon' => CosmeticCatalog::icon($key),
+                'css' => $item['css'] ?? null,
+                'label' => $item['label'] ?? null,
+                'equipped' => ($loadout[$slot] ?? null) === $key,
+            ];
+        }
+
+        return array_filter($grouped, fn (array $items): bool => $items !== []);
+    }
+
+    /**
      * @return array{
      *     catalog: array<string, list<array{key: string, slot: string, name: string, price: int, rarity: string, rarity_label: string, icon?: string, css?: string, label?: string, stock: int, shop_item_id: ?int, class_id: ?int, area_id: ?int, combat_bonus: float, owners: list<array{name: string, character: ?string, equipped: bool}>, listings: list<array{seller: string, price: int}>}>>
      * }

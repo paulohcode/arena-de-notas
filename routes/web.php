@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\ArenaController as AdminArenaController;
 use App\Http\Controllers\Admin\CurrencyController as AdminCurrencyController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\GameEventController as AdminGameEventController;
+use App\Http\Controllers\Admin\ImpersonationController as AdminImpersonationController;
 use App\Http\Controllers\Admin\RealmArenaController as AdminRealmArenaController;
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\TeacherController as AdminTeacherController;
@@ -55,9 +56,15 @@ Route::middleware('auth')->group(function () {
     Route::put('/senha', [PasswordController::class, 'update'])->name('password.update');
 });
 
+Route::middleware(['auth', 'password.changed'])->group(function () {
+    Route::post('/admin/impersonar/sair', [AdminImpersonationController::class, 'stop'])->name('admin.impersonate.stop');
+});
+
 Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/arena', [AdminArenaController::class, 'index'])->name('arena');
+
+    Route::post('/impersonar/{schoolClass}/{student}', [AdminImpersonationController::class, 'start'])->name('impersonate.start');
 
     Route::get('/reinos', [AdminAreaController::class, 'index'])->name('areas.index');
     Route::get('/reinos/novo', [AdminAreaController::class, 'create'])->name('areas.create');

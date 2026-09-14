@@ -37,7 +37,6 @@ class StudentController extends Controller
             $this->sheet->data($student, $schoolClass),
             [
                 'viewerIsTeacher' => true,
-                'rankingUrl' => route('ranking.live', $schoolClass),
             ],
         ));
     }

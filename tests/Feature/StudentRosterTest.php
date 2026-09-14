@@ -33,6 +33,22 @@ class StudentRosterTest extends TestCase
         $this->assertStringContainsString('name="_token"', $matches[1]);
     }
 
+    public function test_students_tab_includes_roster_search_and_behavior_points_field(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = User::factory()->create(['role' => 'student', 'name' => 'Ana Clara']);
+        $class->students()->attach($student->id, ['ranking_visible' => true, 'xp' => 0, 'behavior_score' => 100]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']))
+            ->assertSee('Buscar por nome...')
+            ->assertSee('Ana Clara')
+            ->assertSee('Pontos')
+            ->assertSee('Tirar')
+            ->assertSee('Adicionar');
+    }
+
     public function test_teacher_can_register_a_student(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);

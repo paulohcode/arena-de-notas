@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\DenyImpersonationMutations;
 use App\Http\Middleware\EnsureCharacterClass;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureRole;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
         $middleware->web(append: [
+            DenyImpersonationMutations::class,
             RecordStudentAccess::class,
         ]);
         $middleware->alias([
