@@ -8,7 +8,7 @@
         <div class="game-card p-4 flex flex-wrap items-center justify-between gap-3 {{ $class->isArenaOpen() ? 'border-cyan-400/30' : 'border-purple-900/40' }}">
             <div>
                 <p class="font-semibold {{ $class->isArenaOpen() ? 'text-cyan-300' : 'text-amber-100/70' }}">
-                    Arena {{ $class->isArenaOpen() ? 'aberta' : 'fechada' }}
+                    Arena {{ $class->isArenaOpen() ? 'aberta' : 'fechada' }} hoje ({{ \App\Support\ArenaSchedule::todayLabel() }})
                 </p>
                 <p class="text-sm text-amber-100/55">Duelos RPG e batalhas de guildas geram {{ \App\Models\GameCurrency::label('glory') }} — não mexem na média nem no XP. Com a arena aberta, cada guilda pode batalhar 1 vez por dia. Alunos também podem desafiar outras turmas do mesmo reino por {{ \App\Models\GameCurrency::label('auras') }}.</p>
             </div>

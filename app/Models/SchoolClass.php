@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ArenaSchedule;
 use App\Support\CosmeticCatalog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,7 @@ class SchoolClass extends Model
         'arena_open',
         'arena_cooldown_minutes',
         'arena_daily_limit',
+        'arena_schedule',
     ];
 
     /**
@@ -42,6 +44,7 @@ class SchoolClass extends Model
             'arena_open' => 'boolean',
             'arena_cooldown_minutes' => 'integer',
             'arena_daily_limit' => 'integer',
+            'arena_schedule' => 'array',
             'team_grade_weight' => 'integer',
             'behavior_grade_weight' => 'integer',
             'attendance_grade_weight' => 'integer',
@@ -164,34 +167,63 @@ class SchoolClass extends Model
 
     public function isArenaOpen(): bool
     {
-        return (bool) $this->arena_open;
+        return $this->arenaToday()['open'];
     }
 
     public function arenaCooldownMinutes(): int
     {
-        return max(0, (int) ($this->arena_cooldown_minutes ?? Duel::CHALLENGE_COOLDOWN_MINUTES));
+        return $this->arenaToday()['cooldown_minutes'];
     }
 
     public function arenaDailyLimit(): int
     {
-        return max(1, (int) ($this->arena_daily_limit ?? Duel::DAILY_RESOLVED_LIMIT));
+        return $this->arenaToday()['daily_limit'];
     }
 
     public function arenaCooldownLabel(): string
     {
-        $minutes = $this->arenaCooldownMinutes();
+        return ArenaSchedule::cooldownLabel($this->arenaCooldownMinutes());
+    }
 
-        if ($minutes === 0) {
-            return 'sem espera';
-        }
+    public function hasArenaSchedule(): bool
+    {
+        return ArenaSchedule::hasSchedule($this->arena_schedule);
+    }
 
-        if ($minutes % 60 === 0) {
-            $hours = intdiv($minutes, 60);
+    /**
+     * @return array<int, array{open: bool, cooldown_minutes: int, daily_limit: int}>
+     */
+    public function arenaWeek(): array
+    {
+        return ArenaSchedule::week(
+            $this->arena_schedule,
+            (bool) $this->arena_open,
+            $this->fallbackArenaCooldownMinutes(),
+            $this->fallbackArenaDailyLimit(),
+        );
+    }
 
-            return $hours === 1 ? '1 hora' : $hours.' horas';
-        }
+    /**
+     * @return array{open: bool, cooldown_minutes: int, daily_limit: int}
+     */
+    public function arenaToday(): array
+    {
+        return ArenaSchedule::forToday(
+            $this->arena_schedule,
+            (bool) $this->arena_open,
+            $this->fallbackArenaCooldownMinutes(),
+            $this->fallbackArenaDailyLimit(),
+        );
+    }
 
-        return $minutes === 1 ? '1 minuto' : $minutes.' minutos';
+    private function fallbackArenaCooldownMinutes(): int
+    {
+        return max(0, (int) ($this->arena_cooldown_minutes ?? Duel::CHALLENGE_COOLDOWN_MINUTES));
+    }
+
+    private function fallbackArenaDailyLimit(): int
+    {
+        return max(1, (int) ($this->arena_daily_limit ?? Duel::DAILY_RESOLVED_LIMIT));
     }
 
     public function isRising(): bool

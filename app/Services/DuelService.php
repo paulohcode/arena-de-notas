@@ -8,6 +8,7 @@ use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Notifications\GameAlert;
+use App\Support\ArenaSchedule;
 use App\Support\ArenaUrl;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -197,17 +198,44 @@ class DuelService
 
     public function toggleArena(SchoolClass $class, bool $open): SchoolClass
     {
-        $class->update(['arena_open' => $open]);
+        if (! $class->hasArenaSchedule()) {
+            $class->update(['arena_open' => $open]);
+
+            return $class->fresh();
+        }
+
+        $class->update([
+            'arena_schedule' => ArenaSchedule::toggleToday(
+                $class->arena_schedule,
+                $open,
+                (bool) $class->arena_open,
+                (int) ($class->arena_cooldown_minutes ?? Duel::CHALLENGE_COOLDOWN_MINUTES),
+                (int) ($class->arena_daily_limit ?? Duel::DAILY_RESOLVED_LIMIT),
+            ),
+            'arena_open' => $open,
+        ]);
 
         return $class->fresh();
     }
 
     /**
-     * @param  array{arena_open: bool, arena_cooldown_minutes: int, arena_daily_limit: int}  $settings
+     * @param  array<int, array{open: bool, cooldown_minutes: int, daily_limit: int}>  $schedule
      */
-    public function updateSettings(SchoolClass $class, array $settings): SchoolClass
+    public function updateSettings(SchoolClass $class, array $schedule): SchoolClass
     {
-        $class->update($settings);
+        $today = ArenaSchedule::forToday(
+            $schedule,
+            false,
+            Duel::CHALLENGE_COOLDOWN_MINUTES,
+            Duel::DAILY_RESOLVED_LIMIT,
+        );
+
+        $class->update([
+            'arena_schedule' => $schedule,
+            'arena_open' => $today['open'],
+            'arena_cooldown_minutes' => $today['cooldown_minutes'],
+            'arena_daily_limit' => $today['daily_limit'],
+        ]);
 
         return $class->fresh();
     }

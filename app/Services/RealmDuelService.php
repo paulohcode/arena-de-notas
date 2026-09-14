@@ -8,6 +8,7 @@ use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Notifications\GameAlert;
+use App\Support\ArenaSchedule;
 use App\Support\ArenaUrl;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -270,20 +271,43 @@ class RealmDuelService
 
     public function toggleRealmArena(Area $area, bool $open): Area
     {
-        $area->update(['realm_arena_open' => $open]);
+        if (! $area->hasRealmArenaSchedule()) {
+            $area->update(['realm_arena_open' => $open]);
+
+            return $area->fresh();
+        }
+
+        $area->update([
+            'realm_arena_schedule' => ArenaSchedule::toggleToday(
+                $area->realm_arena_schedule,
+                $open,
+                (bool) $area->realm_arena_open,
+                (int) ($area->realm_arena_cooldown_minutes ?? 0),
+                (int) ($area->realm_arena_daily_limit ?? RealmDuel::DAILY_RESOLVED_LIMIT),
+            ),
+            'realm_arena_open' => $open,
+        ]);
 
         return $area->fresh();
     }
 
     /**
-     * @param  array{realm_arena_open: bool, realm_arena_cooldown_minutes: int, realm_arena_daily_limit: int}  $settings
+     * @param  array<int, array{open: bool, cooldown_minutes: int, daily_limit: int}>  $schedule
      */
-    public function updateSettings(Area $area, array $settings): Area
+    public function updateSettings(Area $area, array $schedule): Area
     {
+        $today = ArenaSchedule::forToday(
+            $schedule,
+            true,
+            0,
+            RealmDuel::DAILY_RESOLVED_LIMIT,
+        );
+
         $area->update([
-            'realm_arena_open' => $settings['realm_arena_open'],
-            'realm_arena_cooldown_minutes' => $settings['realm_arena_cooldown_minutes'],
-            'realm_arena_daily_limit' => $settings['realm_arena_daily_limit'],
+            'realm_arena_schedule' => $schedule,
+            'realm_arena_open' => $today['open'],
+            'realm_arena_cooldown_minutes' => $today['cooldown_minutes'],
+            'realm_arena_daily_limit' => $today['daily_limit'],
         ]);
 
         return $area->fresh();

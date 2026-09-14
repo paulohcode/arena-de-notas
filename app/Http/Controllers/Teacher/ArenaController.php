@@ -7,6 +7,7 @@ use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Services\DuelService;
 use App\Services\RealmDuelService;
+use App\Support\ArenaSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -38,28 +39,12 @@ class ArenaController extends Controller
     {
         $this->authorize('manage', $schoolClass);
 
-        $data = $request->validate([
-            'arena_open' => ['required', 'boolean'],
-            'arena_cooldown_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
-            'arena_daily_limit' => ['required', 'integer', 'min:1', 'max:50'],
-        ], [
-            'arena_open.required' => 'Informe se a arena está aberta ou fechada.',
-            'arena_open.boolean' => 'O status da arena precisa ser aberto ou fechado.',
-            'arena_cooldown_minutes.required' => 'Informe o tempo de espera entre batalhas.',
-            'arena_cooldown_minutes.integer' => 'O tempo de espera precisa ser um número inteiro de minutos.',
-            'arena_cooldown_minutes.min' => 'O tempo de espera não pode ser negativo.',
-            'arena_cooldown_minutes.max' => 'O tempo de espera não pode passar de 7 dias.',
-            'arena_daily_limit.required' => 'Informe quantas batalhas são permitidas no dia.',
-            'arena_daily_limit.integer' => 'A quantidade de batalhas precisa ser um número inteiro.',
-            'arena_daily_limit.min' => 'É preciso permitir pelo menos 1 batalha por dia.',
-            'arena_daily_limit.max' => 'O limite diário não pode passar de 50 batalhas.',
-        ]);
+        $data = $request->validate(
+            ArenaSchedule::rules('days'),
+            ArenaSchedule::messages('days'),
+        );
 
-        $this->duels->updateSettings($schoolClass, [
-            'arena_open' => $request->boolean('arena_open'),
-            'arena_cooldown_minutes' => (int) $data['arena_cooldown_minutes'],
-            'arena_daily_limit' => (int) $data['arena_daily_limit'],
-        ]);
+        $this->duels->updateSettings($schoolClass, ArenaSchedule::fromValidated($data['days']));
 
         return $this->redirectToArena($schoolClass, 'Configurações da arena salvas.');
     }
@@ -77,10 +62,10 @@ class ArenaController extends Controller
         try {
             $this->realmDuels->staffCancel($realmDuel);
         } catch (ValidationException $exception) {
-            return $this->redirectToArena($schoolClass)->withErrors($exception->errors());
+            return $this->redirectToArena($schoolClass, arenaTab: 'turmas')->withErrors($exception->errors());
         }
 
-        return $this->redirectToArena($schoolClass, 'Desafio entre turmas cancelado.');
+        return $this->redirectToArena($schoolClass, 'Desafio entre turmas cancelado.', 'turmas');
     }
 
     public function updateRealm(Request $request, SchoolClass $schoolClass): RedirectResponse
@@ -90,36 +75,24 @@ class ArenaController extends Controller
         $area = $schoolClass->area;
         abort_unless($area, 404);
 
-        $data = $request->validate([
-            'realm_arena_open' => ['required', 'boolean'],
-            'realm_arena_cooldown_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
-            'realm_arena_daily_limit' => ['required', 'integer', 'min:1', 'max:50'],
-        ], [
-            'realm_arena_open.required' => 'Informe se a arena entre turmas está aberta ou fechada.',
-            'realm_arena_open.boolean' => 'O status da arena entre turmas precisa ser aberto ou fechado.',
-            'realm_arena_cooldown_minutes.required' => 'Informe o tempo de espera entre desafios do reino.',
-            'realm_arena_cooldown_minutes.integer' => 'O tempo de espera precisa ser um número inteiro de minutos.',
-            'realm_arena_cooldown_minutes.min' => 'O tempo de espera não pode ser negativo.',
-            'realm_arena_cooldown_minutes.max' => 'O tempo de espera não pode passar de 7 dias.',
-            'realm_arena_daily_limit.required' => 'Informe quantos duelos do reino são permitidos no dia.',
-            'realm_arena_daily_limit.integer' => 'A quantidade de duelos precisa ser um número inteiro.',
-            'realm_arena_daily_limit.min' => 'É preciso permitir pelo menos 1 duelo do reino por dia.',
-            'realm_arena_daily_limit.max' => 'O limite diário não pode passar de 50 duelos.',
-        ]);
+        $data = $request->validate(
+            ArenaSchedule::rules('realm_days'),
+            ArenaSchedule::messages('realm_days', realm: true),
+        );
 
-        $this->realmDuels->updateSettings($area, [
-            'realm_arena_open' => $request->boolean('realm_arena_open'),
-            'realm_arena_cooldown_minutes' => (int) $data['realm_arena_cooldown_minutes'],
-            'realm_arena_daily_limit' => (int) $data['realm_arena_daily_limit'],
-        ]);
+        $this->realmDuels->updateSettings($area, ArenaSchedule::fromValidated($data['realm_days']));
 
-        return $this->redirectToArena($schoolClass, 'Configurações da arena entre turmas salvas.');
+        return $this->redirectToArena($schoolClass, 'Configurações da arena entre turmas salvas.', 'turmas');
     }
 
-    private function redirectToArena(SchoolClass $schoolClass, ?string $message = null): RedirectResponse
+    private function redirectToArena(SchoolClass $schoolClass, ?string $message = null, string $arenaTab = 'turma'): RedirectResponse
     {
         $response = redirect()
-            ->route('teacher.classes.show', ['schoolClass' => $schoolClass, 'tab' => 'arena']);
+            ->route('teacher.classes.show', [
+                'schoolClass' => $schoolClass,
+                'tab' => 'arena',
+                'arena_tab' => $arenaTab,
+            ]);
 
         return $message ? $response->with('success', $message) : $response;
     }

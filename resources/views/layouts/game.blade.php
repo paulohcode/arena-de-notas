@@ -40,6 +40,7 @@
                 @auth
                     @if(auth()->user()->isAdmin())
                         <a class="game-btn-ghost" href="{{ route('admin.dashboard') }}">Admin</a>
+                        <a class="game-btn-ghost" href="{{ route('admin.arena') }}">Arena</a>
                         <a class="game-btn-ghost" href="{{ route('admin.shop.index') }}">Loja</a>
                         <a class="game-btn-ghost" href="{{ route('admin.currencies.index') }}">Moedas</a>
                         <a class="game-btn-ghost" href="{{ route('teacher.dashboard') }}">Turmas</a>

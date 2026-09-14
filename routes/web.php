@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AreaController as AdminAreaController;
+use App\Http\Controllers\Admin\ArenaController as AdminArenaController;
 use App\Http\Controllers\Admin\CurrencyController as AdminCurrencyController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\GameEventController as AdminGameEventController;
@@ -56,6 +57,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/arena', [AdminArenaController::class, 'index'])->name('arena');
 
     Route::get('/reinos', [AdminAreaController::class, 'index'])->name('areas.index');
     Route::get('/reinos/novo', [AdminAreaController::class, 'create'])->name('areas.create');

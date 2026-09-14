@@ -29,9 +29,9 @@
         @unless($canChallengeRealm)
             <p class="mb-4 text-sm text-amber-200/90">
                 @if($area && ! $area->isRealmArenaOpen())
-                    A arena entre turmas deste reino está fechada.
+                    A arena entre turmas deste reino está fechada hoje.
                 @elseif(! $class->isArenaOpen())
-                    Sua arena está fechada — o professor precisa abrir para você desafiar.
+                    Sua arena está fechada hoje — o professor precisa abrir para você desafiar.
                 @elseif(! $student->hasApprovedPersona())
                     Aprove avatar e nome de jogo para desafiar outras turmas.
                 @endif

@@ -24,8 +24,8 @@
 
 @if(! $class->isArenaOpen())
     <div class="game-card p-5 mb-6 border-amber-400/30">
-        <p class="text-amber-200 font-semibold">A arena está fechada</p>
-        <p class="text-sm text-amber-100/60">O professor precisa abrir a arena antes dos duelos.</p>
+        <p class="text-amber-200 font-semibold">A arena está fechada hoje</p>
+        <p class="text-sm text-amber-100/60">O professor precisa abrir a arena de {{ \App\Support\ArenaSchedule::todayLabel() }} antes dos duelos.</p>
     </div>
 @elseif(! $student->hasApprovedPersona())
     <div class="game-card p-5 mb-6 border-amber-400/30">

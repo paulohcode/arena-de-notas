@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ArenaSchedule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -22,6 +23,7 @@ class Area extends Model
         'realm_arena_open',
         'realm_arena_cooldown_minutes',
         'realm_arena_daily_limit',
+        'realm_arena_schedule',
     ];
 
     /**
@@ -58,6 +60,7 @@ class Area extends Model
             'realm_arena_open' => 'boolean',
             'realm_arena_cooldown_minutes' => 'integer',
             'realm_arena_daily_limit' => 'integer',
+            'realm_arena_schedule' => 'array',
         ];
     }
 
@@ -126,33 +129,62 @@ class Area extends Model
 
     public function isRealmArenaOpen(): bool
     {
-        return (bool) $this->realm_arena_open;
+        return $this->realmArenaToday()['open'];
     }
 
     public function realmArenaCooldownMinutes(): int
     {
-        return max(0, (int) ($this->realm_arena_cooldown_minutes ?? 0));
+        return $this->realmArenaToday()['cooldown_minutes'];
     }
 
     public function realmArenaDailyLimit(): int
     {
-        return max(1, (int) ($this->realm_arena_daily_limit ?? RealmDuel::DAILY_RESOLVED_LIMIT));
+        return $this->realmArenaToday()['daily_limit'];
     }
 
     public function realmArenaCooldownLabel(): string
     {
-        $minutes = $this->realmArenaCooldownMinutes();
+        return ArenaSchedule::cooldownLabel($this->realmArenaCooldownMinutes());
+    }
 
-        if ($minutes === 0) {
-            return 'sem espera';
-        }
+    public function hasRealmArenaSchedule(): bool
+    {
+        return ArenaSchedule::hasSchedule($this->realm_arena_schedule);
+    }
 
-        if ($minutes % 60 === 0) {
-            $hours = intdiv($minutes, 60);
+    /**
+     * @return array<int, array{open: bool, cooldown_minutes: int, daily_limit: int}>
+     */
+    public function realmArenaWeek(): array
+    {
+        return ArenaSchedule::week(
+            $this->realm_arena_schedule,
+            (bool) $this->realm_arena_open,
+            $this->fallbackRealmArenaCooldownMinutes(),
+            $this->fallbackRealmArenaDailyLimit(),
+        );
+    }
 
-            return $hours === 1 ? '1 hora' : $hours.' horas';
-        }
+    /**
+     * @return array{open: bool, cooldown_minutes: int, daily_limit: int}
+     */
+    public function realmArenaToday(): array
+    {
+        return ArenaSchedule::forToday(
+            $this->realm_arena_schedule,
+            (bool) $this->realm_arena_open,
+            $this->fallbackRealmArenaCooldownMinutes(),
+            $this->fallbackRealmArenaDailyLimit(),
+        );
+    }
 
-        return $minutes === 1 ? '1 minuto' : $minutes.' minutos';
+    private function fallbackRealmArenaCooldownMinutes(): int
+    {
+        return max(0, (int) ($this->realm_arena_cooldown_minutes ?? 0));
+    }
+
+    private function fallbackRealmArenaDailyLimit(): int
+    {
+        return max(1, (int) ($this->realm_arena_daily_limit ?? RealmDuel::DAILY_RESOLVED_LIMIT));
     }
 }
