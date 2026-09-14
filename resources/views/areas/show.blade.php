@@ -13,7 +13,7 @@
     @if($area->description)
         <p class="text-amber-100/70 mt-3 max-w-xl mx-auto">{{ $area->description }}</p>
     @endif
-    <p class="text-amber-100/60 mt-3 max-w-xl mx-auto">As turmas deste reino competem entre si. Quem lidera o ranking de guerra abre o Hall.</p>
+    <p class="text-amber-100/60 mt-3 max-w-xl mx-auto">As turmas deste reino competem entre si. A nota vai de 0 a 100, como a dos alunos. Quem lidera abre o Hall.</p>
     <div class="mt-6 flex flex-wrap justify-center gap-3">
         <a href="{{ route('areas.seasons.index', $area) }}" class="game-btn">Temporadas deste reino</a>
     </div>
@@ -33,8 +33,8 @@
                     <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Turma em disputa</p>
                     <h3 class="font-display text-2xl text-amber-200">{{ $class->name }}</h3>
                     <p class="text-amber-100/60 mt-2">{{ $class->year ?: 'Sem ano' }} · modo {{ $class->score_mode === 'up_from_zero' ? 'sobe do 0' : 'cai do 100' }}</p>
-                    <p class="score-chip mt-3">{{ number_format($row['score'], 1) }}</p>
-                    <p class="text-amber-100/45 text-xs mt-1">pontos de guerra · {{ $row['student_count'] }} aluno{{ $row['student_count'] === 1 ? '' : 's' }}</p>
+                    <p class="score-chip mt-3">{{ number_format($row['score'], 1) }} <span class="text-lg text-cyan-300/70">/ 100</span></p>
+                    <p class="text-amber-100/45 text-xs mt-1">nota da turma · {{ $row['student_count'] }} aluno{{ $row['student_count'] === 1 ? '' : 's' }}</p>
                     <p class="mt-4 text-sm text-amber-200/80">Abrir ranking →</p>
                 </div>
             </div>

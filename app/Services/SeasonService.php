@@ -9,17 +9,26 @@ use App\Models\Season;
 
 class SeasonService
 {
-    /** Peso de cada nível na pontuação de níveis da turma. */
+    /** Score de níveis na escala de nota 0–100 (Iniciante já começa em 60). */
     private const LEVEL_WEIGHTS = [
-        'iniciante' => 1,
-        'aprendiz' => 2,
-        'pleno' => 3,
-        'expert' => 4,
-        'mestre' => 5,
+        'iniciante' => 60,
+        'aprendiz' => 70,
+        'pleno' => 80,
+        'expert' => 90,
+        'mestre' => 100,
     ];
 
-    /** Nível máximo de peso (Mestre = 5) usado para normalizar em 0–100. */
-    private const MAX_LEVEL_WEIGHT = 5;
+    /** Piso da escala de níveis (turma só de Iniciantes). */
+    private const LEVEL_SCORE_FLOOR = 60.0;
+
+    /** Medalhas por aluno para o score de medalhas chegar a 100. */
+    private const BADGES_PER_STUDENT_FOR_MAX = 5;
+
+    /** Bônus máximo de níveis somado à média acadêmica. */
+    private const LEVEL_BONUS_MAX = 10.0;
+
+    /** Bônus máximo de medalhas somado à média acadêmica. */
+    private const BADGE_BONUS_MAX = 10.0;
 
     public function __construct(
         private GradeCalculator $grades,
@@ -81,7 +90,7 @@ class SeasonService
     }
 
     /**
-     * Calcula o score de uma única turma.
+     * Calcula a nota da turma em 0–100: média acadêmica + bônus de níveis e medalhas.
      *
      * @return array{
      *     position: int,
@@ -102,57 +111,32 @@ class SeasonService
         $guilds = $this->ranking->guilds($class);
         $studentCount = count($players);
 
-        // Componente 1: média individual dos alunos (0–100)
         $avgIndividual = $studentCount > 0
             ? (float) collect($players)->avg('average')
             : 0.0;
 
-        // Componente 2: média das guildas (0–100)
         $guildCount = count($guilds);
         $avgGuilds = $guildCount > 0
             ? (float) collect($guilds)->avg('score')
             : 0.0;
 
-        // Componente 3: score de níveis ponderado (0–100)
         $levelDistribution = array_fill_keys(array_keys(self::LEVEL_WEIGHTS), 0);
         foreach ($players as $row) {
-            $xp = $row['xp'];
-            $level = $this->grades->levelFromXp($xp);
+            $level = $this->grades->levelFromXp($row['xp']);
             $key = $level['key'];
             if (isset($levelDistribution[$key])) {
                 $levelDistribution[$key]++;
             }
         }
 
-        $levelWeightSum = 0;
-        foreach ($levelDistribution as $key => $count) {
-            $levelWeightSum += ($count * (self::LEVEL_WEIGHTS[$key] ?? 1));
-        }
-
-        $maxPossibleLevelWeight = $studentCount * self::MAX_LEVEL_WEIGHT;
-        $levelScore = $maxPossibleLevelWeight > 0
-            ? min(100.0, ($levelWeightSum / $maxPossibleLevelWeight) * 100)
-            : 0.0;
-
-        // Componente 4: score de medalhas (total de medalhas / alunos * 10, max 100)
-        $totalBadges = Badge::query()
-            ->join('user_badges', 'badges.id', '=', 'user_badges.badge_id')
-            ->join('enrollments', function ($join) use ($class) {
-                $join->on('user_badges.user_id', '=', 'enrollments.student_id')
-                    ->where('enrollments.class_id', '=', $class->id);
-            })
-            ->where('user_badges.class_id', $class->id)
-            ->count();
-
-        $badgeScore = $studentCount > 0
-            ? min(100.0, ($totalBadges / $studentCount) * 10)
-            : 0.0;
-
-        // Score final: média aritmética dos 4 componentes
-        $score = round(($avgIndividual + $avgGuilds + $levelScore + $badgeScore) / 4, 2);
+        $levelScore = $this->levelScore($levelDistribution, $studentCount);
+        $totalBadges = $this->classBadgeCount($class);
+        $badgeScore = $this->badgeScore($totalBadges, $studentCount);
+        $academic = $this->academicAverage($class, $avgIndividual, $avgGuilds, $guildCount);
+        $score = $this->warScore($academic, $levelScore, $badgeScore);
 
         return [
-            'position' => 0, // preenchido em rankClassRows()
+            'position' => 0,
             'class' => $class,
             'score' => $score,
             'avg_individual' => round($avgIndividual, 2),
@@ -163,6 +147,74 @@ class SeasonService
             'total_badges' => $totalBadges,
             'student_count' => $studentCount,
         ];
+    }
+
+    /**
+     * Média acadêmica em 0–100. Guildas só entram quando há atividade de equipe;
+     * turma sem guilda não conta como zero.
+     */
+    private function academicAverage(SchoolClass $class, float $avgIndividual, float $avgGuilds, int $guildCount): float
+    {
+        $parts = [$avgIndividual];
+
+        $includeGuilds = $guildCount > 0 && $class->activities()->where('type', 'team')->exists();
+        if ($includeGuilds) {
+            $parts[] = $avgGuilds;
+        }
+
+        return array_sum($parts) / count($parts);
+    }
+
+    /**
+     * @param  array<string, int>  $levelDistribution
+     */
+    private function levelScore(array $levelDistribution, int $studentCount): float
+    {
+        if ($studentCount === 0) {
+            return 0.0;
+        }
+
+        $weightSum = 0;
+        foreach ($levelDistribution as $key => $count) {
+            $weightSum += ($count * (self::LEVEL_WEIGHTS[$key] ?? self::LEVEL_SCORE_FLOOR));
+        }
+
+        return min(100.0, $weightSum / $studentCount);
+    }
+
+    private function classBadgeCount(SchoolClass $class): int
+    {
+        return (int) Badge::query()
+            ->join('user_badges', 'badges.id', '=', 'user_badges.badge_id')
+            ->join('enrollments', function ($join) use ($class) {
+                $join->on('user_badges.user_id', '=', 'enrollments.student_id')
+                    ->where('enrollments.class_id', '=', $class->id);
+            })
+            ->where('user_badges.class_id', $class->id)
+            ->count();
+    }
+
+    private function badgeScore(int $totalBadges, int $studentCount): float
+    {
+        if ($studentCount === 0) {
+            return 0.0;
+        }
+
+        return min(100.0, ($totalBadges / $studentCount / self::BADGES_PER_STUDENT_FOR_MAX) * 100);
+    }
+
+    /**
+     * Nota da turma em 0–100: média acadêmica + até 10 de níveis + até 10 de medalhas.
+     */
+    private function warScore(float $academic, float $levelScore, float $badgeScore): float
+    {
+        $levelSpan = 100.0 - self::LEVEL_SCORE_FLOOR;
+        $levelBonus = $levelSpan > 0
+            ? max(0.0, ($levelScore - self::LEVEL_SCORE_FLOOR) / $levelSpan) * self::LEVEL_BONUS_MAX
+            : 0.0;
+        $badgeBonus = ($badgeScore / 100) * self::BADGE_BONUS_MAX;
+
+        return $this->grades->clamp($academic + $levelBonus + $badgeBonus);
     }
 
     /**

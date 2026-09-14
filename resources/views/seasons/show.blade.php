@@ -13,6 +13,8 @@
     @endif
 </div>
 
+<p class="text-amber-100/55 text-sm mb-6 reveal">Nota de 0 a 100: média dos alunos (e das guildas, se houver atividade de equipe), mais até 10 pontos de níveis e 10 de medalhas.</p>
+
 @if(count($ranking) === 0)
     <div class="game-card p-8 text-center text-amber-100/60 reveal">
         Nenhuma turma vinculada a esta temporada ainda.
@@ -45,8 +47,8 @@
                 @endif
                 <p class="font-display text-4xl text-amber-300">{{ $podiumLabels[$row['position']] ?? $row['position'].'º' }}</p>
                 <p class="font-semibold text-amber-50 mt-2">{{ $row['class']->name }}</p>
-                <p class="score-chip mt-2">{{ number_format($row['score'], 1) }}</p>
-                <p class="text-amber-100/45 text-xs mt-1">pontos de guerra</p>
+                <p class="score-chip mt-2">{{ number_format($row['score'], 1) }} <span class="text-lg text-cyan-300/70">/ 100</span></p>
+                <p class="text-amber-100/45 text-xs mt-1">nota da turma</p>
             </div>
         @endforeach
     </div>
@@ -65,8 +67,8 @@
                         </div>
                     </div>
                     <div class="text-right">
-                        <p class="score-chip">{{ number_format($row['score'], 1) }}</p>
-                        <p class="text-amber-100/45 text-xs">score final</p>
+                        <p class="score-chip">{{ number_format($row['score'], 1) }} <span class="text-lg text-cyan-300/70">/ 100</span></p>
+                        <p class="text-amber-100/45 text-xs">nota da turma</p>
                     </div>
                 </div>
 
