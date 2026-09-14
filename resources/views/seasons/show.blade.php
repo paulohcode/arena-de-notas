@@ -11,6 +11,20 @@
     @if($season->description)
         <p class="text-amber-100/70 mt-2">{{ $season->description }}</p>
     @endif
+    @if($season->hasBoss())
+        @php $boss = $season->bossMeta(); @endphp
+        <div class="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-violet-400/25 bg-violet-950/30 px-4 py-3">
+            <span class="text-4xl">{{ $boss['icon'] }}</span>
+            <div>
+                <p class="font-display text-lg text-violet-200">{{ $season->bossDisplayName() }}</p>
+                <p class="text-sm text-amber-100/60">{{ $boss['blurb'] }}</p>
+                <p class="text-xs text-amber-100/45 mt-1">
+                    {{ \App\Support\BossArchetypeCatalog::difficultyLabel($season->boss_difficulty) }}
+                    · Vigília {{ $season->vigil_open ? 'aberta' : 'fechada' }}
+                </p>
+            </div>
+        </div>
+    @endif
 </div>
 
 <p class="text-amber-100/55 text-sm mb-6 reveal">Nota de 0 a 100: média dos alunos. Níveis e medalhas aparecem nos detalhes e só desempatam o ranking.</p>

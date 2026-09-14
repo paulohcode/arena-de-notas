@@ -10,7 +10,6 @@ use App\Models\Season;
 use App\Models\SeasonClassRite;
 use App\Services\ArenaCombatService;
 use App\Services\BossRiteService;
-use App\Support\ArenaUrl;
 use App\Support\BossArchetypeCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,15 +76,14 @@ class BossRiteController extends Controller
     private function currentClass(Request $request): ?SchoolClass
     {
         $student = $request->user();
-        $classId = $request->session()->get('student_class_id');
-
-        if ($classId) {
-            $class = $student->enrolledClasses()->where('classes.id', $classId)->first();
+        $id = $request->session()->get('current_class_id');
+        if ($id) {
+            $class = $student->classes()->where('classes.id', $id)->first();
             if ($class) {
                 return $class;
             }
         }
 
-        return $student->enrolledClasses()->orderBy('name')->first();
+        return $student->classes()->orderBy('name')->first();
     }
 }

@@ -141,10 +141,15 @@ function playKind(ctx, kind, classKey) {
             beep(ctx, { type: 'triangle', freq: 520, duration: 0.18, gain: 0.045 });
             beep(ctx, { type: 'triangle', freq: 780, duration: 0.14, gain: 0.03, delay: 0.1 });
             break;
+        case 'boss_phase':
+            beep(ctx, { type: 'sawtooth', freq: 90, endFreq: 160, duration: 0.22, gain: 0.05 });
+            beep(ctx, { type: 'sine', freq: 440, endFreq: 660, duration: 0.2, gain: 0.035, delay: 0.08 });
+            break;
         case 'level':
         case 'badge':
         case 'duel_challenge':
         case 'realm_duel_challenge':
+        case 'season_rite':
             beep(ctx, { type: 'triangle', freq: 660, duration: 0.16, gain: 0.04 });
             break;
         default:

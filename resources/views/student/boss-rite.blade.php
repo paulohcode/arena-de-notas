@@ -10,13 +10,16 @@
     $damageBoard = $log['damage_board'] ?? [];
 
     $fights = [];
+    $fighterIds = collect($waves)->pluck('challenger_id')->filter()->unique()->values()->all();
+    $fightersById = \App\Models\User::query()->whereIn('id', $fighterIds)->get()->keyBy('id');
+
     foreach ($waves as $wave) {
         $leftSnap = $wave['fighters']['challenger'] ?? null;
         $rightSnap = $wave['fighters']['opponent'] ?? null;
         if (! $leftSnap || ! $rightSnap) {
             continue;
         }
-        $leftUser = \App\Models\User::query()->find($wave['challenger_id']);
+        $leftUser = $fightersById->get($wave['challenger_id']);
         if (! $leftUser) {
             continue;
         }
