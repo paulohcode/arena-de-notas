@@ -43,35 +43,7 @@ class ClassWarRankingTest extends TestCase
         $this->assertSame(90.0, $row['score']);
     }
 
-    public function test_master_level_adds_ten_points_to_the_academic_average(): void
-    {
-        $class = $this->classWithGradedStudent(80, xp: 1000);
-
-        $row = app(SeasonService::class)->scoreClass($class);
-
-        $this->assertSame(100.0, $row['level_score']);
-        $this->assertSame(100.0, $row['score']);
-    }
-
-    public function test_one_badge_per_student_adds_two_points_to_the_class_score(): void
-    {
-        $class = $this->classWithGradedStudent(80, xp: 0);
-        $student = $class->students()->first();
-        $badge = Badge::query()->create([
-            'slug' => 'podio-guerra',
-            'name' => 'Pódio',
-            'description' => 'Entrou no top 3.',
-            'icon' => '🏆',
-        ]);
-        $student->badges()->attach($badge->id, ['class_id' => $class->id]);
-
-        $row = app(SeasonService::class)->scoreClass($class->fresh());
-
-        $this->assertSame(20.0, $row['badge_score']);
-        $this->assertSame(92.0, $row['score']);
-    }
-
-    public function test_class_war_score_never_exceeds_one_hundred(): void
+    public function test_master_level_and_badges_do_not_cap_the_class_score_to_one_hundred(): void
     {
         $class = $this->classWithGradedStudent(80, xp: 1000);
         $student = $class->students()->first();
@@ -86,6 +58,35 @@ class ClassWarRankingTest extends TestCase
         }
 
         $row = app(SeasonService::class)->scoreClass($class->fresh());
+
+        $this->assertSame(100.0, $row['level_score']);
+        $this->assertSame(100.0, $row['badge_score']);
+        $this->assertSame(90.0, $row['score']);
+    }
+
+    public function test_one_badge_does_not_change_the_class_average(): void
+    {
+        $class = $this->classWithGradedStudent(80, xp: 0);
+        $student = $class->students()->first();
+        $badge = Badge::query()->create([
+            'slug' => 'podio-guerra',
+            'name' => 'Pódio',
+            'description' => 'Entrou no top 3.',
+            'icon' => '🏆',
+        ]);
+        $student->badges()->attach($badge->id, ['class_id' => $class->id]);
+
+        $row = app(SeasonService::class)->scoreClass($class->fresh());
+
+        $this->assertSame(20.0, $row['badge_score']);
+        $this->assertSame(90.0, $row['score']);
+    }
+
+    public function test_class_war_score_never_exceeds_one_hundred(): void
+    {
+        $class = $this->classWithGradedStudent(100, xp: 0);
+
+        $row = app(SeasonService::class)->scoreClass($class);
 
         $this->assertSame(100.0, $row['score']);
     }
@@ -127,7 +128,37 @@ class ClassWarRankingTest extends TestCase
 
         $row = app(SeasonService::class)->scoreClass($class->fresh(['students', 'teams.members']));
 
-        $this->assertSame(75.0, $row['score']);
+        $this->assertSame(80.0, $row['score']);
+    }
+
+    public function test_two_classes_keep_distinct_averages_instead_of_both_showing_one_hundred(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $area = $this->createAreaForTeacher($teacher, ['slug' => 'reino-duas-turmas']);
+        $this->classWithGradedStudent(80, xp: 1000, teacher: $teacher, area: $area, name: 'Turma Alta');
+        $this->classWithGradedStudent(70, xp: 1000, teacher: $teacher, area: $area, name: 'Turma Baixa');
+
+        $ranking = app(SeasonService::class)->areaClassRanking($area);
+
+        $this->assertSame('Turma Alta', $ranking[0]['class']->name);
+        $this->assertSame(90.0, $ranking[0]['score']);
+        $this->assertSame('Turma Baixa', $ranking[1]['class']->name);
+        $this->assertSame(85.0, $ranking[1]['score']);
+    }
+
+    public function test_higher_level_breaks_a_tie_on_class_average(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $area = $this->createAreaForTeacher($teacher, ['slug' => 'reino-empate']);
+        $this->classWithGradedStudent(80, xp: 0, teacher: $teacher, area: $area, name: 'Turma Iniciante');
+        $this->classWithGradedStudent(80, xp: 1000, teacher: $teacher, area: $area, name: 'Turma Mestre');
+
+        $ranking = app(SeasonService::class)->areaClassRanking($area);
+
+        $this->assertSame('Turma Mestre', $ranking[0]['class']->name);
+        $this->assertSame(90.0, $ranking[0]['score']);
+        $this->assertSame('Turma Iniciante', $ranking[1]['class']->name);
+        $this->assertSame(90.0, $ranking[1]['score']);
     }
 
     public function test_area_page_shows_the_class_score_out_of_one_hundred(): void

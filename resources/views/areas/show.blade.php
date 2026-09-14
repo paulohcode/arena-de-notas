@@ -13,7 +13,7 @@
     @if($area->description)
         <p class="text-amber-100/70 mt-3 max-w-xl mx-auto">{{ $area->description }}</p>
     @endif
-    <p class="text-amber-100/60 mt-3 max-w-xl mx-auto">As turmas deste reino competem entre si. A nota vai de 0 a 100, como a dos alunos. Quem lidera abre o Hall.</p>
+    <p class="text-amber-100/60 mt-3 max-w-xl mx-auto">As turmas deste reino competem entre si. A nota é a média da turma, de 0 a 100. Níveis e medalhas só desempatam. Quem lidera abre o Hall.</p>
     <div class="mt-6 flex flex-wrap justify-center gap-3">
         <a href="{{ route('areas.seasons.index', $area) }}" class="game-btn">Temporadas deste reino</a>
     </div>

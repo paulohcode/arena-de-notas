@@ -13,7 +13,7 @@
     @endif
 </div>
 
-<p class="text-amber-100/55 text-sm mb-6 reveal">Nota de 0 a 100: média dos alunos (e das guildas, se houver atividade de equipe), mais até 10 pontos de níveis e 10 de medalhas.</p>
+<p class="text-amber-100/55 text-sm mb-6 reveal">Nota de 0 a 100: média dos alunos. Níveis e medalhas aparecem nos detalhes e só desempatam o ranking.</p>
 
 @if(count($ranking) === 0)
     <div class="game-card p-8 text-center text-amber-100/60 reveal">

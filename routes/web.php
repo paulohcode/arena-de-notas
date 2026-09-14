@@ -16,6 +16,7 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\SeasonRankingController;
 use App\Http\Controllers\Student\ArenaController as StudentArenaController;
+use App\Http\Controllers\Student\BossRiteController as StudentBossRiteController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\Student\GameEventController as StudentGameEventController;
 use App\Http\Controllers\Student\ShopController as StudentShopController;
@@ -166,6 +167,10 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::get('/temporadas/{season}/editar', [SeasonController::class, 'edit'])->name('seasons.edit');
     Route::put('/temporadas/{season}', [SeasonController::class, 'update'])->name('seasons.update');
     Route::delete('/temporadas/{season}', [SeasonController::class, 'destroy'])->name('seasons.destroy');
+    Route::post('/temporadas/{season}/vigilia/abrir', [SeasonController::class, 'openVigil'])->name('seasons.vigil.open');
+    Route::post('/temporadas/{season}/vigilia/fechar', [SeasonController::class, 'closeVigil'])->name('seasons.vigil.close');
+    Route::post('/temporadas/{season}/turmas/{schoolClass}/rito/abrir', [SeasonController::class, 'openRite'])->name('seasons.rite.open');
+    Route::post('/temporadas/{season}/turmas/{schoolClass}/rito/resolver', [SeasonController::class, 'resolveRite'])->name('seasons.rite.resolve');
 });
 
 Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')->name('student.')->group(function () {
@@ -199,6 +204,10 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::get('/arena/reino/{realmDuel}/status', [StudentArenaController::class, 'statusRealm'])->name('arena.realm.status');
         Route::post('/arena/reino/{realmDuel}/aceitar', [StudentArenaController::class, 'acceptRealm'])->name('arena.realm.accept');
         Route::post('/arena/reino/{realmDuel}/recusar', [StudentArenaController::class, 'declineRealm'])->name('arena.realm.decline');
+
+        Route::post('/arena/rito/{season}/sombra', [StudentBossRiteController::class, 'challengeShadow'])->name('arena.vigil.challenge');
+        Route::get('/arena/vigilia/{vigil}', [StudentBossRiteController::class, 'showVigil'])->name('arena.vigil.show');
+        Route::get('/arena/rito/{rite}', [StudentBossRiteController::class, 'showRite'])->name('arena.rite.show');
 
         Route::get('/loja', [StudentShopController::class, 'index'])->name('shop.index');
         Route::post('/loja/comprar', [StudentShopController::class, 'purchase'])->name('shop.purchase');

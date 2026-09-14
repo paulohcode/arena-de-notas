@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Enrollment;
 use App\Models\SchoolClass;
 use App\Models\User;
+use App\Support\BossArchetypeCatalog;
 use App\Support\CosmeticCatalog;
 use App\Support\SeededRandom;
 use InvalidArgumentException;
@@ -12,6 +13,14 @@ use InvalidArgumentException;
 class ArenaCombatService
 {
     public const MAX_TURNS = 12;
+
+    /** ID fictício do chefão / Sombra nos logs de combate. */
+    public const BOSS_FIGHTER_ID = -1;
+
+    /** Limiares de HP (fração do max) que avançam a fase do rito. */
+    public const PHASE_PROVA_AT = 0.66;
+
+    public const PHASE_VEREDITO_AT = 0.33;
 
     /**
      * Peso máximo da média acadêmica no poder (provas, comportamento).
@@ -175,6 +184,250 @@ class ArenaCombatService
                 'challenger' => $this->publicFighterSnapshot($challengerFighter, $fighters['challenger']['hp']),
                 'opponent' => $this->publicFighterSnapshot($opponentFighter, $fighters['opponent']['hp']),
             ],
+        ];
+    }
+
+    /**
+     * Resolve aluno × chefão (Sombra ou um round do Rito) com fases de HP.
+     *
+     * @param  array<string, mixed>  $bossFighter
+     * @return array{
+     *     winner_id: int,
+     *     winner_reason: string,
+     *     turns: list<array{turn: int, actor_id: int, action: string, amount: int, actor_hp: int, target_hp: int, text: string, phase: string}>,
+     *     fighters: array{challenger: array<string, mixed>, opponent: array<string, mixed>},
+     *     boss_hp_start: int,
+     *     boss_hp_end: int,
+     *     damage_dealt: int
+     * }
+     */
+    public function resolveAgainstBoss(
+        User $challenger,
+        SchoolClass $class,
+        array $bossFighter,
+        int $seed,
+        ?float $luckRange = null,
+    ): array {
+        $challengerFighter = $this->buildFighter($challenger, $class);
+        $rng = new SeededRandom($seed);
+        $luck = $luckRange ?? self::LUCK_RANGE;
+        $challengerFighter = $this->applyArenaFortune($challengerFighter, $rng, $luck);
+
+        $bossStart = $bossFighter;
+        $bossStartHp = (int) $bossFighter['hp'];
+        $bossMaxHp = (int) $bossFighter['max_hp'];
+
+        $order = $challengerFighter['spd'] >= $bossFighter['spd']
+            ? ['challenger', 'opponent']
+            : ['opponent', 'challenger'];
+
+        if ($challengerFighter['spd'] === $bossFighter['spd'] && $rng->nextFloat() < 0.5) {
+            $order = ['opponent', 'challenger'];
+        }
+
+        $fighters = [
+            'challenger' => $challengerFighter,
+            'opponent' => $bossFighter,
+        ];
+
+        $turns = [];
+        $phaseOrder = ['julgamento' => 0, 'prova' => 1, 'veredito' => 2];
+        $currentPhase = $this->bossPhaseForHp((int) $fighters['opponent']['hp'], $bossMaxHp);
+        $this->applyBossPhaseModifiers($fighters['opponent'], $currentPhase, $challengerFighter);
+
+        for ($turn = 1; $turn <= self::MAX_TURNS; $turn++) {
+            foreach ($order as $side) {
+                $actor = &$fighters[$side];
+                $targetSide = $side === 'challenger' ? 'opponent' : 'challenger';
+                $target = &$fighters[$targetSide];
+
+                if ($actor['hp'] <= 0 || $target['hp'] <= 0) {
+                    break 2;
+                }
+
+                $detected = $this->bossPhaseForHp((int) $fighters['opponent']['hp'], $bossMaxHp);
+                if (($phaseOrder[$detected] ?? 0) > ($phaseOrder[$currentPhase] ?? 0)) {
+                    $currentPhase = $detected;
+                    $this->applyBossPhaseModifiers($fighters['opponent'], $currentPhase, $challengerFighter);
+                }
+
+                $turnLog = $this->actBossRound($rng, $turn, $actor, $target, $currentPhase, $side === 'opponent');
+                $turns[] = $turnLog;
+
+                unset($actor, $target);
+
+                if ($fighters['challenger']['hp'] <= 0 || $fighters['opponent']['hp'] <= 0) {
+                    break 2;
+                }
+            }
+        }
+
+        $bossEndHp = max(0, (int) $fighters['opponent']['hp']);
+        [$winnerId, $winnerReason] = $this->decideWinner(
+            $fighters,
+            $challenger->id,
+            self::BOSS_FIGHTER_ID,
+        );
+
+        return [
+            'winner_id' => $winnerId,
+            'winner_reason' => $winnerReason,
+            'turns' => $turns,
+            'fighters' => [
+                'challenger' => $this->publicFighterSnapshot($challengerFighter, $fighters['challenger']['hp']),
+                'opponent' => $this->publicFighterSnapshot($bossStart, $bossEndHp),
+            ],
+            'boss_hp_start' => $bossStartHp,
+            'boss_hp_end' => $bossEndHp,
+            'damage_dealt' => max(0, $bossStartHp - $bossEndHp),
+        ];
+    }
+
+    /**
+     * Monta o fighter do chefão a partir do arquétipo e dificuldade da temporada.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildBossFighter(string $archetypeKey, string $difficulty, bool $shadow = false, ?int $overrideMaxHp = null, ?int $overrideHp = null): array
+    {
+        $meta = BossArchetypeCatalog::get($archetypeKey);
+        if ($meta === null) {
+            throw new InvalidArgumentException('Arquétipo de chefão inválido.');
+        }
+
+        $power = BossArchetypeCatalog::difficultyPower($difficulty);
+        $maxHp = $overrideMaxHp ?? max(1, (int) round($meta['hp'] * $power * ($shadow ? BossArchetypeCatalog::SHADOW_HP_MULT : 1.0)));
+        $hp = $overrideHp ?? $maxHp;
+        $atk = max(1, (int) round($meta['atk'] * $power));
+        $def = max(0, (int) round($meta['def'] * $power));
+        $spd = max(1, (int) round($meta['spd'] * $power));
+        $phaseKey = $this->bossPhaseForHp($hp, $maxHp);
+        $phase = $meta['phases'][$phaseKey];
+
+        return [
+            'id' => self::BOSS_FIGHTER_ID,
+            'name' => $meta['name'],
+            'arena_name' => $shadow ? 'Sombra — '.$meta['name'] : $meta['name'],
+            'class' => $meta['name'],
+            'class_key' => $archetypeKey,
+            'class_role' => 'boss',
+            'strike' => $phase['strike'],
+            'heal_verb' => $phase['heal_verb'],
+            'icon' => $meta['icon'],
+            'tone' => $meta['tone'],
+            'max_hp' => $maxHp,
+            'hp' => max(0, min($maxHp, $hp)),
+            'atk' => $atk,
+            'def' => $def,
+            'spd' => $spd,
+            'heal_chance' => (float) $phase['heal_chance'],
+            'power' => round($power, 3),
+            'is_boss' => true,
+            'archetype' => $archetypeKey,
+            'base_atk' => $atk,
+            'phase_atk_mult' => (float) $phase['atk_mult'],
+            'armor_pierce' => (float) $phase['armor_pierce'],
+            'phases' => $meta['phases'],
+            'breakdown' => [
+                'difficulty' => $difficulty,
+                'difficulty_label' => BossArchetypeCatalog::difficultyLabel($difficulty),
+                'shadow' => $shadow,
+                'archetype' => $archetypeKey,
+            ],
+        ];
+    }
+
+    public function bossPhaseForHp(int $hp, int $maxHp): string
+    {
+        if ($maxHp <= 0) {
+            return 'veredito';
+        }
+
+        $ratio = $hp / $maxHp;
+
+        if ($ratio <= self::PHASE_VEREDITO_AT) {
+            return 'veredito';
+        }
+
+        if ($ratio <= self::PHASE_PROVA_AT) {
+            return 'prova';
+        }
+
+        return 'julgamento';
+    }
+
+    /**
+     * @param  array<string, mixed>  $boss
+     * @param  array<string, mixed>  $challenger
+     */
+    private function applyBossPhaseModifiers(array &$boss, string $phaseKey, array $challenger): void
+    {
+        $phase = $boss['phases'][$phaseKey] ?? null;
+        if ($phase === null) {
+            return;
+        }
+
+        $boss['strike'] = $phase['strike'];
+        if (! empty($phase['mirror']) && filled($challenger['strike'] ?? null)) {
+            $boss['strike'] = $challenger['strike'];
+        }
+
+        $boss['heal_verb'] = $phase['heal_verb'];
+        $boss['heal_chance'] = (float) $phase['heal_chance'];
+        $boss['phase_atk_mult'] = (float) $phase['atk_mult'];
+        $boss['armor_pierce'] = (float) $phase['armor_pierce'];
+        $boss['atk'] = max(1, (int) round(($boss['base_atk'] ?? $boss['atk']) * $boss['phase_atk_mult']));
+    }
+
+    /**
+     * @param  array<string, mixed>  $actor
+     * @param  array<string, mixed>  $target
+     * @return array{turn: int, actor_id: int, action: string, amount: int, actor_hp: int, target_hp: int, text: string, phase: string}
+     */
+    private function actBossRound(SeededRandom $rng, int $turn, array &$actor, array &$target, string $phase, bool $actorIsBoss): array
+    {
+        $label = $actor['arena_name'] ?: $actor['name'];
+        $targetLabel = $target['arena_name'] ?: $target['name'];
+
+        if ($actor['heal_chance'] > 0 && $actor['hp'] < $actor['max_hp'] && $rng->nextFloat() < $actor['heal_chance']) {
+            $heal = max(1, (int) round($actor['atk'] * (0.45 + $rng->nextFloat() * 0.35)));
+            $actor['hp'] = min($actor['max_hp'], $actor['hp'] + $heal);
+
+            return [
+                'turn' => $turn,
+                'actor_id' => $actor['id'],
+                'action' => 'heal',
+                'amount' => $heal,
+                'actor_hp' => $actor['hp'],
+                'target_hp' => $target['hp'],
+                'text' => "{$label} {$actor['heal_verb']} {$heal} de vida.",
+                'phase' => $phase,
+            ];
+        }
+
+        $pierce = $actorIsBoss ? (float) ($actor['armor_pierce'] ?? 0) : 0.0;
+        $effectiveDef = (int) floor($target['def'] * (1 - max(0, min(1, $pierce))));
+        $base = max(1, $actor['atk'] - (int) floor($effectiveDef / 2));
+        $variance = 0.8 + ($rng->nextFloat() * 0.4);
+        $damage = max(1, (int) round($base * $variance));
+        $target['hp'] = max(0, $target['hp'] - $damage);
+
+        $phaseLabel = '';
+        if ($actorIsBoss && $phase === 'veredito') {
+            $phaseLabel = ' [Veredito]';
+        } elseif ($actorIsBoss && $phase === 'prova') {
+            $phaseLabel = ' [Prova]';
+        }
+
+        return [
+            'turn' => $turn,
+            'actor_id' => $actor['id'],
+            'action' => 'attack',
+            'amount' => $damage,
+            'actor_hp' => $actor['hp'],
+            'target_hp' => $target['hp'],
+            'text' => "{$label} {$actor['strike']} {$targetLabel} por {$damage} de dano.{$phaseLabel}",
+            'phase' => $phase,
         ];
     }
 
@@ -389,7 +642,7 @@ class ArenaCombatService
      */
     private function publicFighterSnapshot(array $start, int $finalHp): array
     {
-        return [
+        $snapshot = [
             'id' => $start['id'],
             'name' => $start['name'],
             'arena_name' => $start['arena_name'],
@@ -402,5 +655,15 @@ class ArenaCombatService
             'power' => $start['power'],
             'breakdown' => $start['breakdown'],
         ];
+
+        if (! empty($start['is_boss'])) {
+            $snapshot['is_boss'] = true;
+            $snapshot['class_key'] = $start['class_key'] ?? null;
+            $snapshot['icon'] = $start['icon'] ?? null;
+            $snapshot['tone'] = $start['tone'] ?? null;
+            $snapshot['archetype'] = $start['archetype'] ?? null;
+        }
+
+        return $snapshot;
     }
 }
