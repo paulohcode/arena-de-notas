@@ -52,7 +52,7 @@
     "src": "_outfit-700-normal-D4itBLBr.woff"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BRfdGF-B.css",
+    "file": "assets/app-D4vW-EVq.css",
     "name": "app",
     "names": [
       "app.css"
@@ -61,7 +61,7 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-Dh90vow1.js",
+    "file": "assets/app-CYjuMFJZ.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true

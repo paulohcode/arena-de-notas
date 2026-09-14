@@ -164,8 +164,8 @@ export function duelBattle(payload) {
                 }
             }
 
-            this.$nextTick(() => {
-                const box = this.$refs.logBox;
+            this.$nextTick?.(() => {
+                const box = this.$refs?.logBox;
                 if (box) {
                     box.scrollTop = box.scrollHeight;
                 }

@@ -287,6 +287,30 @@ class ArenaGuildBattleTest extends TestCase
             ->assertSee('0/1 batalha hoje');
     }
 
+    public function test_resolved_guild_battle_page_renders_war_stage_and_skip_controls(): void
+    {
+        [$class, $challenger, $alpha, $beta, $defender] = $this->readyGuilds(arenaOpen: true);
+        $secondAlpha = $this->enrollStudent($class, 'Carla Dias', approvedPersona: true, characterClass: 'arqueiro');
+        $secondBeta = $this->enrollStudent($class, 'Diego Alves', approvedPersona: true, characterClass: 'paladino');
+        $alpha->members()->attach($secondAlpha->id);
+        $beta->members()->attach($secondBeta->id);
+
+        $battle = $this->resolveBattle($challenger, $defender, $beta);
+
+        $this->actingAs($challenger)
+            ->get(route('student.arena.guild.show', $battle))
+            ->assertOk()
+            ->assertSee('Guerra de guildas')
+            ->assertSee('Pular combate')
+            ->assertSee('Pular tudo')
+            ->assertSee('A GUERRA COMEÇA')
+            ->assertSee('data-guild-war', false)
+            ->assertSee('Heroi Ana Souza')
+            ->assertSee('Heroi Bruno Lima')
+            ->assertSee('Heroi Carla Dias')
+            ->assertSee('Heroi Diego Alves');
+    }
+
     /**
      * @return array{0: SchoolClass, 1: User, 2: Team, 3: Team, 4: User}
      */
