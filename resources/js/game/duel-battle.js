@@ -3,16 +3,20 @@ import { playArenaSound, unlockArenaAudio } from './sound';
 export function duelBattle(payload) {
     const leftId = Number(payload.left?.id);
     const rightId = Number(payload.right?.id);
+    const phaseOrder = { julgamento: 0, prova: 1, veredito: 2 };
 
     return {
-        left: { ...payload.left, id: leftId, hp: payload.left.maxHp, hit: false, healed: false, striking: false },
-        right: { ...payload.right, id: rightId, hp: payload.right.maxHp, hit: false, healed: false, striking: false },
+        left: { ...payload.left, id: leftId, hp: payload.left.maxHp, hit: false, healed: false, striking: false, isBoss: Boolean(payload.left?.isBoss) },
+        right: { ...payload.right, id: rightId, hp: payload.right.maxHp, hit: false, healed: false, striking: false, isBoss: Boolean(payload.right?.isBoss) },
         turns: payload.turns || [],
         winnerId: Number(payload.winnerId),
         viewerId: Number(payload.viewerId),
         gloryWin: payload.gloryWin,
         gloryLoss: payload.gloryLoss,
         rewardLabel: payload.rewardLabel || 'Glória',
+        mode: payload.mode || 'duel',
+        markEarned: Boolean(payload.markEarned),
+        currentPhase: 'julgamento',
         index: 0,
         log: [],
         effects: [],
@@ -33,13 +37,31 @@ export function duelBattle(payload) {
             return Math.max(0, Math.min(100, (this.right.hp / this.right.maxHp) * 100));
         },
 
+        get phaseRank() {
+            return phaseOrder[this.currentPhase] ?? 0;
+        },
+
+        get phaseLabel() {
+            if (this.currentPhase === 'veredito') {
+                return 'Veredito';
+            }
+            if (this.currentPhase === 'prova') {
+                return 'Prova';
+            }
+            return 'Julgamento';
+        },
+
         get iWon() {
             return this.winnerId === this.viewerId;
         },
 
         get headline() {
             if (! this.finished) {
-                return 'Combate em andamento';
+                return this.mode === 'vigil' ? 'Vigília em andamento' : 'Combate em andamento';
+            }
+
+            if (this.mode === 'vigil' && this.iWon && this.markEarned) {
+                return 'Vitória · Marca do Rito!';
             }
 
             return this.iWon ? 'Vitória!' : 'Derrota';
@@ -147,6 +169,18 @@ export function duelBattle(payload) {
             const actor = fromLeft ? this.left : this.right;
             const target = fromLeft ? this.right : this.left;
 
+            if (turn.phase) {
+                const next = String(turn.phase);
+                if ((phaseOrder[next] ?? 0) >= (phaseOrder[this.currentPhase] ?? 0)) {
+                    if (next !== this.currentPhase) {
+                        this.currentPhase = next;
+                        if (animate && (next === 'prova' || next === 'veredito')) {
+                            playArenaSound('boss_phase', actor.classKey || '');
+                        }
+                    }
+                }
+            }
+
             if (turn.action === 'heal') {
                 actor.hp = Math.min(actor.maxHp, Number(turn.actor_hp));
                 this.log.push(turn);
@@ -160,7 +194,8 @@ export function duelBattle(payload) {
                 this.log.push(turn);
 
                 if (animate) {
-                    this.playAttack(fromLeft, turn.amount, Number(turn.target_hp) <= 0);
+                    const forceHeavy = ! fromLeft && actor.isBoss && this.currentPhase === 'veredito';
+                    this.playAttack(fromLeft, turn.amount, Number(turn.target_hp) <= 0, forceHeavy);
                 }
             }
 
@@ -172,11 +207,11 @@ export function duelBattle(payload) {
             });
         },
 
-        playAttack(fromLeft, amount, isKo) {
+        playAttack(fromLeft, amount, isKo, forceHeavy = false) {
             const actor = fromLeft ? this.left : this.right;
             const target = fromLeft ? this.right : this.left;
             const classKey = actor.classKey || '';
-            const heavy = amount >= 16;
+            const heavy = forceHeavy || amount >= 16;
 
             if (this.prefersReducedMotion()) {
                 playArenaSound(heavy ? 'heavy' : 'hit', classKey);
