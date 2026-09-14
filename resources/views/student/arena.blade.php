@@ -18,9 +18,76 @@
 
 <nav class="flex flex-wrap gap-2 mb-6 reveal" aria-label="Seções da arena">
     <a href="#duelos-turma" class="game-btn-ghost !py-1 !px-3 text-sm">Duelos da turma</a>
+    <a href="#rito-temporada" class="game-btn-ghost !py-1 !px-3 text-sm">Rito da temporada</a>
     <a href="{{ route('student.arena.realm.index') }}" class="game-btn !py-1 !px-3 text-sm">Entre turmas · Aura</a>
     <a href="#batalha-guildas" class="game-btn-ghost !py-1 !px-3 text-sm">Guildas</a>
 </nav>
+
+@if($bossSeason && $bossSeason->hasBoss())
+    @php $bossMeta = $bossSeason->bossMeta(); @endphp
+    <div id="rito-temporada" class="game-card p-5 mb-6 border-violet-400/25 space-y-4 reveal">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="hero-kicker !mb-1">Cerimônia da temporada</p>
+                <h2 class="font-display text-2xl text-violet-200">
+                    <span class="text-3xl align-middle">{{ $bossMeta['icon'] }}</span>
+                    {{ $bossSeason->bossDisplayName() }}
+                </h2>
+                <p class="text-sm text-amber-100/60 mt-1">{{ $bossMeta['blurb'] }}</p>
+                <p class="text-xs text-amber-100/45 mt-2">
+                    {{ $bossMarks }} Marca(s) da turma · dificuldade {{ \App\Support\BossArchetypeCatalog::difficultyLabel($bossSeason->boss_difficulty) }}
+                    · até {{ $vigilDailyLimit }}/dia · {{ $vigilWeeklyLimit }}/semana
+                </p>
+            </div>
+            @if($bossSeason->area)
+                <a class="game-btn-ghost !py-1 !px-3 text-sm" href="{{ route('areas.seasons.show', [$bossSeason->area, $bossSeason]) }}">Ver temporada</a>
+            @endif
+        </div>
+
+        @if($bossRite?->isResolved())
+            <div class="rounded-lg bg-black/25 p-4">
+                <p class="font-semibold {{ $bossRite->wasBroken() ? 'text-emerald-300' : 'text-rose-300' }}">
+                    {{ $bossRite->wasBroken() ? 'Rito quebrado!' : 'O Rito resistiu.' }}
+                </p>
+                <a class="game-btn mt-3 inline-block !py-1 !px-3 text-sm" href="{{ route('student.arena.rite.show', $bossRite) }}">Assistir o assalto</a>
+            </div>
+        @elseif($bossRite?->isOpen())
+            <div class="rounded-lg bg-black/25 p-4">
+                <p class="text-amber-200 font-semibold">O Rito está aberto</p>
+                <p class="text-sm text-amber-100/60">O professor resolve o assalto da turma. HP atual: {{ $bossRite->boss_hp }}/{{ $bossRite->boss_max_hp }} ({{ $bossRite->marks_applied }} marcas aplicadas).</p>
+            </div>
+        @else
+            <div class="flex flex-wrap items-center gap-3">
+                @if($vigilRestriction)
+                    <p class="text-sm text-amber-100/55">{{ $vigilRestriction }}</p>
+                @else
+                    <form method="POST" action="{{ route('student.arena.vigil.challenge', $bossSeason) }}">
+                        @csrf
+                        <button class="game-btn" type="submit">Desafiar a Sombra</button>
+                    </form>
+                    <p class="text-xs text-amber-100/45">Vitória concede Marca do Rito + Glória. Sem punição de nota.</p>
+                @endif
+            </div>
+        @endif
+
+        @if($recentVigils->isNotEmpty())
+            <div class="border-t border-violet-400/15 pt-3">
+                <p class="text-xs uppercase tracking-wide text-violet-200/70 mb-2">Suas Vigílias recentes</p>
+                <ul class="space-y-1 text-sm">
+                    @foreach($recentVigils as $vigil)
+                        <li class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="{{ $vigil->won ? 'text-emerald-300' : 'text-rose-300' }}">
+                                {{ $vigil->won ? 'Vitória' : 'Derrota' }}
+                                @if($vigil->mark_earned) · Marca @endif
+                            </span>
+                            <a class="text-amber-200 underline text-xs" href="{{ route('student.arena.vigil.show', $vigil) }}">Replay</a>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+    </div>
+@endif
 
 @if(! $class->isArenaOpen())
     <div class="game-card p-5 mb-6 border-amber-400/30">

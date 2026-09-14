@@ -4,17 +4,22 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Models\BossVigil;
 use App\Models\Duel;
 use App\Models\GameCurrency;
 use App\Models\RealmDuel;
 use App\Models\SchoolClass;
+use App\Models\Season;
+use App\Models\SeasonClassRite;
 use App\Models\Team;
 use App\Models\TeamBattle;
 use App\Models\User;
+use App\Services\BossRiteService;
 use App\Services\DuelService;
 use App\Services\RealmDuelService;
 use App\Services\TeamBattleService;
 use App\Support\ArenaUrl;
+use App\Support\BossArchetypeCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,6 +33,7 @@ class ArenaController extends Controller
         private DuelService $duels,
         private TeamBattleService $teamBattles,
         private RealmDuelService $realmDuels,
+        private BossRiteService $rites,
     ) {}
 
     public function index(Request $request): View|RedirectResponse
@@ -130,6 +136,27 @@ class ArenaController extends Controller
 
         $area = $class->area;
         $realm = $this->realmArenaData($class, $student, $canChallenge);
+        $bossSeason = $this->activeBossSeason($class);
+        $bossRite = null;
+        $bossMarks = 0;
+        $vigilRestriction = null;
+        $recentVigils = collect();
+
+        if ($bossSeason) {
+            $bossMarks = $this->rites->markCount($bossSeason, $class);
+            $bossRite = SeasonClassRite::query()
+                ->where('season_id', $bossSeason->id)
+                ->where('class_id', $class->id)
+                ->first();
+            $vigilRestriction = $this->rites->vigilRestriction($bossSeason, $class, $student);
+            $recentVigils = BossVigil::query()
+                ->where('season_id', $bossSeason->id)
+                ->where('class_id', $class->id)
+                ->where('student_id', $student->id)
+                ->latest('resolved_at')
+                ->limit(5)
+                ->get();
+        }
 
         return view('student.arena', [
             'class' => $class,
@@ -158,9 +185,26 @@ class ArenaController extends Controller
             'canChallengeGuild' => $canChallengeGuild,
             'guildNotices' => $guildNotices,
             ...$realm,
+            'bossSeason' => $bossSeason,
+            'bossRite' => $bossRite,
+            'bossMarks' => $bossMarks,
+            'vigilRestriction' => $vigilRestriction,
+            'recentVigils' => $recentVigils,
+            'vigilDailyLimit' => BossArchetypeCatalog::VIGIL_DAILY_LIMIT,
+            'vigilWeeklyLimit' => BossArchetypeCatalog::VIGIL_WEEKLY_LIMIT,
             'notifyUrl' => ArenaUrl::route('student.notifications'),
             'markReadUrl' => ArenaUrl::route('student.notifications.read'),
         ]);
+    }
+
+    private function activeBossSeason(SchoolClass $class): ?Season
+    {
+        return Season::query()
+            ->where('area_id', $class->area_id)
+            ->whereNotNull('boss_archetype')
+            ->whereHas('classes', fn ($q) => $q->where('classes.id', $class->id))
+            ->latest()
+            ->first();
     }
 
     public function realmIndex(Request $request): View|RedirectResponse

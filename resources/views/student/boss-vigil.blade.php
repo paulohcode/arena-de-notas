@@ -1,0 +1,221 @@
+@extends('layouts.game')
+
+@section('title', 'Vigília — '.$season->name)
+
+@php
+    $log = $vigil->log ?? [];
+    $fighters = $log['fighters'] ?? [];
+    $challengerSnap = $fighters['challenger'] ?? null;
+    $opponentSnap = $fighters['opponent'] ?? null;
+    $turns = $log['turns'] ?? [];
+    $bossMeta = $season->bossMeta() ?? [];
+    $isResolved = $challengerSnap && $opponentSnap;
+
+    $battlePayload = $isResolved ? [
+        'left' => [
+            'id' => $vigil->student->id,
+            'name' => $vigil->student->name,
+            'arena' => $vigil->student->arenaName(),
+            'class' => $challengerSnap['class'],
+            'classKey' => (string) ($vigil->student->character_class ?? ''),
+            'icon' => $vigil->student->avatarIcon(),
+            'tone' => $vigil->student->avatarTone(),
+            'classTone' => $vigil->student->characterClassTone(),
+            'maxHp' => (int) $challengerSnap['max_hp'],
+            'isBoss' => false,
+        ],
+        'right' => [
+            'id' => (int) ($opponentSnap['id'] ?? \App\Services\ArenaCombatService::BOSS_FIGHTER_ID),
+            'name' => $opponentSnap['name'] ?? ($bossMeta['name'] ?? 'Sombra'),
+            'arena' => $opponentSnap['arena_name'] ?? null,
+            'class' => $opponentSnap['class'] ?? ($bossMeta['name'] ?? 'Chefão'),
+            'classKey' => (string) ($opponentSnap['class_key'] ?? $season->boss_archetype ?? 'boss'),
+            'icon' => $opponentSnap['icon'] ?? ($bossMeta['icon'] ?? '🌑'),
+            'tone' => $opponentSnap['tone'] ?? ($bossMeta['tone'] ?? '#6d28d9'),
+            'classTone' => $opponentSnap['tone'] ?? ($bossMeta['tone'] ?? '#6d28d9'),
+            'maxHp' => (int) $opponentSnap['max_hp'],
+            'isBoss' => true,
+        ],
+        'turns' => $turns,
+        'winnerId' => (int) ($log['winner_id'] ?? 0),
+        'viewerId' => (int) $student->id,
+        'gloryWin' => \App\Support\BossArchetypeCatalog::GLORY_WIN,
+        'gloryLoss' => \App\Support\BossArchetypeCatalog::GLORY_LOSS,
+        'rewardLabel' => \App\Models\GameCurrency::label('glory'),
+        'mode' => 'vigil',
+        'markEarned' => (bool) $vigil->mark_earned,
+    ] : null;
+
+    $winnerReasonLabel = match ($log['winner_reason'] ?? null) {
+        'ko' => 'O rival ficou sem vida.',
+        'hp' => 'O tempo acabou: mais HP restante.',
+        'spd' => 'Empate de HP: mais velocidade.',
+        'spd_tie' => 'Empate total: o desafiante venceu.',
+        default => null,
+    };
+@endphp
+
+@section('content')
+@if($isResolved)
+    <div
+        class="space-y-6"
+        x-data="duelBattle({{ \Illuminate\Support\Js::from($battlePayload) }})"
+        x-init="start()"
+    >
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="hero-kicker !mb-1">Vigília · Sombra do Rito</p>
+                <h1 class="font-display text-3xl md:text-4xl text-violet-200" x-text="headline"></h1>
+                <p class="text-amber-100/60 mt-1">{{ $season->bossDisplayName() }}</p>
+            </div>
+            <a class="game-btn-ghost" href="{{ route('student.arena.index') }}#rito-temporada">Voltar à arena</a>
+        </div>
+
+        <div
+            class="duel-stage duel-stage--boss game-card overflow-hidden"
+            :class="{
+                'duel-stage--flash': stageFlash === 'hit',
+                'duel-stage--heavy': stageFlash === 'heavy',
+                'duel-stage--ko': stageFlash === 'ko',
+                'duel-stage--heal': stageFlash === 'heal',
+                'duel-stage--phase-prova': currentPhase === 'prova',
+                'duel-stage--phase-veredito': currentPhase === 'veredito'
+            }"
+        >
+            <div class="duel-stage__floor" aria-hidden="true"></div>
+            <div class="px-4 pt-4 relative z-10">
+                <div class="boss-phase-bar" aria-hidden="true">
+                    <span class="boss-phase-bar__seg" :class="{ 'is-active': phaseRank >= 0, 'is-current': currentPhase === 'julgamento' }">Julgamento</span>
+                    <span class="boss-phase-bar__seg" :class="{ 'is-active': phaseRank >= 1, 'is-current': currentPhase === 'prova' }">Prova</span>
+                    <span class="boss-phase-bar__seg" :class="{ 'is-active': phaseRank >= 2, 'is-current': currentPhase === 'veredito' }">Veredito</span>
+                </div>
+            </div>
+            <div class="duel-fx" aria-hidden="true">
+                <template x-for="fx in effects" :key="fx.id">
+                    <span class="duel-fx__item" :class="fx.className" :style="fx.tone ? { '--duel-fx': fx.tone } : {}"></span>
+                </template>
+                <template x-for="float in floats" :key="float.id">
+                    <span
+                        class="duel-float"
+                        :class="{
+                            'duel-float--left': float.side === 'left',
+                            'duel-float--right': float.side === 'right',
+                            'duel-float--heal': float.kind === 'heal',
+                            'duel-float--dmg': float.kind === 'dmg',
+                            'duel-float--heavy': float.heavy
+                        }"
+                        :style="float.tone ? { '--duel-fx': float.tone } : {}"
+                        x-text="float.text"
+                    ></span>
+                </template>
+            </div>
+
+            <div class="relative z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-2 md:gap-6 px-3 md:px-8 pt-6 pb-8 min-h-[360px] md:min-h-[460px]">
+                <div
+                    class="duel-fighter duel-fighter--left text-center"
+                    :class="{
+                        'duel-fighter--hit': left.hit,
+                        'duel-fighter--heal': left.healed,
+                        'duel-fighter--strike': left.striking,
+                        'duel-fighter--down': left.hp <= 0
+                    }"
+                >
+                    <div class="duel-portrait mx-auto mb-3" :style="'--portrait-tone:' + left.tone">
+                        <span class="text-4xl md:text-6xl" x-text="left.icon"></span>
+                    </div>
+                    <p class="font-semibold text-sm md:text-base truncate" x-text="left.arena || left.name"></p>
+                    <p class="text-xs text-amber-100/50" x-text="left.class"></p>
+                    <div class="mt-3 max-w-[11rem] mx-auto">
+                        <div class="flex justify-between text-[10px] uppercase tracking-wide text-rose-200/70 mb-1">
+                            <span>HP</span>
+                            <span x-text="left.hp + '/' + left.maxHp"></span>
+                        </div>
+                        <div class="duel-hp-track">
+                            <div class="duel-hp-fill" :style="'width:' + leftPct + '%'"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative self-center w-16 md:w-24 h-24 md:h-32 flex items-center justify-center">
+                    <p class="font-display text-xl md:text-3xl text-violet-200/40" x-show="!finished">VS</p>
+                </div>
+
+                <div
+                    class="duel-fighter duel-fighter--right duel-fighter--boss text-center"
+                    :class="{
+                        'duel-fighter--hit': right.hit,
+                        'duel-fighter--heal': right.healed,
+                        'duel-fighter--strike': right.striking,
+                        'duel-fighter--down': right.hp <= 0
+                    }"
+                >
+                    <div
+                        class="duel-portrait duel-portrait--boss mx-auto mb-3"
+                        :style="'--portrait-tone:' + right.tone"
+                    >
+                        <span class="text-5xl md:text-7xl" x-text="right.icon"></span>
+                    </div>
+                    <p class="font-semibold text-sm md:text-base truncate" x-text="right.arena || right.name"></p>
+                    <p class="text-xs text-violet-200/70" x-text="phaseLabel"></p>
+                    <div class="mt-3 max-w-[14rem] mx-auto">
+                        <div class="flex justify-between text-[10px] uppercase tracking-wide text-rose-200/70 mb-1">
+                            <span>HP</span>
+                            <span x-text="right.hp + '/' + right.maxHp"></span>
+                        </div>
+                        <div class="duel-hp-track duel-hp-track--boss">
+                            <div class="duel-hp-fill" :style="'width:' + rightPct + '%'"></div>
+                            <div class="duel-hp-phases" aria-hidden="true">
+                                <span></span><span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative z-10 border-t border-violet-300/15 px-4 py-3 flex flex-wrap items-center justify-between gap-2 bg-black/20">
+                <p class="text-sm text-amber-100/70" x-text="statusLine"></p>
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="flex items-center gap-2 text-sm text-amber-100/70">
+                        <input type="checkbox" data-sound-toggle>
+                        Som da arena
+                    </label>
+                    <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" x-show="!finished" @click="skip()">Pular animação</button>
+                    <p class="text-sm font-semibold" x-show="finished" x-cloak :class="iWon ? 'text-emerald-300' : 'text-rose-300'" x-text="resultLine"></p>
+                </div>
+            </div>
+        </div>
+
+        @if($winnerReasonLabel)
+            <p class="text-sm text-amber-100/60 -mt-2">{{ $winnerReasonLabel }}</p>
+        @endif
+        @if($vigil->mark_earned)
+            <p class="text-sm text-violet-200">Marca do Rito conquistada — a turma chega mais forte no assalto final.</p>
+        @endif
+
+        <div class="game-card p-5">
+            <h2 class="font-display text-xl text-amber-200 mb-3">Histórico de danos</h2>
+            <div class="space-y-1 max-h-72 overflow-y-auto" x-ref="logBox">
+                <template x-for="(entry, index) in log" :key="index">
+                    <div class="flex items-start gap-3 py-2 border-b border-purple-900/40 text-sm">
+                        <span class="text-amber-100/40 w-8 shrink-0" x-text="'#' + (index + 1)"></span>
+                        <span class="flex-1">
+                            <span x-text="entry.text"></span>
+                            <span class="text-violet-300/70 text-xs ml-2" x-show="entry.phase" x-text="'· ' + (entry.phase || '')"></span>
+                        </span>
+                        <span
+                            class="shrink-0 font-semibold"
+                            :class="entry.action === 'heal' ? 'text-emerald-300' : 'text-rose-300'"
+                            x-text="entry.action === 'heal' ? ('+' + entry.amount) : ('-' + entry.amount)"
+                        ></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+@else
+    <div class="game-card p-8 text-center">
+        <p class="text-amber-100/60">Replay indisponível.</p>
+        <a class="game-btn-ghost inline-block mt-4" href="{{ route('student.arena.index') }}">Voltar</a>
+    </div>
+@endif
+@endsection

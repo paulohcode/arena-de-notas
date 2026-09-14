@@ -41,6 +41,29 @@
                       placeholder="Descreva o objetivo desta temporada"
                       maxlength="500">{{ old('description', $season->description) }}</textarea>
         </div>
+        <div>
+            <label class="block text-sm text-amber-100/70 mb-1">Chefão do Rito (opcional)</label>
+            <select class="game-select w-full" name="boss_archetype">
+                <option value="">Sem chefão nesta temporada</option>
+                @foreach($archetypes as $key => $meta)
+                    <option value="{{ $key }}" @selected(old('boss_archetype', $season->boss_archetype) === $key)>
+                        {{ $meta['icon'] }} {{ $meta['name'] }}
+                    </option>
+                @endforeach
+            </select>
+            <p class="text-xs text-amber-100/45 mt-1">Arquétipo fantasia da temporada. A nota continua mandando no poder do aluno.</p>
+        </div>
+        <div>
+            <label class="block text-sm text-amber-100/70 mb-1">Dificuldade do chefão</label>
+            <select class="game-select w-full" name="boss_difficulty">
+                @foreach($difficulties as $key => $label)
+                    <option value="{{ $key }}" @selected(old('boss_difficulty', $season->boss_difficulty ?: 'normal') === $key)>
+                        {{ $label }}
+                    </option>
+                @endforeach
+            </select>
+            <p class="text-xs text-amber-100/45 mt-1">Poder fixo do chefão — não escala no aluno.</p>
+        </div>
     </div>
 
     <div class="game-card p-6">
