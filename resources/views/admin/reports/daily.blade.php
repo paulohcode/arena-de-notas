@@ -90,7 +90,10 @@
             <h3 class="text-rose-200 font-semibold mb-2">Faltantes</h3>
             <ul class="space-y-1 text-sm">
                 @foreach($attendance['absentees'] as $row)
-                    <li>{{ $row['student_name'] }} · {{ $row['class_name'] }} · {{ $row['area_name'] }}</li>
+                    <li>
+                        {{ $row['student_name'] }} · {{ $row['class_name'] }} · {{ $row['area_name'] }}
+                        · {{ $row['status_label'] }}
+                    </li>
                 @endforeach
             </ul>
         </div>

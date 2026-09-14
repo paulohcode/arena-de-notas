@@ -42,7 +42,7 @@ class DailyReportService
      *     },
      *     attendance: array{
      *         sessions: list<array{class_name: string, area_name: string, present: int, absent: int, justified: int, unmarked: int}>,
-     *         absentees: list<array{student_name: string, class_name: string, area_name: string}>,
+     *         absentees: list<array{student_name: string, class_name: string, area_name: string, status: string, status_label: string}>,
      *         classes_without_session: list<array{class_name: string, area_name: string}>
      *     },
      *     battles: array{
@@ -84,7 +84,7 @@ class DailyReportService
             'summary' => [
                 'sessions' => count($attendance['sessions']),
                 'present' => (int) collect($attendance['sessions'])->sum('present'),
-                'absent' => count($attendance['absentees']),
+                'absent' => (int) collect($attendance['sessions'])->sum(fn (array $row): int => $row['absent'] + $row['justified']),
                 'justified' => (int) collect($attendance['sessions'])->sum('justified'),
                 'battles' => $battleCount,
                 'grades' => count($grades),
@@ -120,7 +120,7 @@ class DailyReportService
     /**
      * @return array{
      *     sessions: list<array{class_name: string, area_name: string, present: int, absent: int, justified: int, unmarked: int}>,
-     *     absentees: list<array{student_name: string, class_name: string, area_name: string}>,
+     *     absentees: list<array{student_name: string, class_name: string, area_name: string, status: string, status_label: string}>,
      *     classes_without_session: list<array{class_name: string, area_name: string}>
      * }
      */
@@ -162,11 +162,16 @@ class DailyReportService
                     default => $unmarked++,
                 };
 
-                if ($record->status === AttendanceRecord::STATUS_ABSENT) {
+                if (in_array($record->status, [
+                    AttendanceRecord::STATUS_ABSENT,
+                    AttendanceRecord::STATUS_JUSTIFIED,
+                ], true)) {
                     $absentees[] = [
                         'student_name' => $record->student?->name ?? '—',
                         'class_name' => $class->name,
                         'area_name' => $class->area?->name ?? '—',
+                        'status' => $record->status,
+                        'status_label' => $record->statusLabel(),
                     ];
                 }
             }
@@ -181,8 +186,8 @@ class DailyReportService
             ];
         }
 
-        usort($absentees, fn (array $a, array $b): int => [$a['area_name'], $a['class_name'], $a['student_name']]
-            <=> [$b['area_name'], $b['class_name'], $b['student_name']]);
+        usort($absentees, fn (array $a, array $b): int => [$a['area_name'], $a['class_name'], $a['student_name'], $a['status']]
+            <=> [$b['area_name'], $b['class_name'], $b['student_name'], $b['status']]);
 
         $classesWithoutSession = SchoolClass::query()
             ->with('area')

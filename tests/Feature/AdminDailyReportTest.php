@@ -68,6 +68,7 @@ class AdminDailyReportTest extends TestCase
         $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
         $class = $this->createClassForTeacher($teacher, ['name' => 'Turma Alpha']);
         $absent = $this->enrollStudent($class, 'Faltoso Silva');
+        $justified = $this->enrollStudent($class, 'Justificado Melo');
         $present = $this->enrollStudent($class, 'Presente Costa');
 
         $session = AttendanceSession::query()->create([
@@ -83,21 +84,34 @@ class AdminDailyReportTest extends TestCase
         ]);
         AttendanceRecord::query()->create([
             'attendance_session_id' => $session->id,
+            'student_id' => $justified->id,
+            'status' => AttendanceRecord::STATUS_JUSTIFIED,
+        ]);
+        AttendanceRecord::query()->create([
+            'attendance_session_id' => $session->id,
             'student_id' => $present->id,
             'status' => AttendanceRecord::STATUS_PRESENT,
         ]);
 
-        $this->actingAs($admin)
-            ->get(route('admin.reports.daily', ['date' => '2026-09-14']))
-            ->assertOk()
+        $response = $this->actingAs($admin)
+            ->get(route('admin.reports.daily', ['date' => '2026-09-14']));
+
+        $response->assertOk()
             ->assertSee('Faltoso Silva')
+            ->assertSee('Justificado Melo')
             ->assertSee('Turma Alpha')
             ->assertDontSee('Presente Costa');
+
+        $this->assertMatchesRegularExpression(
+            '/Justificado Melo.*?Justificada/s',
+            $response->getContent()
+        );
 
         $this->actingAs($admin)
             ->get(route('admin.reports.daily', ['date' => '2026-09-13']))
             ->assertOk()
             ->assertDontSee('Faltoso Silva')
+            ->assertDontSee('Justificado Melo')
             ->assertSee('Nenhuma chamada registrada neste dia.');
     }
 
