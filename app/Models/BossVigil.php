@@ -19,6 +19,8 @@ class BossVigil extends Model
         'won',
         'mark_earned',
         'glory',
+        'fee_relics',
+        'loot',
         'resolved_at',
     ];
 
@@ -34,6 +36,8 @@ class BossVigil extends Model
 
     public const SOURCE_STAFF = 'staff';
 
+    public const SOURCE_BOSS = 'boss';
+
     /**
      * @var array<string, mixed>
      */
@@ -43,6 +47,7 @@ class BossVigil extends Model
         'won' => false,
         'mark_earned' => false,
         'glory' => 0,
+        'fee_relics' => 0,
     ];
 
     protected function casts(): array
@@ -53,6 +58,8 @@ class BossVigil extends Model
             'won' => 'boolean',
             'mark_earned' => 'boolean',
             'glory' => 'integer',
+            'fee_relics' => 'integer',
+            'loot' => 'array',
             'resolved_at' => 'datetime',
         ];
     }
@@ -90,5 +97,24 @@ class BossVigil extends Model
     public function isStaffChallenge(): bool
     {
         return $this->source === self::SOURCE_STAFF;
+    }
+
+    public function isBossChallenge(): bool
+    {
+        return $this->source === self::SOURCE_BOSS;
+    }
+
+    /**
+     * @return array{relics: int, seals: int, auras: int}
+     */
+    public function lootTotals(): array
+    {
+        $loot = is_array($this->loot) ? $this->loot : [];
+
+        return [
+            'relics' => max(0, (int) ($loot['relics'] ?? 0)),
+            'seals' => max(0, (int) ($loot['seals'] ?? 0)),
+            'auras' => max(0, (int) ($loot['auras'] ?? 0)),
+        ];
     }
 }

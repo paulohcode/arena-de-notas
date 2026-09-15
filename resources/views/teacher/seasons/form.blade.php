@@ -66,6 +66,56 @@
         </div>
     </div>
 
+    <div class="game-card p-6 space-y-3">
+        <div>
+            <h2 class="font-display text-xl text-amber-200">Desafios do chefão por dia</h2>
+            <p class="text-sm text-amber-100/55 mt-1">
+                Quantas vezes o aluno pode pagar {{ \App\Support\BossArchetypeCatalog::BOSS_CHALLENGE_FEE }}
+                {{ \App\Models\GameCurrency::label('relics') }} para enfrentar o chefão completo.
+                Use 0 para fechar aquele dia. A Vigília (Sombra) continua com o limite próprio.
+            </p>
+        </div>
+        @php
+            $todayWeekday = \App\Support\ArenaSchedule::todayWeekday();
+            $weekLimits = old('boss_challenge_days', null);
+        @endphp
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-amber-100/55">
+                        <th class="py-2 pr-3 font-medium">Dia</th>
+                        <th class="py-2 font-medium">Desafios no dia</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-purple-900/40">
+                    @foreach(\App\Support\ArenaSchedule::WEEKDAY_LABELS as $weekday => $label)
+                        @php
+                            $isToday = $weekday === $todayWeekday;
+                            $limit = is_array($weekLimits)
+                                ? (int) data_get($weekLimits, $weekday.'.daily_limit', $bossChallengeWeek[$weekday] ?? 1)
+                                : (int) ($bossChallengeWeek[$weekday] ?? \App\Support\BossArchetypeCatalog::BOSS_CHALLENGE_DAILY_DEFAULT);
+                        @endphp
+                        <tr class="{{ $isToday ? 'bg-amber-400/10' : '' }}">
+                            <td class="py-3 pr-3 align-top">
+                                <span class="{{ $isToday ? 'text-amber-200 font-semibold' : 'text-amber-100/80' }}">{{ $label }}</span>
+                                @if($isToday)
+                                    <span class="block text-[11px] text-cyan-300/80">hoje</span>
+                                @endif
+                            </td>
+                            <td class="py-3 align-top min-w-28">
+                                <input class="game-input w-full max-w-[8rem]" type="number"
+                                       name="boss_challenge_days[{{ $weekday }}][daily_limit]"
+                                       min="0" max="{{ \App\Support\BossArchetypeCatalog::BOSS_CHALLENGE_DAILY_MAX }}"
+                                       required value="{{ $limit }}">
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        <p class="text-xs text-amber-100/50">0 = fechado naquele dia. O limite vale só naquele dia da semana.</p>
+    </div>
+
     <div class="game-card p-6">
         <h2 class="font-display text-xl text-amber-200 mb-4">Turmas participantes (mesmo reino)</h2>
         @if($classes->isEmpty())

@@ -36,7 +36,9 @@
                 <p class="text-sm text-amber-100/60 mt-1">{{ $bossMeta['blurb'] }}</p>
                 <p class="text-xs text-amber-100/45 mt-2">
                     {{ $bossMarks }} Marca(s) da turma · dificuldade {{ \App\Support\BossArchetypeCatalog::difficultyLabel($bossSeason->boss_difficulty) }}
-                    · até {{ $vigilDailyLimit }}/dia · {{ $vigilWeeklyLimit }}/semana
+                    · Sombra {{ $vigilDailyLimit }}/dia · {{ $vigilWeeklyLimit }}/semana
+                    · Chefão {{ $bossChallengesToday }}/{{ $bossChallengeDailyLimit }} hoje
+                    · taxa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}
                 </p>
             </div>
             @if($bossSeason->area)
@@ -56,29 +58,68 @@
                 <p class="text-amber-200 font-semibold">O Rito está aberto</p>
                 <p class="text-sm text-amber-100/60">O professor resolve o assalto da turma. HP atual: {{ $bossRite->boss_hp }}/{{ $bossRite->boss_max_hp }} ({{ $bossRite->marks_applied }} marcas aplicadas).</p>
             </div>
+            <div class="flex flex-wrap items-start gap-4">
+                <div class="space-y-2">
+                    <p class="text-xs uppercase tracking-wide text-violet-200/70">Chefão completo</p>
+                    @if($bossChallengeRestriction)
+                        <p class="text-sm text-amber-100/55">{{ $bossChallengeRestriction }}</p>
+                    @else
+                        <form method="POST" action="{{ route('student.arena.boss.challenge', $bossSeason) }}">
+                            @csrf
+                            <button class="game-btn" type="submit">Desafiar o chefão</button>
+                        </form>
+                        <p class="text-xs text-amber-100/45">Custa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}. Vitória: loot aleatório ({{ \App\Models\GameCurrency::label('relics') }}, {{ \App\Models\GameCurrency::label('seals') }}, {{ \App\Models\GameCurrency::label('auras') }}). Sem Marca.</p>
+                    @endif
+                </div>
+            </div>
         @else
-            <div class="flex flex-wrap items-center gap-3">
-                @if($vigilRestriction)
-                    <p class="text-sm text-amber-100/55">{{ $vigilRestriction }}</p>
-                @else
-                    <form method="POST" action="{{ route('student.arena.vigil.challenge', $bossSeason) }}">
-                        @csrf
-                        <button class="game-btn" type="submit">Desafiar a Sombra</button>
-                    </form>
-                    <p class="text-xs text-amber-100/45">Vitória concede Marca do Rito + Glória. Sem punição de nota.</p>
-                @endif
+            <div class="flex flex-wrap items-start gap-6">
+                <div class="space-y-2">
+                    <p class="text-xs uppercase tracking-wide text-violet-200/70">Vigília · Sombra</p>
+                    @if($vigilRestriction)
+                        <p class="text-sm text-amber-100/55">{{ $vigilRestriction }}</p>
+                    @else
+                        <form method="POST" action="{{ route('student.arena.vigil.challenge', $bossSeason) }}">
+                            @csrf
+                            <button class="game-btn" type="submit">Desafiar a Sombra</button>
+                        </form>
+                        <p class="text-xs text-amber-100/45">Vitória concede Marca do Rito + Glória. Sem punição de nota.</p>
+                    @endif
+                </div>
+                <div class="space-y-2">
+                    <p class="text-xs uppercase tracking-wide text-amber-200/70">Chefão completo</p>
+                    @if($bossChallengeRestriction)
+                        <p class="text-sm text-amber-100/55">{{ $bossChallengeRestriction }}</p>
+                    @else
+                        <form method="POST" action="{{ route('student.arena.boss.challenge', $bossSeason) }}">
+                            @csrf
+                            <button class="game-btn" type="submit">Desafiar o chefão</button>
+                        </form>
+                        <p class="text-xs text-amber-100/45">Custa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}. Vitória: loot aleatório. Sem Marca.</p>
+                    @endif
+                </div>
             </div>
         @endif
 
         @if($recentVigils->isNotEmpty())
             <div class="border-t border-violet-400/15 pt-3">
-                <p class="text-xs uppercase tracking-wide text-violet-200/70 mb-2">Suas Vigílias recentes</p>
+                <p class="text-xs uppercase tracking-wide text-violet-200/70 mb-2">Seus combates recentes</p>
                 <ul class="space-y-1 text-sm">
                     @foreach($recentVigils as $vigil)
                         <li class="flex flex-wrap items-center justify-between gap-2">
                             <span class="{{ $vigil->won ? 'text-emerald-300' : 'text-rose-300' }}">
                                 {{ $vigil->won ? 'Vitória' : 'Derrota' }}
-                                @if($vigil->mark_earned) · Marca @endif
+                                @if($vigil->isBossChallenge())
+                                    · Chefão
+                                    @if((int) $vigil->fee_relics > 0)
+                                        · taxa {{ $vigil->fee_relics }}
+                                    @endif
+                                @elseif($vigil->isStaffChallenge())
+                                    · Provocação
+                                @else
+                                    · Sombra
+                                    @if($vigil->mark_earned) · Marca @endif
+                                @endif
                             </span>
                             <a class="text-amber-200 underline text-xs" href="{{ route('student.arena.vigil.show', $vigil) }}">Replay</a>
                         </li>

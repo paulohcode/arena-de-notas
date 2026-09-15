@@ -37,6 +37,36 @@ class BossRiteController extends Controller
                 : 'A Sombra prevaleceu. Tente de novo amanhã.');
     }
 
+    public function challengeBoss(Request $request, Season $season): RedirectResponse
+    {
+        $class = $this->currentClass($request);
+        abort_unless($class, 404);
+        $this->authorize('viewAsStudent', $class);
+
+        $vigil = $this->rites->challengeBoss($season, $class, $request->user());
+        $fee = BossArchetypeCatalog::BOSS_CHALLENGE_FEE;
+        $loot = $vigil->lootTotals();
+        $lootParts = [];
+        if ($loot['relics'] > 0) {
+            $lootParts[] = GameCurrency::format('relics', $loot['relics']);
+        }
+        if ($loot['seals'] > 0) {
+            $lootParts[] = GameCurrency::format('seals', $loot['seals']);
+        }
+        if ($loot['auras'] > 0) {
+            $lootParts[] = GameCurrency::format('auras', $loot['auras']);
+        }
+
+        $message = $vigil->won
+            ? ('Vitória contra o chefão! Taxa: '.$fee.' '.GameCurrency::label('relics').'.'
+                .($lootParts !== [] ? ' Loot: '.implode(' · ', $lootParts).'.' : ''))
+            : ('O chefão prevaleceu. Taxa de '.$fee.' '.GameCurrency::label('relics').' consumida.');
+
+        return redirect()
+            ->route('student.arena.vigil.show', $vigil)
+            ->with('success', $message);
+    }
+
     public function showVigil(Request $request, BossVigil $vigil): View|RedirectResponse
     {
         $class = $this->currentClass($request);

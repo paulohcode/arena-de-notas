@@ -213,6 +213,7 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::post('/arena/reino/{realmDuel}/recusar', [StudentArenaController::class, 'declineRealm'])->name('arena.realm.decline');
 
         Route::post('/arena/rito/{season}/sombra', [StudentBossRiteController::class, 'challengeShadow'])->name('arena.vigil.challenge');
+        Route::post('/arena/rito/{season}/chefao', [StudentBossRiteController::class, 'challengeBoss'])->name('arena.boss.challenge');
         Route::get('/arena/vigilia/{vigil}', [StudentBossRiteController::class, 'showVigil'])->name('arena.vigil.show');
         Route::get('/arena/vigilia/{vigil}/status', [StudentBossRiteController::class, 'statusVigil'])->name('arena.vigil.status');
         Route::post('/arena/vigilia/{vigil}/aceitar', [StudentBossRiteController::class, 'acceptVigil'])->name('arena.vigil.accept');

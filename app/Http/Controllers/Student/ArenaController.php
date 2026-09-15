@@ -140,7 +140,10 @@ class ArenaController extends Controller
         $bossRite = null;
         $bossMarks = 0;
         $vigilRestriction = null;
+        $bossChallengeRestriction = null;
         $recentVigils = collect();
+        $bossChallengesToday = 0;
+        $bossChallengeDailyLimit = BossArchetypeCatalog::BOSS_CHALLENGE_DAILY_DEFAULT;
 
         if ($bossSeason) {
             $bossMarks = $this->rites->markCount($bossSeason, $class);
@@ -149,6 +152,9 @@ class ArenaController extends Controller
                 ->where('class_id', $class->id)
                 ->first();
             $vigilRestriction = $this->rites->vigilRestriction($bossSeason, $class, $student);
+            $bossChallengeRestriction = $this->rites->bossChallengeRestriction($bossSeason, $class, $student);
+            $bossChallengesToday = $this->rites->resolvedBossChallengesToday($bossSeason, $class, $student);
+            $bossChallengeDailyLimit = $bossSeason->bossChallengeDailyLimit();
             $recentVigils = BossVigil::query()
                 ->where('season_id', $bossSeason->id)
                 ->where('class_id', $class->id)
@@ -189,9 +195,13 @@ class ArenaController extends Controller
             'bossRite' => $bossRite,
             'bossMarks' => $bossMarks,
             'vigilRestriction' => $vigilRestriction,
+            'bossChallengeRestriction' => $bossChallengeRestriction,
             'recentVigils' => $recentVigils,
             'vigilDailyLimit' => BossArchetypeCatalog::VIGIL_DAILY_LIMIT,
             'vigilWeeklyLimit' => BossArchetypeCatalog::VIGIL_WEEKLY_LIMIT,
+            'bossChallengesToday' => $bossChallengesToday,
+            'bossChallengeDailyLimit' => $bossChallengeDailyLimit,
+            'bossChallengeFee' => BossArchetypeCatalog::BOSS_CHALLENGE_FEE,
             'notifyUrl' => ArenaUrl::route('student.notifications'),
             'markReadUrl' => ArenaUrl::route('student.notifications.read'),
         ]);

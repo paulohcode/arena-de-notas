@@ -61,6 +61,7 @@ class SeasonController extends Controller
             'boss_archetype' => $data['boss_archetype'] ?? null,
             'boss_difficulty' => $data['boss_difficulty'] ?? BossArchetypeCatalog::DIFFICULTY_NORMAL,
             'vigil_open' => false,
+            'boss_challenge_schedule' => $data['boss_challenge_schedule'] ?? null,
             'created_by' => $request->user()->id,
         ]);
 
@@ -93,6 +94,7 @@ class SeasonController extends Controller
             'description' => $data['description'] ?? null,
             'boss_archetype' => $data['boss_archetype'] ?? null,
             'boss_difficulty' => $data['boss_difficulty'] ?? BossArchetypeCatalog::DIFFICULTY_NORMAL,
+            'boss_challenge_schedule' => $data['boss_challenge_schedule'] ?? null,
         ]);
 
         $this->syncClasses($season, $request->user(), $data['class_ids'] ?? []);
@@ -259,7 +261,7 @@ class SeasonController extends Controller
 
     /**
      * @param  list<int>  $selectedClassIds
-     * @return array{season: Season, areas: Collection, classes: Collection, selectedClassIds: list<int>, archetypes: array<string, array<string, mixed>>, difficulties: array<string, string>}
+     * @return array{season: Season, areas: Collection, classes: Collection, selectedClassIds: list<int>, archetypes: array<string, array<string, mixed>>, difficulties: array<string, string>, bossChallengeWeek: array<int, int>}
      */
     private function formData(Request $request, Season $season, array $selectedClassIds): array
     {
@@ -276,8 +278,9 @@ class SeasonController extends Controller
 
         $archetypes = BossArchetypeCatalog::all();
         $difficulties = BossArchetypeCatalog::DIFFICULTY_LABELS;
+        $bossChallengeWeek = $season->bossChallengeWeek();
 
-        return compact('season', 'areas', 'classes', 'selectedClassIds', 'archetypes', 'difficulties');
+        return compact('season', 'areas', 'classes', 'selectedClassIds', 'archetypes', 'difficulties', 'bossChallengeWeek');
     }
 
     /**
@@ -290,7 +293,7 @@ class SeasonController extends Controller
             ? Area::query()->pluck('id')->all()
             : $user->areas()->pluck('areas.id')->all();
 
-        return $request->validate([
+        $data = $request->validate(array_merge([
             'area_id' => ['required', 'integer', Rule::in($allowedAreaIds)],
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:500'],
@@ -298,7 +301,19 @@ class SeasonController extends Controller
             'boss_difficulty' => ['nullable', 'string', BossArchetypeCatalog::difficultyRule()],
             'class_ids' => ['nullable', 'array'],
             'class_ids.*' => ['integer', 'exists:classes,id'],
-        ]);
+        ], BossArchetypeCatalog::bossChallengeScheduleRules('boss_challenge_days')));
+
+        if (array_key_exists('boss_challenge_days', $data) && is_array($data['boss_challenge_days'])) {
+            $data['boss_challenge_schedule'] = BossArchetypeCatalog::bossChallengeScheduleFromValidated(
+                $data['boss_challenge_days']
+            );
+        } else {
+            $data['boss_challenge_schedule'] = null;
+        }
+
+        unset($data['boss_challenge_days']);
+
+        return $data;
     }
 
     /**

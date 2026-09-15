@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AreaBalance;
 use App\Models\BossVigil;
 use App\Models\Enrollment;
 use App\Models\GameCurrency;
@@ -140,6 +141,231 @@ class BossRiteService
 
             return $vigil;
         });
+    }
+
+    /**
+     * Motivo que impede o desafio pago ao chefão, ou null se liberado.
+     */
+    public function bossChallengeRestriction(Season $season, SchoolClass $class, User $student): ?string
+    {
+        if (! $season->hasBoss()) {
+            return 'Esta temporada ainda não tem um chefão.';
+        }
+
+        if (! $season->classes()->where('classes.id', $class->id)->exists()) {
+            return 'Sua turma não participa desta temporada.';
+        }
+
+        if (! $class->isArenaOpen()) {
+            return 'A arena desta turma está fechada.';
+        }
+
+        if ($reason = $this->fighterRestriction($class, $student)) {
+            return $reason;
+        }
+
+        $dailyLimit = $season->bossChallengeDailyLimit();
+        if ($dailyLimit <= 0) {
+            return 'O desafio do chefão está fechado hoje.';
+        }
+
+        if ($this->resolvedBossChallengesToday($season, $class, $student) >= $dailyLimit) {
+            return $dailyLimit === 1
+                ? 'Você já desafiou o chefão hoje. Volte amanhã.'
+                : "Você já usou os {$dailyLimit} desafios do chefão de hoje.";
+        }
+
+        $riteResolved = SeasonClassRite::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $class->id)
+            ->where('status', SeasonClassRite::STATUS_RESOLVED)
+            ->exists();
+
+        if ($riteResolved) {
+            return 'O Rito desta turma já foi resolvido — o desafio do chefão encerrou.';
+        }
+
+        $enrollment = $student->enrollmentIn($class);
+        $fee = BossArchetypeCatalog::BOSS_CHALLENGE_FEE;
+        if (! $enrollment || (int) $enrollment->relics < $fee) {
+            return 'É preciso pagar '.$fee.' '.GameCurrency::label('relics').' para desafiar o chefão.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Aluno paga a taxa e enfrenta o chefão completo (não a Sombra). Sem Marca.
+     *
+     * @throws ValidationException
+     */
+    public function challengeBoss(Season $season, SchoolClass $class, User $student): BossVigil
+    {
+        if ($reason = $this->bossChallengeRestriction($season, $class, $student)) {
+            throw ValidationException::withMessages(['boss' => $reason]);
+        }
+
+        return DB::transaction(function () use ($season, $class, $student) {
+            $enrollment = Enrollment::query()
+                ->where('class_id', $class->id)
+                ->where('student_id', $student->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $enrollment) {
+                throw ValidationException::withMessages([
+                    'boss' => 'Matrícula não encontrada.',
+                ]);
+            }
+
+            $fee = BossArchetypeCatalog::BOSS_CHALLENGE_FEE;
+            if ((int) $enrollment->relics < $fee) {
+                throw ValidationException::withMessages([
+                    'boss' => 'É preciso pagar '.$fee.' '.GameCurrency::label('relics').' para desafiar o chefão.',
+                ]);
+            }
+
+            $dailyLimit = $season->bossChallengeDailyLimit();
+            if ($this->resolvedBossChallengesToday($season, $class, $student) >= $dailyLimit) {
+                throw ValidationException::withMessages([
+                    'boss' => 'Você já usou os desafios do chefão de hoje.',
+                ]);
+            }
+
+            $enrollment->relics = (int) $enrollment->relics - $fee;
+            $enrollment->save();
+
+            $seed = random_int(1, PHP_INT_MAX);
+            $boss = $this->combat->buildBossFighter(
+                (string) $season->boss_archetype,
+                (string) $season->boss_difficulty,
+                shadow: false,
+            );
+
+            $result = $this->combat->resolveAgainstBoss($student, $class, $boss, $seed, luckRange: 0.08);
+            $won = $result['winner_id'] === $student->id;
+            $loot = $won
+                ? $this->rollBossChallengeLoot($result, $seed)
+                : ['relics' => 0, 'seals' => 0, 'auras' => 0];
+
+            $vigil = BossVigil::query()->create([
+                'season_id' => $season->id,
+                'class_id' => $class->id,
+                'student_id' => $student->id,
+                'source' => BossVigil::SOURCE_BOSS,
+                'initiated_by' => null,
+                'status' => BossVigil::STATUS_RESOLVED,
+                'seed' => $seed,
+                'log' => $result,
+                'won' => $won,
+                'mark_earned' => false,
+                'glory' => 0,
+                'fee_relics' => $fee,
+                'loot' => $loot,
+                'resolved_at' => now(),
+            ]);
+
+            $this->applyBossChallengeOutcome($class, $season, $student->id, $won, $loot);
+
+            return $vigil;
+        });
+    }
+
+    public function resolvedBossChallengesToday(Season $season, SchoolClass $class, User $student): int
+    {
+        return BossVigil::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $class->id)
+            ->where('student_id', $student->id)
+            ->where('source', BossVigil::SOURCE_BOSS)
+            ->whereDate('resolved_at', Carbon::today())
+            ->count();
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array{relics: int, seals: int, auras: int}
+     */
+    public function rollBossChallengeLoot(array $result, int $seed): array
+    {
+        $challenger = $result['fighters']['challenger'] ?? [];
+        $maxHp = max(1, (int) ($challenger['max_hp'] ?? 1));
+        $hp = max(0, min($maxHp, (int) ($challenger['hp'] ?? 0)));
+        $turnsUsed = max(1, count($result['turns'] ?? []));
+        $maxTurns = ArenaCombatService::MAX_TURNS;
+
+        $hpScore = $hp / $maxHp;
+        $speedScore = max(0.0, ($maxTurns - $turnsUsed) / $maxTurns);
+        $score = max(0.0, min(1.0, ($hpScore * 0.7) + ($speedScore * 0.3)));
+        $pot = BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_FLOOR
+            + (int) round($score * BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_SPAN);
+
+        $rng = new SeededRandom($seed ^ 0xB055C0DE);
+        $loot = ['relics' => 0, 'seals' => 0, 'auras' => 0];
+        $keys = ['relics', 'seals', 'auras'];
+
+        for ($i = 0; $i < $pot; $i++) {
+            $loot[$keys[$rng->nextInt(0, 2)]]++;
+        }
+
+        return $loot;
+    }
+
+    /**
+     * @param  array{relics: int, seals: int, auras: int}  $loot
+     */
+    private function applyBossChallengeOutcome(
+        SchoolClass $class,
+        Season $season,
+        int $studentId,
+        bool $won,
+        array $loot,
+    ): void {
+        $enrollment = Enrollment::query()
+            ->where('class_id', $class->id)
+            ->where('student_id', $studentId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $enrollment) {
+            throw new RuntimeException('Matrícula não encontrada para premiar o desafio do chefão.');
+        }
+
+        if ($won) {
+            $enrollment->arena_wins = (int) $enrollment->arena_wins + 1;
+            $enrollment->relics = (int) $enrollment->relics + max(0, (int) ($loot['relics'] ?? 0));
+            $enrollment->seals = (int) $enrollment->seals + max(0, (int) ($loot['seals'] ?? 0));
+        } else {
+            $enrollment->arena_losses = (int) $enrollment->arena_losses + 1;
+        }
+
+        $enrollment->save();
+
+        $auras = max(0, (int) ($loot['auras'] ?? 0));
+        if ($won && $auras > 0 && $season->area_id) {
+            $this->awardAura((int) $season->area_id, $studentId, $auras);
+        }
+    }
+
+    private function awardAura(int $areaId, int $studentId, int $amount): void
+    {
+        $balance = AreaBalance::query()
+            ->where('area_id', $areaId)
+            ->where('student_id', $studentId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $balance) {
+            $balance = AreaBalance::query()->create([
+                'area_id' => $areaId,
+                'student_id' => $studentId,
+                'auras' => 0,
+            ]);
+            $balance = AreaBalance::query()->whereKey($balance->id)->lockForUpdate()->firstOrFail();
+        }
+
+        $balance->auras = (int) $balance->auras + $amount;
+        $balance->save();
     }
 
     /**

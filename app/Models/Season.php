@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\BossArchetypeCatalog;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -17,6 +18,7 @@ class Season extends Model
         'boss_archetype',
         'boss_difficulty',
         'vigil_open',
+        'boss_challenge_schedule',
         'created_by',
     ];
 
@@ -32,6 +34,7 @@ class Season extends Model
     {
         return [
             'vigil_open' => 'boolean',
+            'boss_challenge_schedule' => 'array',
         ];
     }
 
@@ -87,5 +90,23 @@ class Season extends Model
     public function isVigilOpen(): bool
     {
         return $this->hasBoss() && (bool) $this->vigil_open;
+    }
+
+    /**
+     * Agenda de desafios pagos ao chefão por dia da semana (ISO 1–7 → limite).
+     *
+     * @return array<int, int>
+     */
+    public function bossChallengeWeek(): array
+    {
+        return BossArchetypeCatalog::bossChallengeWeek($this->boss_challenge_schedule);
+    }
+
+    /**
+     * Limite de desafios pagos ao chefão no dia atual (timezone de exibição).
+     */
+    public function bossChallengeDailyLimit(?CarbonInterface $now = null): int
+    {
+        return BossArchetypeCatalog::bossChallengeDailyLimit($this->boss_challenge_schedule, $now);
     }
 }

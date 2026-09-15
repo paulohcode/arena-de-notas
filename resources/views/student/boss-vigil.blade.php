@@ -1,6 +1,6 @@
 @extends('layouts.game')
 
-@section('title', 'Vigília — '.$season->name)
+@section('title', ($vigil->isBossChallenge() ? 'Chefão' : 'Vigília').' — '.$season->name)
 
 @php
     $log = $vigil->log ?? [];
@@ -10,6 +10,7 @@
     $turns = $log['turns'] ?? [];
     $bossMeta = $season->bossMeta() ?? [];
     $isResolved = $challengerSnap && $opponentSnap;
+    $lootTotals = $vigil->lootTotals();
 
     $staffView = $staffView ?? false;
     $backUrl = $backUrl ?? route('student.arena.index').'#rito-temporada';
@@ -17,7 +18,7 @@
     $viewerForBattle = isset($viewerId) ? (int) $viewerId : (int) $student->id;
     $kicker = $staffView
         ? ($vigil->isStaffChallenge() ? 'Mesa do chefão · Provocação' : 'Mesa do chefão · Replay')
-        : 'Vigília · Sombra do Rito';
+        : ($vigil->isBossChallenge() ? 'Desafio pago · Chefão completo' : 'Vigília · Sombra do Rito');
 
     $battlePayload = $isResolved ? [
         'left' => [
@@ -49,9 +50,13 @@
         'viewerId' => $viewerForBattle,
         'gloryWin' => \App\Support\BossArchetypeCatalog::GLORY_WIN,
         'gloryLoss' => \App\Support\BossArchetypeCatalog::GLORY_LOSS,
-        'rewardLabel' => \App\Models\GameCurrency::label('glory'),
-        'mode' => $staffView ? 'boss_desk' : 'vigil',
+        'rewardLabel' => $vigil->isBossChallenge()
+            ? \App\Models\GameCurrency::label('relics')
+            : \App\Models\GameCurrency::label('glory'),
+        'mode' => $staffView ? 'boss_desk' : ($vigil->isBossChallenge() ? 'boss_challenge' : 'vigil'),
         'markEarned' => (bool) $vigil->mark_earned,
+        'feeRelics' => (int) $vigil->fee_relics,
+        'loot' => $lootTotals,
     ] : null;
 
     $winnerReasonLabel = match ($log['winner_reason'] ?? null) {
@@ -269,6 +274,23 @@
         @endif
         @if($vigil->mark_earned)
             <p class="text-sm text-violet-200">Marca do Rito conquistada — a turma chega mais forte no assalto final.</p>
+        @endif
+        @if($vigil->isBossChallenge())
+            <div class="rounded-lg border border-amber-400/20 bg-black/20 p-4 text-sm space-y-1">
+                <p class="text-amber-100/70">
+                    Taxa paga: {{ \App\Models\GameCurrency::format('relics', (int) $vigil->fee_relics) }}
+                </p>
+                @if($vigil->won)
+                    <p class="text-emerald-300">
+                        Loot:
+                        {{ \App\Models\GameCurrency::format('relics', $lootTotals['relics']) }}
+                        · {{ \App\Models\GameCurrency::format('seals', $lootTotals['seals']) }}
+                        · {{ \App\Models\GameCurrency::format('auras', $lootTotals['auras']) }}
+                    </p>
+                @else
+                    <p class="text-rose-300/80">Derrota — a taxa não volta. Sem loot.</p>
+                @endif
+            </div>
         @endif
 
         <div class="game-card p-5">

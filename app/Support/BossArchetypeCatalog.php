@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use Carbon\CarbonInterface;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\In;
 
 class BossArchetypeCatalog
 {
@@ -56,6 +58,21 @@ class BossArchetypeCatalog
 
     /** Teto semanal de Vigílias por aluno na temporada. */
     public const VIGIL_WEEKLY_LIMIT = 3;
+
+    /** Taxa em Relíquias para desafiar o chefão completo. */
+    public const BOSS_CHALLENGE_FEE = 10;
+
+    /** Limite diário padrão de desafios pagos ao chefão (por dia da semana). */
+    public const BOSS_CHALLENGE_DAILY_DEFAULT = 1;
+
+    /** Teto configurável de desafios pagos por dia. */
+    public const BOSS_CHALLENGE_DAILY_MAX = 20;
+
+    /** Pote mínimo de moedas no loot de vitória do chefão. */
+    public const BOSS_CHALLENGE_LOOT_FLOOR = 6;
+
+    /** Faixa extra de moedas no loot (score 0–1 → +0..12). */
+    public const BOSS_CHALLENGE_LOOT_SPAN = 12;
 
     public const GLORY_WIN = 10;
 
@@ -351,12 +368,12 @@ class BossArchetypeCatalog
         return self::DIFFICULTY_POWER[$key] ?? self::DIFFICULTY_POWER[self::DIFFICULTY_NORMAL];
     }
 
-    public static function archetypeRule(): \Illuminate\Validation\Rules\In
+    public static function archetypeRule(): In
     {
         return Rule::in(self::keys());
     }
 
-    public static function difficultyRule(): \Illuminate\Validation\Rules\In
+    public static function difficultyRule(): In
     {
         return Rule::in(array_keys(self::DIFFICULTY_POWER));
     }
@@ -376,5 +393,90 @@ class BossArchetypeCatalog
         $raw = max(1, $eligibleFighters) * self::RAID_HP_PER_FIGHTER;
 
         return max(self::RAID_HP_FLOOR, $raw);
+    }
+
+    /**
+     * @param  array<int|string, mixed>|null  $schedule
+     * @return array<int, int>
+     */
+    public static function bossChallengeWeek(?array $schedule): array
+    {
+        $week = [];
+
+        foreach (ArenaSchedule::weekdays() as $weekday) {
+            $week[$weekday] = self::bossChallengeLimitForWeekday($schedule, $weekday);
+        }
+
+        return $week;
+    }
+
+    /**
+     * @param  array<int|string, mixed>|null  $schedule
+     */
+    public static function bossChallengeDailyLimit(?array $schedule, ?CarbonInterface $now = null): int
+    {
+        return self::bossChallengeLimitForWeekday($schedule, ArenaSchedule::todayWeekday($now));
+    }
+
+    /**
+     * @param  array<int|string, mixed>|null  $schedule
+     */
+    public static function bossChallengeLimitForWeekday(?array $schedule, int $weekday): int
+    {
+        $default = self::BOSS_CHALLENGE_DAILY_DEFAULT;
+        $day = $schedule[$weekday] ?? $schedule[(string) $weekday] ?? null;
+
+        if (is_array($day) && array_key_exists('daily_limit', $day)) {
+            return max(0, min(self::BOSS_CHALLENGE_DAILY_MAX, (int) $day['daily_limit']));
+        }
+
+        if (is_numeric($day)) {
+            return max(0, min(self::BOSS_CHALLENGE_DAILY_MAX, (int) $day));
+        }
+
+        return $default;
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $days
+     * @return array<int, array{daily_limit: int}>
+     */
+    public static function bossChallengeScheduleFromValidated(array $days): array
+    {
+        $week = [];
+
+        foreach (ArenaSchedule::weekdays() as $weekday) {
+            $day = $days[$weekday] ?? $days[(string) $weekday] ?? [];
+            $limit = is_array($day)
+                ? (int) ($day['daily_limit'] ?? self::BOSS_CHALLENGE_DAILY_DEFAULT)
+                : (int) $day;
+            $week[$weekday] = [
+                'daily_limit' => max(0, min(self::BOSS_CHALLENGE_DAILY_MAX, $limit)),
+            ];
+        }
+
+        return $week;
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public static function bossChallengeScheduleRules(string $prefix = 'boss_challenge_days'): array
+    {
+        $rules = [
+            $prefix => ['nullable', 'array'],
+        ];
+
+        foreach (ArenaSchedule::weekdays() as $weekday) {
+            $rules[$prefix.'.'.$weekday] = ['nullable', 'array'];
+            $rules[$prefix.'.'.$weekday.'.daily_limit'] = [
+                'required_with:'.$prefix,
+                'integer',
+                'min:0',
+                'max:'.self::BOSS_CHALLENGE_DAILY_MAX,
+            ];
+        }
+
+        return $rules;
     }
 }
