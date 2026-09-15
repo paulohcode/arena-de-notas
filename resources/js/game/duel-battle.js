@@ -57,7 +57,15 @@ export function duelBattle(payload) {
 
         get headline() {
             if (! this.finished) {
+                if (this.mode === 'boss_desk') {
+                    return 'Provocação em andamento';
+                }
+
                 return this.mode === 'vigil' ? 'Vigília em andamento' : 'Combate em andamento';
+            }
+
+            if (this.mode === 'boss_desk') {
+                return this.iWon ? 'O chefão prevaleceu' : 'O aluno resistiu';
             }
 
             if (this.mode === 'vigil' && this.iWon && this.markEarned) {
@@ -80,6 +88,12 @@ export function duelBattle(payload) {
         },
 
         get resultLine() {
+            if (this.mode === 'boss_desk') {
+                return this.iWon
+                    ? `Aluno recebe +${this.gloryLoss} ${this.rewardLabel}`
+                    : `Aluno recebe +${this.gloryWin} ${this.rewardLabel}`;
+            }
+
             return this.iWon
                 ? `+${this.gloryWin} ${this.rewardLabel}`
                 : `+${this.gloryLoss} ${this.rewardLabel}`;

@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Models\BossVigil;
+use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\Season;
+use App\Models\SeasonClassRite;
 use App\Models\User;
+use App\Services\ArenaCombatService;
 use App\Services\BossRiteService;
 use App\Support\BossArchetypeCatalog;
 use Illuminate\Http\RedirectResponse;
@@ -142,6 +146,91 @@ class SeasonController extends Controller
             : "O Rito resistiu em {$schoolClass->name}.";
 
         return back()->with('success', $message);
+    }
+
+    public function bossDesk(Request $request, Season $season): View
+    {
+        $this->authorizeSeason($request, $season);
+        abort_unless($season->hasBoss(), 404);
+
+        $season->load(['area', 'classes']);
+        $roster = $this->rites->bossDeskRoster($season);
+        $recentChallenges = BossVigil::query()
+            ->with(['student', 'schoolClass'])
+            ->where('season_id', $season->id)
+            ->where('source', BossVigil::SOURCE_STAFF)
+            ->latest('resolved_at')
+            ->limit(12)
+            ->get();
+
+        return view('teacher.seasons.boss-desk', [
+            'season' => $season,
+            'roster' => $roster,
+            'recentChallenges' => $recentChallenges,
+            'boss' => $season->bossMeta(),
+        ]);
+    }
+
+    public function challengeAsBoss(Request $request, Season $season): RedirectResponse
+    {
+        $this->authorizeSeason($request, $season);
+        abort_unless($season->hasBoss(), 404);
+
+        $data = $request->validate([
+            'class_id' => ['required', 'integer', 'exists:classes,id'],
+            'student_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $class = SchoolClass::query()->findOrFail($data['class_id']);
+        $this->authorizeClass($request, $class);
+        $student = User::query()->findOrFail($data['student_id']);
+
+        $vigil = $this->rites->staffChallenge($season, $class, $student, $request->user());
+
+        return redirect()
+            ->route('teacher.seasons.vigil.show', [$season, $vigil])
+            ->with('success', 'Desafio lançado. Assista o combate como o chefão.');
+    }
+
+    public function showVigil(Request $request, Season $season, BossVigil $vigil): View
+    {
+        $this->authorizeSeason($request, $season);
+        abort_unless($vigil->season_id === $season->id, 404);
+
+        $vigil->load(['season', 'student', 'schoolClass']);
+
+        return view('student.boss-vigil', [
+            'class' => $vigil->schoolClass,
+            'student' => $vigil->student,
+            'vigil' => $vigil,
+            'season' => $season,
+            'viewerId' => ArenaCombatService::BOSS_FIGHTER_ID,
+            'backUrl' => route('teacher.seasons.boss', $season),
+            'backLabel' => 'Voltar à mesa do chefão',
+            'staffView' => true,
+        ]);
+    }
+
+    public function showRite(Request $request, Season $season, SeasonClassRite $rite): View
+    {
+        $this->authorizeSeason($request, $season);
+        abort_unless($rite->season_id === $season->id, 404);
+
+        $rite->load(['season', 'schoolClass']);
+
+        return view('student.boss-rite', [
+            'class' => $rite->schoolClass,
+            'student' => $request->user(),
+            'rite' => $rite,
+            'season' => $season,
+            'rewardLabel' => GameCurrency::label('relics'),
+            'relicsWin' => BossArchetypeCatalog::RELICS_RITE_WIN,
+            'relicsLoss' => BossArchetypeCatalog::RELICS_RITE_LOSS,
+            'bossFighterId' => ArenaCombatService::BOSS_FIGHTER_ID,
+            'backUrl' => route('teacher.seasons.boss', $season),
+            'backLabel' => 'Voltar à mesa do chefão',
+            'staffView' => true,
+        ]);
     }
 
     /**

@@ -11,6 +11,8 @@ class BossVigil extends Model
         'season_id',
         'class_id',
         'student_id',
+        'source',
+        'initiated_by',
         'status',
         'seed',
         'log',
@@ -22,11 +24,16 @@ class BossVigil extends Model
 
     public const STATUS_RESOLVED = 'resolved';
 
+    public const SOURCE_STUDENT = 'student';
+
+    public const SOURCE_STAFF = 'staff';
+
     /**
      * @var array<string, mixed>
      */
     protected $attributes = [
         'status' => self::STATUS_RESOLVED,
+        'source' => self::SOURCE_STUDENT,
         'won' => false,
         'mark_earned' => false,
         'glory' => 0,
@@ -59,8 +66,18 @@ class BossVigil extends Model
         return $this->belongsTo(User::class, 'student_id');
     }
 
+    public function initiator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'initiated_by');
+    }
+
     public function isResolved(): bool
     {
         return $this->status === self::STATUS_RESOLVED;
+    }
+
+    public function isStaffChallenge(): bool
+    {
+        return $this->source === self::SOURCE_STAFF;
     }
 }

@@ -11,6 +11,14 @@
     $bossMeta = $season->bossMeta() ?? [];
     $isResolved = $challengerSnap && $opponentSnap;
 
+    $staffView = $staffView ?? false;
+    $backUrl = $backUrl ?? route('student.arena.index').'#rito-temporada';
+    $backLabel = $backLabel ?? 'Voltar à arena';
+    $viewerForBattle = isset($viewerId) ? (int) $viewerId : (int) $student->id;
+    $kicker = $staffView
+        ? ($vigil->isStaffChallenge() ? 'Mesa do chefão · Provocação' : 'Mesa do chefão · Replay')
+        : 'Vigília · Sombra do Rito';
+
     $battlePayload = $isResolved ? [
         'left' => [
             'id' => $vigil->student->id,
@@ -38,11 +46,11 @@
         ],
         'turns' => $turns,
         'winnerId' => (int) ($log['winner_id'] ?? 0),
-        'viewerId' => (int) $student->id,
+        'viewerId' => $viewerForBattle,
         'gloryWin' => \App\Support\BossArchetypeCatalog::GLORY_WIN,
         'gloryLoss' => \App\Support\BossArchetypeCatalog::GLORY_LOSS,
         'rewardLabel' => \App\Models\GameCurrency::label('glory'),
-        'mode' => 'vigil',
+        'mode' => $staffView ? 'boss_desk' : 'vigil',
         'markEarned' => (bool) $vigil->mark_earned,
     ] : null;
 
@@ -64,11 +72,11 @@
     >
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <p class="hero-kicker !mb-1">Vigília · Sombra do Rito</p>
+                <p class="hero-kicker !mb-1">{{ $kicker }}</p>
                 <h1 class="font-display text-3xl md:text-4xl text-violet-200" x-text="headline"></h1>
-                <p class="text-amber-100/60 mt-1">{{ $season->bossDisplayName() }}</p>
+                <p class="text-amber-100/60 mt-1">{{ $season->bossDisplayName() }} · vs {{ $vigil->student->arenaName() ?: $vigil->student->name }}</p>
             </div>
-            <a class="game-btn-ghost" href="{{ route('student.arena.index') }}#rito-temporada">Voltar à arena</a>
+            <a class="game-btn-ghost" href="{{ $backUrl }}">{{ $backLabel }}</a>
         </div>
 
         <div

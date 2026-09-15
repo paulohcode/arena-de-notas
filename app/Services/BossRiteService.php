@@ -42,13 +42,14 @@ class BossRiteService
     }
 
     /**
-     * Contagem de Marcas do Rito da turma na temporada (vitórias na Vigília).
+     * Contagem de Marcas do Rito da turma na temporada (vitórias na Vigília do aluno).
      */
     public function markCount(Season $season, SchoolClass $class): int
     {
         return BossVigil::query()
             ->where('season_id', $season->id)
             ->where('class_id', $class->id)
+            ->where('source', BossVigil::SOURCE_STUDENT)
             ->where('mark_earned', true)
             ->count();
     }
@@ -124,6 +125,8 @@ class BossRiteService
                 'season_id' => $season->id,
                 'class_id' => $class->id,
                 'student_id' => $student->id,
+                'source' => BossVigil::SOURCE_STUDENT,
+                'initiated_by' => null,
                 'status' => BossVigil::STATUS_RESOLVED,
                 'seed' => $seed,
                 'log' => $result,
@@ -139,12 +142,123 @@ class BossRiteService
         });
     }
 
+    /**
+     * Professor/admin, no papel do chefão, desafia um aluno.
+     * Resolve na hora (replay cinematográfico). Não gera Marca nem consome limite diário.
+     *
+     * @throws ValidationException
+     */
+    public function staffChallenge(Season $season, SchoolClass $class, User $student, User $staff): BossVigil
+    {
+        if (! $season->hasBoss()) {
+            throw ValidationException::withMessages([
+                'challenge' => 'Esta temporada ainda não tem um chefão.',
+            ]);
+        }
+
+        if (! $season->classes()->where('classes.id', $class->id)->exists()) {
+            throw ValidationException::withMessages([
+                'challenge' => 'Esta turma não participa da temporada.',
+            ]);
+        }
+
+        if ($reason = $this->fighterRestriction($class, $student)) {
+            throw ValidationException::withMessages(['challenge' => $reason]);
+        }
+
+        return DB::transaction(function () use ($season, $class, $student, $staff) {
+            $seed = random_int(1, PHP_INT_MAX);
+            $boss = $this->combat->buildBossFighter(
+                (string) $season->boss_archetype,
+                (string) $season->boss_difficulty,
+                shadow: true,
+            );
+            $boss['arena_name'] = $boss['name'];
+
+            $result = $this->combat->resolveAgainstBoss($student, $class, $boss, $seed, luckRange: 0.08);
+            $studentWon = $result['winner_id'] === $student->id;
+            $glory = $studentWon ? BossArchetypeCatalog::GLORY_WIN : BossArchetypeCatalog::GLORY_LOSS;
+
+            $vigil = BossVigil::query()->create([
+                'season_id' => $season->id,
+                'class_id' => $class->id,
+                'student_id' => $student->id,
+                'source' => BossVigil::SOURCE_STAFF,
+                'initiated_by' => $staff->id,
+                'status' => BossVigil::STATUS_RESOLVED,
+                'seed' => $seed,
+                'log' => $result,
+                'won' => $studentWon,
+                'mark_earned' => false,
+                'glory' => $glory,
+                'resolved_at' => now(),
+            ]);
+
+            $this->awardGloryAndRelics($class, $student->id, $glory, $studentWon);
+
+            $bossName = $season->bossDisplayName() ?? 'o chefão';
+            $student->notify(new GameAlert(
+                'season_rite',
+                'O chefão te desafiou',
+                "{$bossName} te provocou na arena. Assista o combate.",
+                [
+                    'season_id' => $season->id,
+                    'class_id' => $class->id,
+                    'vigil_id' => $vigil->id,
+                    'url' => ArenaUrl::route('student.arena.vigil.show', $vigil),
+                ],
+            ));
+
+            return $vigil;
+        });
+    }
+
+    /**
+     * Alunos elegíveis das turmas da temporada, agrupados por turma.
+     *
+     * @return list<array{class: SchoolClass, students: list<array{user: User, power: float, notice: ?string}>}>
+     */
+    public function bossDeskRoster(Season $season): array
+    {
+        $rows = [];
+
+        foreach ($season->classes()->with(['students'])->orderBy('name')->get() as $class) {
+            $students = [];
+            foreach ($class->students()->orderBy('name')->get() as $student) {
+                $notice = $this->fighterRestriction($class, $student);
+                $power = 0.0;
+                if ($notice === null) {
+                    try {
+                        $power = (float) $this->combat->buildFighter($student, $class)['power'];
+                    } catch (\InvalidArgumentException) {
+                        $notice = 'Personagem incompleto para o combate.';
+                    }
+                }
+
+                $students[] = [
+                    'user' => $student,
+                    'power' => $power,
+                    'notice' => $notice,
+                ];
+            }
+
+            usort($students, fn ($a, $b) => $b['power'] <=> $a['power']);
+            $rows[] = [
+                'class' => $class,
+                'students' => $students,
+            ];
+        }
+
+        return $rows;
+    }
+
     public function resolvedVigilsToday(Season $season, SchoolClass $class, User $student): int
     {
         return BossVigil::query()
             ->where('season_id', $season->id)
             ->where('class_id', $class->id)
             ->where('student_id', $student->id)
+            ->where('source', BossVigil::SOURCE_STUDENT)
             ->whereDate('resolved_at', Carbon::today())
             ->count();
     }
@@ -155,6 +269,7 @@ class BossRiteService
             ->where('season_id', $season->id)
             ->where('class_id', $class->id)
             ->where('student_id', $student->id)
+            ->where('source', BossVigil::SOURCE_STUDENT)
             ->where('resolved_at', '>=', Carbon::now()->startOfWeek())
             ->count();
     }

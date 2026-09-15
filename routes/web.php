@@ -173,6 +173,10 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::post('/temporadas/{season}/vigilia/fechar', [SeasonController::class, 'closeVigil'])->name('seasons.vigil.close');
     Route::post('/temporadas/{season}/turmas/{schoolClass}/rito/abrir', [SeasonController::class, 'openRite'])->name('seasons.rite.open');
     Route::post('/temporadas/{season}/turmas/{schoolClass}/rito/resolver', [SeasonController::class, 'resolveRite'])->name('seasons.rite.resolve');
+    Route::get('/temporadas/{season}/chefao', [SeasonController::class, 'bossDesk'])->name('seasons.boss');
+    Route::post('/temporadas/{season}/chefao/desafiar', [SeasonController::class, 'challengeAsBoss'])->name('seasons.boss.challenge');
+    Route::get('/temporadas/{season}/vigilia/{vigil}', [SeasonController::class, 'showVigil'])->name('seasons.vigil.show');
+    Route::get('/temporadas/{season}/rito/{rite}', [SeasonController::class, 'showRite'])->name('seasons.rite.show');
 });
 
 Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')->name('student.')->group(function () {

@@ -41,6 +41,7 @@
                     @endif
                     <a href="{{ route('teacher.seasons.edit', $season) }}" class="game-btn-ghost text-sm">Editar</a>
                     @if($boss)
+                        <a href="{{ route('teacher.seasons.boss', $season) }}" class="game-btn text-sm">Mesa do chefão</a>
                         @if($season->vigil_open)
                             <form method="POST" action="{{ route('teacher.seasons.vigil.close', $season) }}">
                                 @csrf
@@ -98,6 +99,8 @@
                                         <button type="submit" class="game-btn !py-1 !px-3 text-sm"
                                             onclick="return confirm('Resolver o assalto agora? A turma luta em sequência.')">Resolver assalto</button>
                                     </form>
+                                @elseif($rite->isResolved())
+                                    <a href="{{ route('teacher.seasons.rite.show', [$season, $rite]) }}" class="game-btn-ghost !py-1 !px-3 text-sm">Assistir Rito</a>
                                 @endif
                             </div>
                         </div>

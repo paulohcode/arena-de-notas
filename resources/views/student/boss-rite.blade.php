@@ -72,6 +72,10 @@
         'bossIcon' => $bossMeta['icon'] ?? '🌑',
         'marksApplied' => (int) ($log['marks_applied'] ?? $rite->marks_applied),
     ] : null;
+
+    $backUrl = $backUrl ?? route('student.arena.index').'#rito-temporada';
+    $backLabel = $backLabel ?? 'Voltar à arena';
+    $staffView = $staffView ?? false;
 @endphp
 
 @section('content')
@@ -83,11 +87,11 @@
     >
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <p class="hero-kicker !mb-1">Assalto do Rito</p>
+                <p class="hero-kicker !mb-1">{{ $staffView ? 'Mesa do chefão · Assalto' : 'Assalto do Rito' }}</p>
                 <h1 class="font-display text-3xl md:text-4xl text-violet-200" x-text="headline"></h1>
                 <p class="text-amber-100/60 mt-1">{{ $season->bossDisplayName() }} · {{ $rite->marks_applied }} Marca(s)</p>
             </div>
-            <a class="game-btn-ghost" href="{{ route('student.arena.index') }}#rito-temporada">Voltar à arena</a>
+            <a class="game-btn-ghost" href="{{ $backUrl }}">{{ $backLabel }}</a>
         </div>
 
         <div class="game-card p-4">
@@ -184,12 +188,12 @@
         <p class="hero-kicker !mb-2">Rito aberto</p>
         <h1 class="font-display text-3xl text-violet-200 mb-3">{{ $season->bossDisplayName() }}</h1>
         <p class="text-amber-100/65 mb-4">HP {{ $rite->boss_hp }}/{{ $rite->boss_max_hp }} · {{ $rite->marks_applied }} Marca(s). O professor resolve o assalto.</p>
-        <a class="game-btn-ghost" href="{{ route('student.arena.index') }}">Voltar à arena</a>
+        <a class="game-btn-ghost" href="{{ $backUrl ?? route('student.arena.index') }}">{{ $backLabel ?? 'Voltar à arena' }}</a>
     </div>
 @else
     <div class="game-card p-8 text-center">
         <p class="text-amber-100/60">O Rito ainda não foi resolvido.</p>
-        <a class="game-btn-ghost inline-block mt-4" href="{{ route('student.arena.index') }}">Voltar</a>
+        <a class="game-btn-ghost inline-block mt-4" href="{{ $backUrl ?? route('student.arena.index') }}">{{ $backLabel ?? 'Voltar' }}</a>
     </div>
 @endif
 @endsection
