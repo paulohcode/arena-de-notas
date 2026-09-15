@@ -175,16 +175,6 @@ class BossRiteService
                 : "Você já usou os {$dailyLimit} desafios do chefão de hoje.";
         }
 
-        $riteResolved = SeasonClassRite::query()
-            ->where('season_id', $season->id)
-            ->where('class_id', $class->id)
-            ->where('status', SeasonClassRite::STATUS_RESOLVED)
-            ->exists();
-
-        if ($riteResolved) {
-            return 'O Rito desta turma já foi resolvido — o desafio do chefão encerrou.';
-        }
-
         $enrollment = $student->enrollmentIn($class);
         $fee = BossArchetypeCatalog::BOSS_CHALLENGE_FEE;
         if (! $enrollment || (int) $enrollment->relics < $fee) {

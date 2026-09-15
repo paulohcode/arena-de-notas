@@ -58,22 +58,10 @@
                 <p class="text-amber-200 font-semibold">O Rito está aberto</p>
                 <p class="text-sm text-amber-100/60">O professor resolve o assalto da turma. HP atual: {{ $bossRite->boss_hp }}/{{ $bossRite->boss_max_hp }} ({{ $bossRite->marks_applied }} marcas aplicadas).</p>
             </div>
-            <div class="flex flex-wrap items-start gap-4">
-                <div class="space-y-2">
-                    <p class="text-xs uppercase tracking-wide text-violet-200/70">Chefão completo</p>
-                    @if($bossChallengeRestriction)
-                        <p class="text-sm text-amber-100/55">{{ $bossChallengeRestriction }}</p>
-                    @else
-                        <form method="POST" action="{{ route('student.arena.boss.challenge', $bossSeason) }}">
-                            @csrf
-                            <button class="game-btn" type="submit">Desafiar o chefão</button>
-                        </form>
-                        <p class="text-xs text-amber-100/45">Custa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}. Vitória: loot aleatório ({{ \App\Models\GameCurrency::label('relics') }}, {{ \App\Models\GameCurrency::label('seals') }}, {{ \App\Models\GameCurrency::label('auras') }}). Sem Marca.</p>
-                    @endif
-                </div>
-            </div>
-        @else
-            <div class="flex flex-wrap items-start gap-6">
+        @endif
+
+        <div class="flex flex-wrap items-start gap-6">
+            @if(! $bossRite?->isOpen() && ! $bossRite?->isResolved())
                 <div class="space-y-2">
                     <p class="text-xs uppercase tracking-wide text-violet-200/70">Vigília · Sombra</p>
                     @if($vigilRestriction)
@@ -86,20 +74,20 @@
                         <p class="text-xs text-amber-100/45">Vitória concede Marca do Rito + Glória. Sem punição de nota.</p>
                     @endif
                 </div>
-                <div class="space-y-2">
-                    <p class="text-xs uppercase tracking-wide text-amber-200/70">Chefão completo</p>
-                    @if($bossChallengeRestriction)
-                        <p class="text-sm text-amber-100/55">{{ $bossChallengeRestriction }}</p>
-                    @else
-                        <form method="POST" action="{{ route('student.arena.boss.challenge', $bossSeason) }}">
-                            @csrf
-                            <button class="game-btn" type="submit">Desafiar o chefão</button>
-                        </form>
-                        <p class="text-xs text-amber-100/45">Custa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}. Vitória: loot aleatório. Sem Marca.</p>
-                    @endif
-                </div>
+            @endif
+            <div class="space-y-2">
+                <p class="text-xs uppercase tracking-wide text-amber-200/70">Chefão completo</p>
+                @if($bossChallengeRestriction)
+                    <p class="text-sm text-amber-100/55">{{ $bossChallengeRestriction }}</p>
+                @else
+                    <form method="POST" action="{{ route('student.arena.boss.challenge', $bossSeason) }}">
+                        @csrf
+                        <button class="game-btn" type="submit">Desafiar o chefão</button>
+                    </form>
+                    <p class="text-xs text-amber-100/45">Custa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}. Vitória: loot aleatório ({{ \App\Models\GameCurrency::label('relics') }}, {{ \App\Models\GameCurrency::label('seals') }}, {{ \App\Models\GameCurrency::label('auras') }}). Sem Marca. Independente do Rito.</p>
+                @endif
             </div>
-        @endif
+        </div>
 
         @if($recentVigils->isNotEmpty())
             <div class="border-t border-violet-400/15 pt-3">

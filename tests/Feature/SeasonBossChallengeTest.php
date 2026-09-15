@@ -259,9 +259,11 @@ class SeasonBossChallengeTest extends TestCase
         $this->assertSame($loot['auras'], $auras);
     }
 
-    public function test_boss_challenge_blocked_after_rite_resolved(): void
+    public function test_boss_challenge_available_outside_and_after_rite(): void
     {
         [, $class, $student, $season] = $this->readyBossSeason(grade: 90, difficulty: 'easy', relics: 30);
+
+        $this->assertNull(app(BossRiteService::class)->bossChallengeRestriction($season, $class, $student));
 
         SeasonClassRite::query()->create([
             'season_id' => $season->id,
@@ -278,7 +280,9 @@ class SeasonBossChallengeTest extends TestCase
         $this->actingAs($student)
             ->withSession(['current_class_id' => $class->id])
             ->post(route('student.arena.boss.challenge', $season))
-            ->assertSessionHasErrors('boss');
+            ->assertRedirect();
+
+        $this->assertSame(1, BossVigil::query()->where('source', BossVigil::SOURCE_BOSS)->count());
     }
 
     public function test_arena_shows_boss_challenge_button(): void
