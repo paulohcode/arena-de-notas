@@ -234,9 +234,7 @@ class BossRiteService
 
             $result = $this->combat->resolveAgainstBoss($student, $class, $boss, $seed, luckRange: 0.08);
             $won = $result['winner_id'] === $student->id;
-            $loot = $won
-                ? $this->rollBossChallengeLoot($result, $seed)
-                : ['relics' => 0, 'seals' => 0, 'auras' => 0];
+            $loot = $this->rollBossChallengeLoot($result, $seed, $won);
 
             $vigil = BossVigil::query()->create([
                 'season_id' => $season->id,
@@ -276,23 +274,29 @@ class BossRiteService
      * @param  array<string, mixed>  $result
      * @return array{relics: int, seals: int, auras: int}
      */
-    public function rollBossChallengeLoot(array $result, int $seed): array
+    public function rollBossChallengeLoot(array $result, int $seed, bool $won = true): array
     {
-        $challenger = $result['fighters']['challenger'] ?? [];
-        $maxHp = max(1, (int) ($challenger['max_hp'] ?? 1));
-        $hp = max(0, min($maxHp, (int) ($challenger['hp'] ?? 0)));
-        $turnsUsed = max(1, count($result['turns'] ?? []));
-        $maxTurns = ArenaCombatService::MAX_TURNS;
-
-        $hpScore = $hp / $maxHp;
-        $speedScore = max(0.0, ($maxTurns - $turnsUsed) / $maxTurns);
-        $score = max(0.0, min(1.0, ($hpScore * 0.7) + ($speedScore * 0.3)));
-        $pot = BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_FLOOR
-            + (int) round($score * BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_SPAN);
-
         $rng = new SeededRandom($seed ^ 0xB055C0DE);
-        $loot = ['relics' => 0, 'seals' => 0, 'auras' => 0];
         $keys = ['relics', 'seals', 'auras'];
+        $loot = ['relics' => 0, 'seals' => 0, 'auras' => 0];
+
+        if ($won) {
+            $challenger = $result['fighters']['challenger'] ?? [];
+            $maxHp = max(1, (int) ($challenger['max_hp'] ?? 1));
+            $hp = max(0, min($maxHp, (int) ($challenger['hp'] ?? 0)));
+            $turnsUsed = max(1, count($result['turns'] ?? []));
+            $maxTurns = ArenaCombatService::MAX_TURNS;
+            $hpScore = $hp / $maxHp;
+            $speedScore = max(0.0, ($maxTurns - $turnsUsed) / $maxTurns);
+            $score = max(0.0, min(1.0, ($hpScore * 0.7) + ($speedScore * 0.3)));
+            $pot = BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_FLOOR
+                + (int) round($score * BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_SPAN);
+        } else {
+            foreach ($keys as $key) {
+                $loot[$key]++;
+            }
+            $pot = $rng->nextInt(0, BossArchetypeCatalog::BOSS_CHALLENGE_LOSS_LOOT_SPAN);
+        }
 
         for ($i = 0; $i < $pot; $i++) {
             $loot[$keys[$rng->nextInt(0, 2)]]++;
@@ -321,10 +325,11 @@ class BossRiteService
             throw new RuntimeException('Matrícula não encontrada para premiar o desafio do chefão.');
         }
 
+        $enrollment->relics = (int) $enrollment->relics + max(0, (int) ($loot['relics'] ?? 0));
+        $enrollment->seals = (int) $enrollment->seals + max(0, (int) ($loot['seals'] ?? 0));
+
         if ($won) {
             $enrollment->arena_wins = (int) $enrollment->arena_wins + 1;
-            $enrollment->relics = (int) $enrollment->relics + max(0, (int) ($loot['relics'] ?? 0));
-            $enrollment->seals = (int) $enrollment->seals + max(0, (int) ($loot['seals'] ?? 0));
         } else {
             $enrollment->arena_losses = (int) $enrollment->arena_losses + 1;
         }
@@ -332,7 +337,7 @@ class BossRiteService
         $enrollment->save();
 
         $auras = max(0, (int) ($loot['auras'] ?? 0));
-        if ($won && $auras > 0 && $season->area_id) {
+        if ($auras > 0 && $season->area_id) {
             $this->awardAura((int) $season->area_id, $studentId, $auras);
         }
     }

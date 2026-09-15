@@ -288,7 +288,12 @@
                         · {{ \App\Models\GameCurrency::format('auras', $lootTotals['auras']) }}
                     </p>
                 @else
-                    <p class="text-rose-300/80">Derrota — a taxa não volta. Sem loot.</p>
+                    <p class="text-amber-200">
+                        Consolação:
+                        {{ \App\Models\GameCurrency::format('relics', $lootTotals['relics']) }}
+                        · {{ \App\Models\GameCurrency::format('seals', $lootTotals['seals']) }}
+                        · {{ \App\Models\GameCurrency::format('auras', $lootTotals['auras']) }}
+                    </p>
                 @endif
             </div>
         @endif

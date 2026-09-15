@@ -60,7 +60,8 @@ class BossRiteController extends Controller
         $message = $vigil->won
             ? ('Vitória contra o chefão! Taxa: '.$fee.' '.GameCurrency::label('relics').'.'
                 .($lootParts !== [] ? ' Loot: '.implode(' · ', $lootParts).'.' : ''))
-            : ('O chefão prevaleceu. Taxa de '.$fee.' '.GameCurrency::label('relics').' consumida.');
+            : ('O chefão prevaleceu. Taxa de '.$fee.' '.GameCurrency::label('relics').' consumida.'
+                .($lootParts !== [] ? ' Consolação: '.implode(' · ', $lootParts).'.' : ''));
 
         return redirect()
             ->route('student.arena.vigil.show', $vigil)

@@ -80,15 +80,38 @@ class SeasonBossChallengeTest extends TestCase
         $arenaName = (string) ($vigil->log['fighters']['opponent']['arena_name'] ?? '');
         $this->assertFalse(str_starts_with($arenaName, 'Sombra'));
 
-        $enrollment = $student->enrollmentIn($class)->fresh();
-        $this->assertSame(20 - BossArchetypeCatalog::BOSS_CHALLENGE_FEE, (int) $enrollment->relics);
+        $this->assertFalse((bool) $vigil->won);
 
-        if (! $vigil->won) {
-            $this->assertSame(0, (int) ($vigil->loot['relics'] ?? 0));
-            $this->assertSame(0, (int) ($vigil->loot['seals'] ?? 0));
-            $this->assertSame(0, (int) ($vigil->loot['auras'] ?? 0));
-            $this->assertSame(1, (int) $enrollment->arena_losses);
-        }
+        $loot = $vigil->lootTotals();
+        $pot = $loot['relics'] + $loot['seals'] + $loot['auras'];
+        $this->assertGreaterThanOrEqual(1, $loot['relics']);
+        $this->assertGreaterThanOrEqual(1, $loot['seals']);
+        $this->assertGreaterThanOrEqual(1, $loot['auras']);
+        $this->assertGreaterThanOrEqual(BossArchetypeCatalog::BOSS_CHALLENGE_LOSS_LOOT_FLOOR, $pot);
+        $this->assertLessThanOrEqual(
+            BossArchetypeCatalog::BOSS_CHALLENGE_LOSS_LOOT_FLOOR + BossArchetypeCatalog::BOSS_CHALLENGE_LOSS_LOOT_SPAN,
+            $pot
+        );
+
+        $rolled = app(BossRiteService::class)->rollBossChallengeLoot($vigil->log, (int) $vigil->seed, false);
+        $this->assertSame($loot, $rolled);
+
+        $enrollment = $student->enrollmentIn($class)->fresh();
+        $this->assertSame(20 - BossArchetypeCatalog::BOSS_CHALLENGE_FEE + $loot['relics'], (int) $enrollment->relics);
+        $this->assertSame($loot['seals'], (int) $enrollment->seals);
+        $this->assertSame(1, (int) $enrollment->arena_losses);
+
+        $auras = (int) AreaBalance::query()
+            ->where('area_id', $season->area_id)
+            ->where('student_id', $student->id)
+            ->value('auras');
+        $this->assertSame($loot['auras'], $auras);
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->get(route('student.arena.vigil.show', $vigil))
+            ->assertOk()
+            ->assertSee('Consolação');
     }
 
     public function test_boss_challenge_daily_limit_blocks_second_attempt(): void
@@ -245,7 +268,7 @@ class SeasonBossChallengeTest extends TestCase
             $pot
         );
 
-        $rolled = $rites->rollBossChallengeLoot($vigil->log, (int) $vigil->seed);
+        $rolled = $rites->rollBossChallengeLoot($vigil->log, (int) $vigil->seed, true);
         $this->assertSame($loot, $rolled);
 
         $enrollment = $student->enrollmentIn($class)->fresh();
@@ -293,7 +316,8 @@ class SeasonBossChallengeTest extends TestCase
             ->withSession(['current_class_id' => $class->id])
             ->get(route('student.arena.index'))
             ->assertOk()
-            ->assertSee('Desafiar o chefão');
+            ->assertSee('Desafiar o chefão')
+            ->assertSee('ainda ganha um pouco');
     }
 
     /**

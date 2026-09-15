@@ -84,7 +84,7 @@
                         @csrf
                         <button class="game-btn" type="submit">Desafiar o chefão</button>
                     </form>
-                    <p class="text-xs text-amber-100/45">Custa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}. Vitória: loot aleatório ({{ \App\Models\GameCurrency::label('relics') }}, {{ \App\Models\GameCurrency::label('seals') }}, {{ \App\Models\GameCurrency::label('auras') }}). Sem Marca. Independente do Rito.</p>
+                    <p class="text-xs text-amber-100/45">Custa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}. Vitória: loot maior. Derrota: ainda ganha um pouco de {{ \App\Models\GameCurrency::label('relics') }}, {{ \App\Models\GameCurrency::label('seals') }} e {{ \App\Models\GameCurrency::label('auras') }}. Sem Marca. Independente do Rito.</p>
                 @endif
             </div>
         </div>

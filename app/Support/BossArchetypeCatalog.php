@@ -74,6 +74,12 @@ class BossArchetypeCatalog
     /** Faixa extra de moedas no loot (score 0–1 → +0..12). */
     public const BOSS_CHALLENGE_LOOT_SPAN = 12;
 
+    /** Pote mínimo na derrota: 1 de cada moeda. */
+    public const BOSS_CHALLENGE_LOSS_LOOT_FLOOR = 3;
+
+    /** Faixa extra aleatória na derrota (+0..3). */
+    public const BOSS_CHALLENGE_LOSS_LOOT_SPAN = 3;
+
     public const GLORY_WIN = 10;
 
     public const GLORY_LOSS = 2;
