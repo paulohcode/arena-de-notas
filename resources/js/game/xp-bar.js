@@ -7,6 +7,21 @@ export function animateBars() {
     });
 }
 
+export function animateBossPots() {
+    document.querySelectorAll('[data-boss-pot-fill]').forEach((el) => {
+        const target = Math.max(0, Math.min(100, Number(el.dataset.bossPotFill || 0)));
+        const fromRaw = el.dataset.bossPotFrom;
+        const from = fromRaw === undefined ? 0 : Math.max(0, Math.min(100, Number(fromRaw)));
+
+        el.style.height = `${from}%`;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                el.style.height = `${target}%`;
+            });
+        });
+    });
+}
+
 export function animateCounters() {
     document.querySelectorAll('[data-count-to]').forEach((el) => {
         const target = Number(el.dataset.countTo || 0);

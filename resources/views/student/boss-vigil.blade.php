@@ -11,6 +11,15 @@
     $bossMeta = $season->bossMeta() ?? [];
     $isResolved = $challengerSnap && $opponentSnap;
     $lootTotals = $vigil->lootTotals();
+    $jackpotTotals = $vigil->jackpotTotals();
+    $jackpotFillFrom = $jackpotTotals
+        ? \App\Support\BossArchetypeCatalog::bossBankFillPercent($jackpotTotals['bank_before'])
+        : 0.0;
+    $jackpotFillTo = $jackpotTotals
+        ? \App\Support\BossArchetypeCatalog::bossBankFillPercent(
+            max(0, $jackpotTotals['bank_before'] - $jackpotTotals['relics'])
+        )
+        : 0.0;
 
     $staffView = $staffView ?? false;
     $backUrl = $backUrl ?? route('student.arena.index').'#rito-temporada';
@@ -294,6 +303,25 @@
                         · {{ \App\Models\GameCurrency::format('seals', $lootTotals['seals']) }}
                         · {{ \App\Models\GameCurrency::format('auras', $lootTotals['auras']) }}
                     </p>
+                @endif
+                @if($jackpotTotals)
+                    <div class="pt-3 flex flex-wrap items-center gap-4 border-t border-amber-400/15 mt-2">
+                        <div class="boss-pot boss-pot--compact is-jackpot" aria-label="Pote da turma">
+                            <div class="boss-pot-vessel">
+                                <div
+                                    class="boss-pot-fill"
+                                    data-boss-pot-fill="{{ $jackpotFillTo }}"
+                                    data-boss-pot-from="{{ $jackpotFillFrom }}"
+                                ></div>
+                            </div>
+                        </div>
+                        <p class="text-amber-200 font-semibold">
+                            Pote da turma: +{{ \App\Models\GameCurrency::format('relics', $jackpotTotals['relics']) }}
+                            <span class="font-normal text-amber-100/60">
+                                ({{ $jackpotTotals['percent'] }}% de {{ $jackpotTotals['bank_before'] }})
+                            </span>
+                        </p>
+                    </div>
                 @endif
             </div>
         @endif

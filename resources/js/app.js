@@ -1,5 +1,5 @@
 import Alpine from 'alpinejs';
-import { animateBars, animateCounters } from './game/xp-bar';
+import { animateBars, animateBossPots, animateCounters } from './game/xp-bar';
 import { startNotificationPolling, startRankingPolling } from './game/polling';
 import { startChallengePolling } from './game/duel-challenge-modal';
 import { showToast } from './game/toasts';
@@ -24,6 +24,7 @@ Alpine.start();
 
 document.addEventListener('DOMContentLoaded', () => {
     animateBars();
+    animateBossPots();
     animateCounters();
 
     const root = document.querySelector('[data-game-root]');

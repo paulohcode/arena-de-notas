@@ -8,6 +8,7 @@ use App\Models\BossVigil;
 use App\Models\Enrollment;
 use App\Models\SchoolClass;
 use App\Models\Season;
+use App\Models\SeasonClassBossBank;
 use App\Models\SeasonClassRite;
 use App\Models\User;
 use App\Services\ArenaCombatService;
@@ -241,6 +242,7 @@ class SeasonBossChallengeTest extends TestCase
                 ->where('student_id', $student->id)
                 ->update(['relics' => 50, 'seals' => 0, 'arena_wins' => 0, 'arena_losses' => 0]);
             BossVigil::query()->where('source', BossVigil::SOURCE_BOSS)->delete();
+            SeasonClassBossBank::query()->where('season_id', $season->id)->delete();
             AreaBalance::query()->where('student_id', $student->id)->delete();
 
             $season->update([
@@ -261,7 +263,12 @@ class SeasonBossChallengeTest extends TestCase
         $this->assertTrue($vigil->won, 'Expected at least one win against easy boss with grade 99');
 
         $loot = $vigil->lootTotals();
-        $pot = $loot['relics'] + $loot['seals'] + $loot['auras'];
+        $jackpot = $vigil->jackpotTotals();
+        $baseLoot = $loot;
+        if ($jackpot !== null) {
+            $baseLoot['relics'] = max(0, $baseLoot['relics'] - $jackpot['relics']);
+        }
+        $pot = $baseLoot['relics'] + $baseLoot['seals'] + $baseLoot['auras'];
         $this->assertGreaterThanOrEqual(BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_FLOOR, $pot);
         $this->assertLessThanOrEqual(
             BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_FLOOR + BossArchetypeCatalog::BOSS_CHALLENGE_LOOT_SPAN,
@@ -269,7 +276,7 @@ class SeasonBossChallengeTest extends TestCase
         );
 
         $rolled = $rites->rollBossChallengeLoot($vigil->log, (int) $vigil->seed, true);
-        $this->assertSame($loot, $rolled);
+        $this->assertSame($baseLoot, $rolled);
 
         $enrollment = $student->enrollmentIn($class)->fresh();
         $this->assertSame(50 - BossArchetypeCatalog::BOSS_CHALLENGE_FEE + $loot['relics'], (int) $enrollment->relics);
@@ -317,7 +324,153 @@ class SeasonBossChallengeTest extends TestCase
             ->get(route('student.arena.index'))
             ->assertOk()
             ->assertSee('Desafiar o chefão')
-            ->assertSee('ainda ganha um pouco');
+            ->assertSee('ainda ganha um pouco')
+            ->assertSee('Pote da turma')
+            ->assertSee('Uma batalha sortuda leva uma fatia');
+    }
+
+    public function test_boss_challenge_deposits_fee_into_class_bank_without_jackpot_early(): void
+    {
+        [, $class, $student, $season] = $this->readyBossSeason(grade: 10, difficulty: 'elite', relics: 40);
+        $this->unlimitedBossChallenges($season);
+
+        SeasonClassBossBank::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $class->id,
+            'relics' => 20,
+            'battles' => 2,
+            'next_battle' => 13,
+            'payout_percent' => 30,
+        ]);
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->post(route('student.arena.boss.challenge', $season))
+            ->assertRedirect();
+
+        $bank = SeasonClassBossBank::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $class->id)
+            ->first();
+        $this->assertNotNull($bank);
+        $this->assertSame(30, (int) $bank->relics);
+        $this->assertSame(3, (int) $bank->battles);
+        $this->assertSame(13, (int) $bank->next_battle);
+
+        $vigil = BossVigil::query()->where('source', BossVigil::SOURCE_BOSS)->first();
+        $this->assertNull($vigil->jackpotTotals());
+    }
+
+    public function test_boss_challenge_pays_jackpot_slice_and_resets_counter(): void
+    {
+        [, $class, $student, $season] = $this->readyBossSeason(grade: 10, difficulty: 'elite', relics: 50);
+        $this->unlimitedBossChallenges($season);
+
+        SeasonClassBossBank::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $class->id,
+            'relics' => 100,
+            'battles' => 12,
+            'next_battle' => 13,
+            'payout_percent' => 30,
+        ]);
+
+        $beforeRelics = (int) $student->enrollmentIn($class)->relics;
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->post(route('student.arena.boss.challenge', $season))
+            ->assertRedirect();
+
+        $vigil = BossVigil::query()->where('source', BossVigil::SOURCE_BOSS)->first();
+        $this->assertNotNull($vigil);
+        $jackpot = $vigil->jackpotTotals();
+        $this->assertNotNull($jackpot);
+        $this->assertSame(110, $jackpot['bank_before']);
+        $this->assertSame(30, $jackpot['percent']);
+        $this->assertSame(33, $jackpot['relics']);
+
+        $bank = SeasonClassBossBank::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $class->id)
+            ->first();
+        $this->assertSame(77, (int) $bank->relics);
+        $this->assertSame(0, (int) $bank->battles);
+        $this->assertGreaterThanOrEqual(BossArchetypeCatalog::JACKPOT_BATTLE_MIN, (int) $bank->next_battle);
+        $this->assertLessThanOrEqual(BossArchetypeCatalog::JACKPOT_BATTLE_MAX, (int) $bank->next_battle);
+
+        $loot = $vigil->lootTotals();
+        $this->assertGreaterThanOrEqual(33, $loot['relics']);
+
+        $enrollment = $student->enrollmentIn($class)->fresh();
+        $this->assertSame(
+            $beforeRelics - BossArchetypeCatalog::BOSS_CHALLENGE_FEE + $loot['relics'],
+            (int) $enrollment->relics
+        );
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->get(route('student.arena.vigil.show', $vigil))
+            ->assertOk()
+            ->assertSee('Pote da turma')
+            ->assertSee('30% de 110');
+    }
+
+    public function test_boss_bank_is_isolated_per_class(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $classA = $this->createClassForTeacher($teacher, ['arena_open' => true, 'name' => 'Turma A']);
+        $classB = $this->createClassForTeacher($teacher, ['arena_open' => true, 'name' => 'Turma B', 'area_id' => $classA->area_id]);
+        $studentA = $this->enrollFighter($classA, 'Ana A', 'guerreiro', 30);
+        $this->gradeStudent($classA, $studentA, 10);
+
+        $season = Season::query()->create([
+            'area_id' => $classA->area_id,
+            'name' => 'Temporada Isolada',
+            'description' => null,
+            'boss_archetype' => 'eclipse',
+            'boss_difficulty' => 'elite',
+            'vigil_open' => false,
+            'created_by' => $teacher->id,
+        ]);
+        $season->classes()->sync([$classA->id, $classB->id]);
+        $this->unlimitedBossChallenges($season);
+
+        SeasonClassBossBank::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $classA->id,
+            'relics' => 0,
+            'battles' => 0,
+            'next_battle' => 20,
+            'payout_percent' => 20,
+        ]);
+        SeasonClassBossBank::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $classB->id,
+            'relics' => 55,
+            'battles' => 4,
+            'next_battle' => 20,
+            'payout_percent' => 20,
+        ]);
+
+        $this->actingAs($studentA)
+            ->withSession(['current_class_id' => $classA->id])
+            ->post(route('student.arena.boss.challenge', $season))
+            ->assertRedirect();
+
+        $bankA = SeasonClassBossBank::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $classA->id)
+            ->first();
+        $bankB = SeasonClassBossBank::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $classB->id)
+            ->first();
+
+        $this->assertSame(10, (int) $bankA->relics);
+        $this->assertSame(1, (int) $bankA->battles);
+        $this->assertSame(55, (int) $bankB->relics);
+        $this->assertSame(4, (int) $bankB->battles);
     }
 
     /**
@@ -342,6 +495,17 @@ class SeasonBossChallengeTest extends TestCase
         $season->classes()->sync([$class->id]);
 
         return [$teacher, $class, $student, $season];
+    }
+
+    private function unlimitedBossChallenges(Season $season): void
+    {
+        $season->update([
+            'boss_challenge_schedule' => BossArchetypeCatalog::bossChallengeScheduleFromValidated(
+                collect(ArenaSchedule::weekdays())->mapWithKeys(
+                    fn ($d) => [$d => ['daily_limit' => 20]]
+                )->all()
+            ),
+        ]);
     }
 
     private function enrollFighter(

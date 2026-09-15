@@ -21,6 +21,7 @@ class BossVigil extends Model
         'glory',
         'fee_relics',
         'loot',
+        'jackpot',
         'resolved_at',
     ];
 
@@ -60,6 +61,7 @@ class BossVigil extends Model
             'glory' => 'integer',
             'fee_relics' => 'integer',
             'loot' => 'array',
+            'jackpot' => 'array',
             'resolved_at' => 'datetime',
         ];
     }
@@ -115,6 +117,28 @@ class BossVigil extends Model
             'relics' => max(0, (int) ($loot['relics'] ?? 0)),
             'seals' => max(0, (int) ($loot['seals'] ?? 0)),
             'auras' => max(0, (int) ($loot['auras'] ?? 0)),
+        ];
+    }
+
+    /**
+     * @return array{relics: int, percent: int, bank_before: int}|null
+     */
+    public function jackpotTotals(): ?array
+    {
+        $jackpot = is_array($this->jackpot) ? $this->jackpot : null;
+        if ($jackpot === null) {
+            return null;
+        }
+
+        $relics = max(0, (int) ($jackpot['relics'] ?? 0));
+        if ($relics < 1) {
+            return null;
+        }
+
+        return [
+            'relics' => $relics,
+            'percent' => max(0, (int) ($jackpot['percent'] ?? 0)),
+            'bank_before' => max(0, (int) ($jackpot['bank_before'] ?? 0)),
         ];
     }
 }

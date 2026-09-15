@@ -64,6 +64,11 @@ class Season extends Model
         return $this->hasMany(SeasonClassRite::class);
     }
 
+    public function bossBanks(): HasMany
+    {
+        return $this->hasMany(SeasonClassBossBank::class);
+    }
+
     public function hasBoss(): bool
     {
         return filled($this->boss_archetype) && BossArchetypeCatalog::get($this->boss_archetype) !== null;

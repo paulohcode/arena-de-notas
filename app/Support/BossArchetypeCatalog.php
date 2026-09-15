@@ -80,6 +80,19 @@ class BossArchetypeCatalog
     /** Faixa extra aleatória na derrota (+0..3). */
     public const BOSS_CHALLENGE_LOSS_LOOT_SPAN = 3;
 
+    /** Intervalo de batalhas até a próxima fatia do pote (inclusivo). */
+    public const JACKPOT_BATTLE_MIN = 8;
+
+    public const JACKPOT_BATTLE_MAX = 20;
+
+    /** Fatia percentual do pote paga ao sortudo (inclusivo). */
+    public const JACKPOT_PERCENT_MIN = 20;
+
+    public const JACKPOT_PERCENT_MAX = 35;
+
+    /** Relíquias no pote para o vaso visual aparecer cheio. */
+    public const JACKPOT_FILL_CAP = 200;
+
     public const GLORY_WIN = 10;
 
     public const GLORY_LOSS = 2;
@@ -372,6 +385,18 @@ class BossArchetypeCatalog
     public static function difficultyPower(?string $key): float
     {
         return self::DIFFICULTY_POWER[$key] ?? self::DIFFICULTY_POWER[self::DIFFICULTY_NORMAL];
+    }
+
+    /**
+     * Altura visual do ouro no pote (0–100). Cap = vaso cheio.
+     */
+    public static function bossBankFillPercent(int $relics): float
+    {
+        if (self::JACKPOT_FILL_CAP <= 0) {
+            return 0.0;
+        }
+
+        return round(min(100.0, max(0, $relics) / self::JACKPOT_FILL_CAP * 100), 1);
     }
 
     public static function archetypeRule(): In

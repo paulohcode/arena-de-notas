@@ -379,6 +379,92 @@ body.game-body::after {
     60%, 100% { transform: translateX(120%); }
 }
 
+.boss-pot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 7.5rem;
+}
+
+.boss-pot--compact {
+    min-width: 4.5rem;
+}
+
+.boss-pot-vessel {
+    width: 4.25rem;
+    height: 5.5rem;
+    border-radius: 0.55rem 0.55rem 1.35rem 1.35rem;
+    border: 2px solid rgba(245, 197, 107, 0.45);
+    background:
+        linear-gradient(180deg, rgba(36, 20, 26, 0.35), rgba(12, 8, 14, 0.85)),
+        #1a1014;
+    box-shadow:
+        inset 0 0 18px rgba(0, 0, 0, 0.55),
+        0 0 16px rgba(245, 197, 107, 0.18);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+}
+
+.boss-pot--compact .boss-pot-vessel {
+    width: 3.25rem;
+    height: 4.25rem;
+}
+
+.boss-pot-vessel::before {
+    content: '';
+    position: absolute;
+    top: 0.35rem;
+    left: 12%;
+    right: 12%;
+    height: 0.35rem;
+    border-radius: 999px;
+    background: rgba(245, 197, 107, 0.35);
+    z-index: 2;
+}
+
+.boss-pot-fill {
+    width: 100%;
+    height: 0;
+    background: linear-gradient(180deg, #fde68a 0%, #f5c56b 45%, #b45309 100%);
+    box-shadow:
+        0 0 18px rgba(245, 197, 107, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    transition: height 900ms cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+}
+
+.boss-pot-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transform: translateX(-100%);
+    animation: xp-shimmer 2.4s ease-in-out infinite;
+}
+
+.boss-pot.is-full .boss-pot-vessel {
+    animation: crest-pulse 2.4s ease-in-out infinite;
+    border-color: rgba(253, 230, 138, 0.75);
+}
+
+.boss-pot.is-jackpot .boss-pot-vessel {
+    border-color: rgba(253, 230, 138, 0.7);
+    box-shadow:
+        inset 0 0 18px rgba(0, 0, 0, 0.55),
+        0 0 22px rgba(245, 197, 107, 0.4);
+}
+
+.boss-pot-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #f5c56b;
+    text-align: center;
+    line-height: 1.25;
+}
+
 .reveal {
     opacity: 0;
     transform: translateY(18px);
@@ -1697,6 +1783,7 @@ label.class-aura:has(:checked):hover {
     .brand-crest,
     .podium-crown,
     .xp-fill::after,
+    .boss-pot-fill::after,
     body.game-body::after,
     .class-fx,
     .class-fx::before,

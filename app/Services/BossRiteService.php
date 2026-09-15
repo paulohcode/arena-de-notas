@@ -8,6 +8,7 @@ use App\Models\Enrollment;
 use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\Season;
+use App\Models\SeasonClassBossBank;
 use App\Models\SeasonClassRite;
 use App\Models\User;
 use App\Notifications\GameAlert;
@@ -226,6 +227,11 @@ class BossRiteService
             $enrollment->save();
 
             $seed = random_int(1, PHP_INT_MAX);
+            $bank = $this->lockBossBank($season, $class, $seed);
+            $bank->relics = (int) $bank->relics + $fee;
+            $bank->battles = (int) $bank->battles + 1;
+            $bank->save();
+
             $boss = $this->combat->buildBossFighter(
                 (string) $season->boss_archetype,
                 (string) $season->boss_difficulty,
@@ -235,6 +241,10 @@ class BossRiteService
             $result = $this->combat->resolveAgainstBoss($student, $class, $boss, $seed, luckRange: 0.08);
             $won = $result['winner_id'] === $student->id;
             $loot = $this->rollBossChallengeLoot($result, $seed, $won);
+            $jackpot = $this->maybePayBossBankJackpot($bank, $seed);
+            if ($jackpot !== null) {
+                $loot['relics'] = (int) $loot['relics'] + (int) $jackpot['relics'];
+            }
 
             $vigil = BossVigil::query()->create([
                 'season_id' => $season->id,
@@ -250,6 +260,7 @@ class BossRiteService
                 'glory' => 0,
                 'fee_relics' => $fee,
                 'loot' => $loot,
+                'jackpot' => $jackpot,
                 'resolved_at' => now(),
             ]);
 
@@ -257,6 +268,94 @@ class BossRiteService
 
             return $vigil;
         });
+    }
+
+    public function bossBankFor(Season $season, SchoolClass $class): ?SeasonClassBossBank
+    {
+        return SeasonClassBossBank::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $class->id)
+            ->first();
+    }
+
+    private function lockBossBank(Season $season, SchoolClass $class, int $seed): SeasonClassBossBank
+    {
+        $bank = SeasonClassBossBank::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $class->id)
+            ->lockForUpdate()
+            ->first();
+
+        if ($bank) {
+            return $bank;
+        }
+
+        $targets = $this->rollBossBankTargets($seed);
+        SeasonClassBossBank::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $class->id,
+            'relics' => 0,
+            'battles' => 0,
+            'next_battle' => $targets['next_battle'],
+            'payout_percent' => $targets['payout_percent'],
+        ]);
+
+        return SeasonClassBossBank::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $class->id)
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
+    /**
+     * @return array{next_battle: int, payout_percent: int}
+     */
+    public function rollBossBankTargets(int $seed): array
+    {
+        $rng = new SeededRandom($seed ^ 0xB055BA11);
+
+        return [
+            'next_battle' => $rng->nextInt(
+                BossArchetypeCatalog::JACKPOT_BATTLE_MIN,
+                BossArchetypeCatalog::JACKPOT_BATTLE_MAX,
+            ),
+            'payout_percent' => $rng->nextInt(
+                BossArchetypeCatalog::JACKPOT_PERCENT_MIN,
+                BossArchetypeCatalog::JACKPOT_PERCENT_MAX,
+            ),
+        ];
+    }
+
+    /**
+     * @return array{relics: int, percent: int, bank_before: int}|null
+     */
+    private function maybePayBossBankJackpot(SeasonClassBossBank $bank, int $seed): ?array
+    {
+        if ((int) $bank->battles < (int) $bank->next_battle) {
+            return null;
+        }
+
+        $bankBefore = (int) $bank->relics;
+        $percent = (int) $bank->payout_percent;
+        $payout = (int) floor($bankBefore * $percent / 100);
+        $jackpot = null;
+
+        if ($payout >= 1) {
+            $bank->relics = max(0, $bankBefore - $payout);
+            $jackpot = [
+                'relics' => $payout,
+                'percent' => $percent,
+                'bank_before' => $bankBefore,
+            ];
+        }
+
+        $targets = $this->rollBossBankTargets($seed ^ (int) $bank->battles);
+        $bank->battles = 0;
+        $bank->next_battle = $targets['next_battle'];
+        $bank->payout_percent = $targets['payout_percent'];
+        $bank->save();
+
+        return $jackpot;
     }
 
     public function resolvedBossChallengesToday(Season $season, SchoolClass $class, User $student): int

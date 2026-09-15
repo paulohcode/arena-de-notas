@@ -87,6 +87,15 @@
                     <p class="text-xs text-amber-100/45">Custa {{ \App\Models\GameCurrency::format('relics', $bossChallengeFee) }}. Vitória: loot maior. Derrota: ainda ganha um pouco de {{ \App\Models\GameCurrency::label('relics') }}, {{ \App\Models\GameCurrency::label('seals') }} e {{ \App\Models\GameCurrency::label('auras') }}. Sem Marca. Independente do Rito.</p>
                 @endif
             </div>
+            <div class="boss-pot {{ $bossBankFillPercent >= 100 ? 'is-full' : '' }}" aria-label="Pote da turma">
+                <div class="boss-pot-vessel">
+                    <div class="boss-pot-fill" data-boss-pot-fill="{{ $bossBankFillPercent }}"></div>
+                </div>
+                <p class="boss-pot-label">
+                    Pote da turma: {{ \App\Models\GameCurrency::format('relics', $bossBankRelics) }}
+                </p>
+                <p class="text-xs text-amber-100/45 max-w-[10rem] text-center">Uma batalha sortuda leva uma fatia.</p>
+            </div>
         </div>
 
         @if($recentVigils->isNotEmpty())

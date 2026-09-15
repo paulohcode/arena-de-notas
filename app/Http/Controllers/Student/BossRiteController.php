@@ -46,6 +46,7 @@ class BossRiteController extends Controller
         $vigil = $this->rites->challengeBoss($season, $class, $request->user());
         $fee = BossArchetypeCatalog::BOSS_CHALLENGE_FEE;
         $loot = $vigil->lootTotals();
+        $jackpot = $vigil->jackpotTotals();
         $lootParts = [];
         if ($loot['relics'] > 0) {
             $lootParts[] = GameCurrency::format('relics', $loot['relics']);
@@ -62,6 +63,11 @@ class BossRiteController extends Controller
                 .($lootParts !== [] ? ' Loot: '.implode(' · ', $lootParts).'.' : ''))
             : ('O chefão prevaleceu. Taxa de '.$fee.' '.GameCurrency::label('relics').' consumida.'
                 .($lootParts !== [] ? ' Consolação: '.implode(' · ', $lootParts).'.' : ''));
+
+        if ($jackpot !== null) {
+            $message .= ' Pote da turma: +'.GameCurrency::format('relics', $jackpot['relics'])
+                .' ('.$jackpot['percent'].'% de '.$jackpot['bank_before'].').';
+        }
 
         return redirect()
             ->route('student.arena.vigil.show', $vigil)
