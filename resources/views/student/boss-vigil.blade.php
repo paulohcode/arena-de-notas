@@ -64,7 +64,78 @@
 @endphp
 
 @section('content')
-@if($isResolved)
+@if($vigil->isPending())
+    @php
+        $statusUrl = $statusUrl ?? null;
+        $bossMeta = $season->bossMeta() ?? [];
+    @endphp
+    <div
+        class="game-card p-8 text-center max-w-xl mx-auto reveal"
+        @if($statusUrl && $staffView)
+            data-duel-waiting
+            x-data="{
+                statusUrl: {{ \Illuminate\Support\Js::from($statusUrl) }},
+                pulling: false,
+                async poll() {
+                    if (this.pulling) { return; }
+                    this.pulling = true;
+                    try {
+                        const response = await fetch(this.statusUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+                        if (! response.ok) return;
+                        const data = await response.json();
+                        if (data.redirect) {
+                            window.ArenaGoToBattle
+                                ? window.ArenaGoToBattle(data.redirect)
+                                : window.location.assign(data.redirect);
+                        }
+                    } catch (e) {}
+                    finally { this.pulling = false; }
+                },
+                init() {
+                    this.poll();
+                    setInterval(() => this.poll(), 2000);
+                }
+            }"
+        @endif
+    >
+        <p class="hero-kicker !mb-2">Sala de espera</p>
+        <h1 class="font-display text-3xl text-violet-200 mb-3">
+            {{ $staffView ? 'Aguardando o aluno aceitar' : 'O chefão te desafiou' }}
+        </h1>
+        <div class="flex items-center justify-center gap-6 my-8">
+            <div class="text-center">
+                @include('partials.player-avatar', ['student' => $vigil->student, 'size' => 'lg'])
+                <p class="mt-2 font-semibold">{{ $vigil->student->arenaName() ?: $vigil->student->name }}</p>
+            </div>
+            <p class="font-display text-2xl text-violet-200/50">VS</p>
+            <div class="text-center">
+                <div class="duel-portrait duel-portrait--boss mx-auto" style="--portrait-tone: {{ $bossMeta['tone'] ?? '#6d28d9' }}">
+                    <span class="text-5xl md:text-6xl">{{ $bossMeta['icon'] ?? '🌑' }}</span>
+                </div>
+                <p class="mt-2 font-semibold">{{ $season->bossDisplayName() }}</p>
+            </div>
+        </div>
+
+        @if($staffView)
+            <p class="text-amber-100/65 mb-2">Quando {{ $vigil->student->arenaName() ?: $vigil->student->name }} aceitar, o combate abre sozinho nesta tela.</p>
+            <p class="text-xs text-cyan-300/70 animate-pulse">Escutando a arena…</p>
+        @else
+            <p class="text-amber-100/65 mb-4">Aceite para enfrentar o chefão. Recusar não gera punição.</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <form method="POST" action="{{ route('student.arena.vigil.accept', $vigil) }}">
+                    @csrf
+                    <button class="game-btn" type="submit">Aceitar batalha</button>
+                </form>
+                <form method="POST" action="{{ route('student.arena.vigil.decline', $vigil) }}">
+                    @csrf
+                    <button class="game-btn-ghost" type="submit">Recusar</button>
+                </form>
+            </div>
+        @endif
+
+        <a class="game-btn-ghost inline-block mt-6" href="{{ $backUrl }}">{{ $backLabel }}</a>
+    </div>
+@elseif($isResolved)
     <div
         class="space-y-6"
         x-data="duelBattle({{ \Illuminate\Support\Js::from($battlePayload) }})"
@@ -222,8 +293,16 @@
     </div>
 @else
     <div class="game-card p-8 text-center">
-        <p class="text-amber-100/60">Replay indisponível.</p>
-        <a class="game-btn-ghost inline-block mt-4" href="{{ route('student.arena.index') }}">Voltar</a>
+        <p class="text-amber-100/60">
+            @if($vigil->status === \App\Models\BossVigil::STATUS_DECLINED)
+                Desafio recusado.
+            @elseif($vigil->status === \App\Models\BossVigil::STATUS_EXPIRED)
+                Desafio expirado.
+            @else
+                Replay indisponível.
+            @endif
+        </p>
+        <a class="game-btn-ghost inline-block mt-4" href="{{ $backUrl }}">{{ $backLabel }}</a>
     </div>
 @endif
 @endsection

@@ -144,7 +144,7 @@ class BossRiteService
 
     /**
      * Professor/admin, no papel do chefão, desafia um aluno.
-     * Resolve na hora (replay cinematográfico). Não gera Marca nem consome limite diário.
+     * Fica pendente até o aluno aceitar (como duelo 1v1). Não gera Marca.
      *
      * @throws ValidationException
      */
@@ -166,7 +166,95 @@ class BossRiteService
             throw ValidationException::withMessages(['challenge' => $reason]);
         }
 
-        return DB::transaction(function () use ($season, $class, $student, $staff) {
+        $pending = BossVigil::query()
+            ->where('season_id', $season->id)
+            ->where('class_id', $class->id)
+            ->where('student_id', $student->id)
+            ->where('source', BossVigil::SOURCE_STAFF)
+            ->where('status', BossVigil::STATUS_PENDING)
+            ->exists();
+
+        if ($pending) {
+            throw ValidationException::withMessages([
+                'challenge' => 'Já existe um desafio do chefão pendente para este aluno.',
+            ]);
+        }
+
+        $vigil = BossVigil::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $class->id,
+            'student_id' => $student->id,
+            'source' => BossVigil::SOURCE_STAFF,
+            'initiated_by' => $staff->id,
+            'status' => BossVigil::STATUS_PENDING,
+            'seed' => null,
+            'log' => null,
+            'won' => false,
+            'mark_earned' => false,
+            'glory' => 0,
+            'resolved_at' => null,
+        ]);
+
+        $bossName = $season->bossDisplayName() ?? 'o chefão';
+        $student->notify(new GameAlert(
+            'boss_challenge',
+            'O chefão te desafiou',
+            "{$bossName} te provocou. Aceita a batalha?",
+            [
+                'season_id' => $season->id,
+                'class_id' => $class->id,
+                'vigil_id' => $vigil->id,
+                'accept_url' => ArenaUrl::route('student.arena.vigil.accept', $vigil),
+                'decline_url' => ArenaUrl::route('student.arena.vigil.decline', $vigil),
+                'url' => ArenaUrl::route('student.arena.vigil.show', $vigil),
+            ],
+        ));
+
+        return $vigil;
+    }
+
+    /**
+     * Aluno aceita a provocação do chefão; combate resolve na hora.
+     *
+     * @throws ValidationException
+     */
+    public function acceptStaffChallenge(BossVigil $vigil, User $student): BossVigil
+    {
+        if (! $vigil->isPending() || ! $vigil->isStaffChallenge()) {
+            throw ValidationException::withMessages([
+                'vigil' => 'Este desafio do chefão não está mais pendente.',
+            ]);
+        }
+
+        if ($vigil->student_id !== $student->id) {
+            throw ValidationException::withMessages([
+                'vigil' => 'Só o aluno desafiado pode aceitar.',
+            ]);
+        }
+
+        $season = $vigil->season;
+        $class = $vigil->schoolClass;
+
+        if (! $season?->hasBoss()) {
+            throw ValidationException::withMessages([
+                'vigil' => 'Esta temporada não tem chefão configurado.',
+            ]);
+        }
+
+        if ($reason = $this->fighterRestriction($class, $student)) {
+            throw ValidationException::withMessages(['vigil' => $reason]);
+        }
+
+        return DB::transaction(function () use ($vigil, $student, $season, $class) {
+            /** @var BossVigil $locked */
+            $locked = BossVigil::query()->whereKey($vigil->id)->lockForUpdate()->firstOrFail();
+
+            if (! $locked->isPending()) {
+                throw ValidationException::withMessages([
+                    'vigil' => 'Este desafio do chefão não está mais pendente.',
+                ]);
+            }
+
             $seed = random_int(1, PHP_INT_MAX);
             $boss = $this->combat->buildBossFighter(
                 (string) $season->boss_archetype,
@@ -179,12 +267,7 @@ class BossRiteService
             $studentWon = $result['winner_id'] === $student->id;
             $glory = $studentWon ? BossArchetypeCatalog::GLORY_WIN : BossArchetypeCatalog::GLORY_LOSS;
 
-            $vigil = BossVigil::query()->create([
-                'season_id' => $season->id,
-                'class_id' => $class->id,
-                'student_id' => $student->id,
-                'source' => BossVigil::SOURCE_STAFF,
-                'initiated_by' => $staff->id,
+            $locked->update([
                 'status' => BossVigil::STATUS_RESOLVED,
                 'seed' => $seed,
                 'log' => $result,
@@ -196,37 +279,96 @@ class BossRiteService
 
             $this->awardGloryAndRelics($class, $student->id, $glory, $studentWon);
 
-            $bossName = $season->bossDisplayName() ?? 'o chefão';
-            $student->notify(new GameAlert(
-                'season_rite',
-                'O chefão te desafiou',
-                "{$bossName} te provocou na arena. Assista o combate.",
+            $bossName = $season->bossDisplayName() ?? 'O chefão';
+            $studentLabel = $student->arenaName() ?: $student->name;
+            $resultMessage = $studentWon
+                ? "{$studentLabel} aceitou e venceu. +{$glory} ".GameCurrency::label('glory').'.'
+                : "{$studentLabel} aceitou, mas {$bossName} prevaleceu. +{$glory} ".GameCurrency::label('glory').'.';
+
+            if ($locked->initiator) {
+                $locked->initiator->notify(new GameAlert(
+                    'boss_challenge_result',
+                    'Provocação resolvida',
+                    $resultMessage,
+                    [
+                        'season_id' => $season->id,
+                        'class_id' => $class->id,
+                        'vigil_id' => $locked->id,
+                        'url' => ArenaUrl::route('teacher.seasons.vigil.show', [$season, $locked]),
+                    ],
+                ));
+            }
+
+            return $locked->fresh(['season', 'student', 'schoolClass', 'initiator']);
+        });
+    }
+
+    /**
+     * Aluno recusa a provocação do chefão. Sem punição.
+     *
+     * @throws ValidationException
+     */
+    public function declineStaffChallenge(BossVigil $vigil, User $student): BossVigil
+    {
+        if (! $vigil->isPending() || ! $vigil->isStaffChallenge()) {
+            throw ValidationException::withMessages([
+                'vigil' => 'Este desafio do chefão não está mais pendente.',
+            ]);
+        }
+
+        if ($vigil->student_id !== $student->id) {
+            throw ValidationException::withMessages([
+                'vigil' => 'Só o aluno desafiado pode recusar.',
+            ]);
+        }
+
+        $vigil->update([
+            'status' => BossVigil::STATUS_DECLINED,
+            'resolved_at' => now(),
+        ]);
+
+        if ($vigil->initiator) {
+            $studentLabel = $student->arenaName() ?: $student->name;
+            $vigil->initiator->notify(new GameAlert(
+                'boss_challenge_result',
+                'Provocação recusada',
+                "{$studentLabel} recusou o desafio do chefão. Sem punição.",
                 [
-                    'season_id' => $season->id,
-                    'class_id' => $class->id,
+                    'season_id' => $vigil->season_id,
+                    'class_id' => $vigil->class_id,
                     'vigil_id' => $vigil->id,
-                    'url' => ArenaUrl::route('student.arena.vigil.show', $vigil),
+                    'url' => ArenaUrl::route('teacher.seasons.boss', $vigil->season),
                 ],
             ));
+        }
 
-            return $vigil;
-        });
+        return $vigil->fresh();
     }
 
     /**
      * Alunos elegíveis das turmas da temporada, agrupados por turma.
      *
-     * @return list<array{class: SchoolClass, students: list<array{user: User, power: float, notice: ?string}>}>
+     * @return list<array{class: SchoolClass, students: list<array{user: User, power: float, notice: ?string, pending: bool, pending_vigil_id: ?int}>}>
      */
     public function bossDeskRoster(Season $season): array
     {
         $rows = [];
+        $pendingByStudent = BossVigil::query()
+            ->where('season_id', $season->id)
+            ->where('source', BossVigil::SOURCE_STAFF)
+            ->where('status', BossVigil::STATUS_PENDING)
+            ->pluck('id', 'student_id');
 
         foreach ($season->classes()->with(['students'])->orderBy('name')->get() as $class) {
             $students = [];
             foreach ($class->students()->orderBy('name')->get() as $student) {
                 $notice = $this->fighterRestriction($class, $student);
                 $power = 0.0;
+                $pendingVigilId = $pendingByStudent[$student->id] ?? null;
+                $pending = $pendingVigilId !== null;
+                if ($pending) {
+                    $notice = $notice ?? 'Desafio do chefão aguardando aceite.';
+                }
                 if ($notice === null) {
                     try {
                         $power = (float) $this->combat->buildFighter($student, $class)['power'];
@@ -239,6 +381,8 @@ class BossRiteService
                     'user' => $student,
                     'power' => $power,
                     'notice' => $notice,
+                    'pending' => $pending,
+                    'pending_vigil_id' => $pendingVigilId ? (int) $pendingVigilId : null,
                 ];
             }
 

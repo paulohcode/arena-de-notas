@@ -176,6 +176,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::get('/temporadas/{season}/chefao', [SeasonController::class, 'bossDesk'])->name('seasons.boss');
     Route::post('/temporadas/{season}/chefao/desafiar', [SeasonController::class, 'challengeAsBoss'])->name('seasons.boss.challenge');
     Route::get('/temporadas/{season}/vigilia/{vigil}', [SeasonController::class, 'showVigil'])->name('seasons.vigil.show');
+    Route::get('/temporadas/{season}/vigilia/{vigil}/status', [SeasonController::class, 'statusVigil'])->name('seasons.vigil.status');
     Route::get('/temporadas/{season}/rito/{rite}', [SeasonController::class, 'showRite'])->name('seasons.rite.show');
 });
 
@@ -213,6 +214,9 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
 
         Route::post('/arena/rito/{season}/sombra', [StudentBossRiteController::class, 'challengeShadow'])->name('arena.vigil.challenge');
         Route::get('/arena/vigilia/{vigil}', [StudentBossRiteController::class, 'showVigil'])->name('arena.vigil.show');
+        Route::get('/arena/vigilia/{vigil}/status', [StudentBossRiteController::class, 'statusVigil'])->name('arena.vigil.status');
+        Route::post('/arena/vigilia/{vigil}/aceitar', [StudentBossRiteController::class, 'acceptVigil'])->name('arena.vigil.accept');
+        Route::post('/arena/vigilia/{vigil}/recusar', [StudentBossRiteController::class, 'declineVigil'])->name('arena.vigil.decline');
         Route::get('/arena/rito/{rite}', [StudentBossRiteController::class, 'showRite'])->name('arena.rite.show');
 
         Route::get('/loja', [StudentShopController::class, 'index'])->name('shop.index');

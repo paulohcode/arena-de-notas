@@ -14,7 +14,7 @@
     <p class="text-amber-100/70 mt-2 max-w-2xl">{{ $boss['blurb'] }}</p>
     <p class="text-xs text-amber-100/45 mt-2">
         {{ \App\Support\BossArchetypeCatalog::difficultyLabel($season->boss_difficulty) }}
-        · Desafie alunos e assista o replay nesta tela
+        · Desafie alunos; eles precisam aceitar (como duelo 1v1)
         · Provocações do staff não geram Marca do Rito
     </p>
 </div>
@@ -61,7 +61,12 @@
                                 </div>
                             </div>
                             <div>
-                                @if($entry['notice'])
+                                    @if(! empty($entry['pending']) && ! empty($entry['pending_vigil_id']))
+                                    <a href="{{ route('teacher.seasons.vigil.show', [$season, $entry['pending_vigil_id']]) }}"
+                                       class="game-btn-ghost !py-1 !px-3 text-sm">
+                                        Aguardando…
+                                    </a>
+                                @elseif($entry['notice'])
                                     <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm opacity-40 cursor-not-allowed" disabled>
                                         Indisponível
                                     </button>
@@ -92,17 +97,23 @@
     <div class="game-card p-5 mt-8 space-y-3">
         <h2 class="font-display text-xl text-violet-200">Provocações recentes</h2>
         <ul class="space-y-2">
-            @foreach($recentChallenges as $challenge)
+                    @foreach($recentChallenges as $challenge)
                 <li class="flex flex-wrap items-center justify-between gap-2 text-sm border-b border-purple-900/40 py-2">
                     <span>
-                        <span class="{{ $challenge->won ? 'text-rose-300' : 'text-emerald-300' }}">
-                            {{ $challenge->won ? 'Aluno venceu' : 'Chefão venceu' }}
-                        </span>
+                        @if($challenge->isPending())
+                            <span class="text-cyan-300">Aguardando aceite</span>
+                        @elseif($challenge->status === \App\Models\BossVigil::STATUS_DECLINED)
+                            <span class="text-amber-100/55">Recusado</span>
+                        @else
+                            <span class="{{ $challenge->won ? 'text-rose-300' : 'text-emerald-300' }}">
+                                {{ $challenge->won ? 'Aluno venceu' : 'Chefão venceu' }}
+                            </span>
+                        @endif
                         · {{ $challenge->student?->arenaName() ?: $challenge->student?->name }}
                         <span class="text-amber-100/45">({{ $challenge->schoolClass?->name }})</span>
                     </span>
                     <a class="text-amber-200 underline text-xs" href="{{ route('teacher.seasons.vigil.show', [$season, $challenge]) }}">
-                        Assistir
+                        {{ $challenge->isPending() ? 'Sala de espera' : 'Assistir' }}
                     </a>
                 </li>
             @endforeach

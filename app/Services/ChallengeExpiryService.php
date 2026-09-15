@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BossVigil;
 use App\Models\Duel;
 use App\Models\RealmDuel;
 use App\Models\TeamBattle;
@@ -21,7 +22,8 @@ class ChallengeExpiryService
 
         return $this->expireDuels($cutoff)
             + $this->expireTeamBattles($cutoff)
-            + $this->expireRealmDuels($cutoff);
+            + $this->expireRealmDuels($cutoff)
+            + $this->expireBossChallenges($cutoff);
     }
 
     private function expireDuels(DateTimeInterface $cutoff): int
@@ -126,6 +128,42 @@ class ChallengeExpiryService
             }
 
             return $duels->count();
+        });
+    }
+
+    private function expireBossChallenges(DateTimeInterface $cutoff): int
+    {
+        return (int) DB::transaction(function () use ($cutoff) {
+            $vigils = BossVigil::query()
+                ->with(['student', 'initiator', 'season'])
+                ->where('source', BossVigil::SOURCE_STAFF)
+                ->where('status', BossVigil::STATUS_PENDING)
+                ->where('created_at', '<=', $cutoff)
+                ->lockForUpdate()
+                ->orderBy('id')
+                ->get();
+
+            foreach ($vigils as $vigil) {
+                $vigil->update([
+                    'status' => BossVigil::STATUS_EXPIRED,
+                    'resolved_at' => now(),
+                ]);
+
+                $this->notifyExpired(
+                    [$vigil->student, $vigil->initiator],
+                    'boss_challenge_expired',
+                    'Desafio do chefão expirado',
+                    'A provocação ficou pendente demais e expirou. Sem punição.',
+                    [
+                        'vigil_id' => $vigil->id,
+                        'season_id' => $vigil->season_id,
+                        'class_id' => $vigil->class_id,
+                        'url' => ArenaUrl::route('student.arena.index'),
+                    ],
+                );
+            }
+
+            return $vigils->count();
         });
     }
 

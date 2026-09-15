@@ -22,7 +22,13 @@ class BossVigil extends Model
         'resolved_at',
     ];
 
+    public const STATUS_PENDING = 'pending';
+
     public const STATUS_RESOLVED = 'resolved';
+
+    public const STATUS_DECLINED = 'declined';
+
+    public const STATUS_EXPIRED = 'expired';
 
     public const SOURCE_STUDENT = 'student';
 
@@ -69,6 +75,11 @@ class BossVigil extends Model
     public function initiator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'initiated_by');
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
     }
 
     public function isResolved(): bool

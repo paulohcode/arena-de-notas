@@ -390,8 +390,36 @@ class ArenaController extends Controller
             })
             ->values();
 
+        $bossChallenges = BossVigil::query()
+            ->with('season')
+            ->where('student_id', $student->id)
+            ->where('source', BossVigil::SOURCE_STAFF)
+            ->where('status', BossVigil::STATUS_PENDING)
+            ->latest()
+            ->get()
+            ->map(function (BossVigil $vigil) {
+                $bossName = $vigil->season?->bossDisplayName() ?? 'O chefão';
+
+                return [
+                    'id' => 'boss-'.$vigil->id,
+                    'kind' => 'boss',
+                    'vigil_id' => $vigil->id,
+                    'challenger_name' => $bossName,
+                    'challenger_arena' => null,
+                    'message' => "{$bossName} te desafiou. Aceita a batalha?",
+                    'accept_url' => ArenaUrl::route('student.arena.vigil.accept', $vigil),
+                    'decline_url' => ArenaUrl::route('student.arena.vigil.decline', $vigil),
+                    'show_url' => ArenaUrl::route('student.arena.vigil.show', $vigil),
+                ];
+            })
+            ->values();
+
         return response()->json([
-            'challenges' => $duelChallenges->concat($guildChallenges)->concat($realmChallenges)->values(),
+            'challenges' => $duelChallenges
+                ->concat($guildChallenges)
+                ->concat($realmChallenges)
+                ->concat($bossChallenges)
+                ->values(),
         ]);
     }
 

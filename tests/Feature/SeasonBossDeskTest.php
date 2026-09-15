@@ -18,16 +18,9 @@ class SeasonBossDeskTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_teacher_can_open_boss_desk_and_challenge_student(): void
+    public function test_teacher_challenge_stays_pending_until_student_accepts(): void
     {
         [$teacher, $class, $student, $season] = $this->readyBossSeason();
-
-        $this->actingAs($teacher)
-            ->get(route('teacher.seasons.boss', $season))
-            ->assertOk()
-            ->assertSee('Mesa do Chefão')
-            ->assertSee('Desafiar')
-            ->assertSee($student->name);
 
         $this->actingAs($teacher)
             ->post(route('teacher.seasons.boss.challenge', $season), [
@@ -38,22 +31,71 @@ class SeasonBossDeskTest extends TestCase
 
         $vigil = BossVigil::query()->first();
         $this->assertNotNull($vigil);
+        $this->assertTrue($vigil->isPending());
         $this->assertSame(BossVigil::SOURCE_STAFF, $vigil->source);
-        $this->assertSame($teacher->id, $vigil->initiated_by);
-        $this->assertFalse($vigil->mark_earned);
-        $this->assertSame(0, app(BossRiteService::class)->markCount($season, $class));
+        $this->assertNull($vigil->log);
+        $this->assertSame(0, (int) Enrollment::query()
+            ->where('class_id', $class->id)
+            ->where('student_id', $student->id)
+            ->value('glory'));
 
         $this->actingAs($teacher)
             ->get(route('teacher.seasons.vigil.show', [$season, $vigil]))
             ->assertOk()
-            ->assertSee('Mesa do chefão')
-            ->assertSee($season->bossDisplayName());
+            ->assertSee('Aguardando o aluno aceitar');
 
-        $enrollment = Enrollment::query()
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->get(route('student.arena.vigil.show', $vigil))
+            ->assertOk()
+            ->assertSee('Aceitar batalha')
+            ->assertSee('Recusar');
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->post(route('student.arena.vigil.accept', $vigil))
+            ->assertRedirect();
+
+        $vigil->refresh();
+        $this->assertTrue($vigil->isResolved());
+        $this->assertNotEmpty($vigil->log['turns']);
+        $this->assertFalse($vigil->mark_earned);
+        $this->assertGreaterThan(0, (int) Enrollment::query()
             ->where('class_id', $class->id)
             ->where('student_id', $student->id)
-            ->first();
-        $this->assertGreaterThan(0, (int) $enrollment->glory);
+            ->value('glory'));
+    }
+
+    public function test_student_can_decline_boss_challenge_without_punishment(): void
+    {
+        [$teacher, $class, $student, $season] = $this->readyBossSeason();
+        $vigil = app(BossRiteService::class)->staffChallenge($season, $class, $student, $teacher);
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->post(route('student.arena.vigil.decline', $vigil))
+            ->assertRedirect(route('student.arena.index'));
+
+        $this->assertSame(BossVigil::STATUS_DECLINED, $vigil->fresh()->status);
+        $this->assertSame(0, (int) Enrollment::query()
+            ->where('class_id', $class->id)
+            ->where('student_id', $student->id)
+            ->value('glory'));
+    }
+
+    public function test_pending_boss_challenge_appears_in_arena_poll(): void
+    {
+        [$teacher, $class, $student, $season] = $this->readyBossSeason();
+        $vigil = app(BossRiteService::class)->staffChallenge($season, $class, $student, $teacher);
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->getJson(route('student.arena.pending'))
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'boss-'.$vigil->id,
+                'kind' => 'boss',
+            ]);
     }
 
     public function test_admin_can_use_boss_desk_on_any_season(): void
@@ -73,7 +115,7 @@ class SeasonBossDeskTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame(BossVigil::SOURCE_STAFF, BossVigil::query()->first()->source);
+        $this->assertTrue(BossVigil::query()->first()->isPending());
     }
 
     public function test_staff_challenge_does_not_consume_student_vigil_limit(): void
@@ -82,7 +124,8 @@ class SeasonBossDeskTest extends TestCase
         $rites = app(BossRiteService::class);
         $rites->setVigilOpen($season, true);
 
-        $rites->staffChallenge($season, $class, $student, $teacher);
+        $vigil = $rites->staffChallenge($season, $class, $student, $teacher);
+        $rites->acceptStaffChallenge($vigil, $student);
 
         $this->assertSame(0, $rites->resolvedVigilsToday($season, $class, $student));
         $this->assertNull($rites->vigilRestriction($season, $class, $student));

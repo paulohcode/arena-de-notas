@@ -14,8 +14,8 @@ return new class extends Migration
             $table->foreignId('class_id')->constrained('classes')->cascadeOnDelete();
             $table->foreignId('student_id')->constrained('users')->cascadeOnDelete();
             $table->string('status', 20)->default('resolved');
-            $table->unsignedBigInteger('seed');
-            $table->json('log');
+            $table->unsignedBigInteger('seed')->nullable();
+            $table->json('log')->nullable();
             $table->boolean('won')->default(false);
             $table->boolean('mark_earned')->default(false);
             $table->unsignedSmallInteger('glory')->default(0);

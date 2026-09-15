@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\ArenaCombatService;
 use App\Services\BossRiteService;
 use App\Support\BossArchetypeCatalog;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -159,7 +160,12 @@ class SeasonController extends Controller
             ->with(['student', 'schoolClass'])
             ->where('season_id', $season->id)
             ->where('source', BossVigil::SOURCE_STAFF)
-            ->latest('resolved_at')
+            ->whereIn('status', [
+                BossVigil::STATUS_PENDING,
+                BossVigil::STATUS_RESOLVED,
+                BossVigil::STATUS_DECLINED,
+            ])
+            ->latest()
             ->limit(12)
             ->get();
 
@@ -189,7 +195,7 @@ class SeasonController extends Controller
 
         return redirect()
             ->route('teacher.seasons.vigil.show', [$season, $vigil])
-            ->with('success', 'Desafio lançado. Assista o combate como o chefão.');
+            ->with('success', 'Desafio enviado. Aguardando o aluno aceitar.');
     }
 
     public function showVigil(Request $request, Season $season, BossVigil $vigil): View
@@ -208,6 +214,24 @@ class SeasonController extends Controller
             'backUrl' => route('teacher.seasons.boss', $season),
             'backLabel' => 'Voltar à mesa do chefão',
             'staffView' => true,
+            'statusUrl' => $vigil->isPending()
+                ? route('teacher.seasons.vigil.status', [$season, $vigil])
+                : null,
+        ]);
+    }
+
+    public function statusVigil(Request $request, Season $season, BossVigil $vigil): JsonResponse
+    {
+        $this->authorizeSeason($request, $season);
+        abort_unless($vigil->season_id === $season->id, 404);
+
+        return response()->json([
+            'status' => $vigil->status,
+            'redirect' => match ($vigil->status) {
+                BossVigil::STATUS_RESOLVED => route('teacher.seasons.vigil.show', [$season, $vigil]).'?replay=1',
+                BossVigil::STATUS_DECLINED, BossVigil::STATUS_EXPIRED => route('teacher.seasons.boss', $season),
+                default => null,
+            },
         ]);
     }
 

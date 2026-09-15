@@ -10,9 +10,12 @@ use App\Models\Season;
 use App\Models\SeasonClassRite;
 use App\Services\ArenaCombatService;
 use App\Services\BossRiteService;
+use App\Support\ArenaUrl;
 use App\Support\BossArchetypeCatalog;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class BossRiteController extends Controller
@@ -49,7 +52,81 @@ class BossRiteController extends Controller
             'student' => $request->user(),
             'vigil' => $vigil,
             'season' => $vigil->season,
+            'statusUrl' => $vigil->isPending()
+                ? ArenaUrl::route('student.arena.vigil.status', $vigil)
+                : null,
         ]);
+    }
+
+    public function statusVigil(Request $request, BossVigil $vigil): JsonResponse
+    {
+        abort_unless($vigil->student_id === $request->user()->id, 403);
+        $this->authorize('viewAsStudent', $vigil->schoolClass);
+
+        return response()->json([
+            'status' => $vigil->status,
+            'redirect' => match ($vigil->status) {
+                BossVigil::STATUS_RESOLVED => ArenaUrl::route('student.arena.vigil.show', $vigil).'?replay=1',
+                BossVigil::STATUS_DECLINED, BossVigil::STATUS_EXPIRED => ArenaUrl::route('student.arena.index'),
+                default => null,
+            },
+        ]);
+    }
+
+    public function acceptVigil(Request $request, BossVigil $vigil): RedirectResponse|JsonResponse
+    {
+        abort_unless($vigil->student_id === $request->user()->id, 403);
+        $this->authorize('viewAsStudent', $vigil->schoolClass);
+
+        try {
+            $resolved = $this->rites->acceptStaffChallenge($vigil, $request->user());
+        } catch (ValidationException $exception) {
+            if ($this->wantsJson($request)) {
+                throw $exception;
+            }
+
+            return back()->withErrors($exception->errors());
+        }
+
+        $url = route('student.arena.vigil.show', $resolved).'?replay=1';
+
+        if ($this->wantsJson($request)) {
+            return response()->json([
+                'ok' => true,
+                'redirect' => ArenaUrl::route('student.arena.vigil.show', $resolved).'?replay=1',
+            ]);
+        }
+
+        return redirect($url)->with('success', $resolved->won
+            ? 'Você venceu o chefão!'
+            : 'O chefão prevaleceu. Sem punição de nota.');
+    }
+
+    public function declineVigil(Request $request, BossVigil $vigil): RedirectResponse|JsonResponse
+    {
+        abort_unless($vigil->student_id === $request->user()->id, 403);
+        $this->authorize('viewAsStudent', $vigil->schoolClass);
+
+        try {
+            $this->rites->declineStaffChallenge($vigil, $request->user());
+        } catch (ValidationException $exception) {
+            if ($this->wantsJson($request)) {
+                throw $exception;
+            }
+
+            return back()->withErrors($exception->errors());
+        }
+
+        if ($this->wantsJson($request)) {
+            return response()->json([
+                'ok' => true,
+                'redirect' => ArenaUrl::route('student.arena.index'),
+            ]);
+        }
+
+        return redirect()
+            ->route('student.arena.index')
+            ->with('success', 'Desafio do chefão recusado.');
     }
 
     public function showRite(Request $request, SeasonClassRite $rite): View|RedirectResponse
@@ -71,6 +148,14 @@ class BossRiteController extends Controller
             'relicsLoss' => BossArchetypeCatalog::RELICS_RITE_LOSS,
             'bossFighterId' => ArenaCombatService::BOSS_FIGHTER_ID,
         ]);
+    }
+
+    private function wantsJson(Request $request): bool
+    {
+        return $request->expectsJson()
+            || $request->wantsJson()
+            || $request->ajax()
+            || str_contains((string) $request->header('Accept'), 'application/json');
     }
 
     private function currentClass(Request $request): ?SchoolClass
