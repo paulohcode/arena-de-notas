@@ -15,6 +15,7 @@ use App\Notifications\GameAlert;
 use App\Support\ArenaUrl;
 use App\Support\BossArchetypeCatalog;
 use App\Support\SeededRandom;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -276,6 +277,81 @@ class BossRiteService
             ->where('season_id', $season->id)
             ->where('class_id', $class->id)
             ->first();
+    }
+
+    /**
+     * Painel do staff: potes atuais + desafios pagos do dia.
+     *
+     * @return array{
+     *     day_label: string,
+     *     banks: list<array{class: SchoolClass, relics: int, battles: int, fill_percent: float}>,
+     *     challenges: Collection<int, BossVigil>,
+     *     totals: array{battles: int, wins: int, losses: int, fees: int, jackpot_relics: int}
+     * }
+     */
+    public function bossBankDesk(Season $season, CarbonInterface $day): array
+    {
+        $tz = (string) config('app.display_timezone');
+        $local = $day->copy()->timezone($tz)->startOfDay();
+        $startUtc = $local->copy()->utc();
+        $endUtc = $local->copy()->endOfDay()->utc();
+
+        $season->loadMissing(['classes']);
+        $banksByClass = SeasonClassBossBank::query()
+            ->where('season_id', $season->id)
+            ->get()
+            ->keyBy('class_id');
+
+        $banks = [];
+        foreach ($season->classes->sortBy('name') as $class) {
+            $bank = $banksByClass->get($class->id);
+            $relics = (int) ($bank?->relics ?? 0);
+            $banks[] = [
+                'class' => $class,
+                'relics' => $relics,
+                'battles' => (int) ($bank?->battles ?? 0),
+                'fill_percent' => BossArchetypeCatalog::bossBankFillPercent($relics),
+            ];
+        }
+
+        $challenges = BossVigil::query()
+            ->with(['student', 'schoolClass'])
+            ->where('season_id', $season->id)
+            ->where('source', BossVigil::SOURCE_BOSS)
+            ->where('status', BossVigil::STATUS_RESOLVED)
+            ->whereBetween('resolved_at', [$startUtc, $endUtc])
+            ->latest('resolved_at')
+            ->get();
+
+        $wins = 0;
+        $losses = 0;
+        $fees = 0;
+        $jackpotRelics = 0;
+        foreach ($challenges as $challenge) {
+            if ($challenge->won) {
+                $wins++;
+            } else {
+                $losses++;
+            }
+            $fees += (int) $challenge->fee_relics;
+            $jackpot = $challenge->jackpotTotals();
+            if ($jackpot !== null) {
+                $jackpotRelics += $jackpot['relics'];
+            }
+        }
+
+        return [
+            'day_label' => $local->format('d/m/Y'),
+            'banks' => $banks,
+            'challenges' => $challenges,
+            'totals' => [
+                'battles' => $challenges->count(),
+                'wins' => $wins,
+                'losses' => $losses,
+                'fees' => $fees,
+                'jackpot_relics' => $jackpotRelics,
+            ],
+        ];
     }
 
     private function lockBossBank(Season $season, SchoolClass $class, int $seed): SeasonClassBossBank

@@ -16,6 +16,7 @@ use App\Support\BossArchetypeCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -176,6 +177,33 @@ class SeasonController extends Controller
             'roster' => $roster,
             'recentChallenges' => $recentChallenges,
             'boss' => $season->bossMeta(),
+        ]);
+    }
+
+    public function bossBank(Request $request, Season $season): View
+    {
+        $this->authorizeSeason($request, $season);
+        abort_unless($season->hasBoss(), 404);
+
+        $data = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $timezone = (string) config('app.display_timezone');
+        $day = isset($data['date'])
+            ? Carbon::createFromFormat('Y-m-d', $data['date'], $timezone)->startOfDay()
+            : now($timezone)->startOfDay();
+
+        $desk = $this->rites->bossBankDesk($season, $day);
+
+        return view('teacher.seasons.boss-bank', [
+            'season' => $season,
+            'boss' => $season->bossMeta(),
+            'selectedDate' => $day->toDateString(),
+            'dayLabel' => $desk['day_label'],
+            'banks' => $desk['banks'],
+            'challenges' => $desk['challenges'],
+            'totals' => $desk['totals'],
         ]);
     }
 

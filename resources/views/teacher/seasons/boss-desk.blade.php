@@ -17,6 +17,11 @@
         · Desafie alunos; eles precisam aceitar (como duelo 1v1)
         · Provocações do staff não geram Marca do Rito
     </p>
+    <div class="mt-4">
+        <a href="{{ route('teacher.seasons.boss.bank', $season) }}" class="game-btn !py-1 !px-3 text-sm">
+            Pote e desafios
+        </a>
+    </div>
 </div>
 
 @if($errors->any())

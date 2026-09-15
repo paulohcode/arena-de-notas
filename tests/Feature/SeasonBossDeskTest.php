@@ -7,6 +7,7 @@ use App\Models\BossVigil;
 use App\Models\Enrollment;
 use App\Models\SchoolClass;
 use App\Models\Season;
+use App\Models\SeasonClassBossBank;
 use App\Models\User;
 use App\Services\BossRiteService;
 use App\Services\GameLoopService;
@@ -156,6 +157,119 @@ class SeasonBossDeskTest extends TestCase
                 'student_id' => $incomplete->id,
             ])
             ->assertSessionHasErrors('challenge');
+    }
+
+    public function test_boss_bank_desk_shows_pot_and_day_challenges(): void
+    {
+        [$teacher, $class, $student, $season] = $this->readyBossSeason();
+
+        SeasonClassBossBank::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $class->id,
+            'relics' => 80,
+            'battles' => 5,
+            'next_battle' => 13,
+            'payout_percent' => 30,
+        ]);
+
+        $vigil = BossVigil::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $class->id,
+            'student_id' => $student->id,
+            'source' => BossVigil::SOURCE_BOSS,
+            'status' => BossVigil::STATUS_RESOLVED,
+            'seed' => 1,
+            'log' => ['turns' => [], 'winner_id' => $student->id],
+            'won' => true,
+            'mark_earned' => false,
+            'glory' => 0,
+            'fee_relics' => 10,
+            'loot' => ['relics' => 12, 'seals' => 3, 'auras' => 2],
+            'jackpot' => ['relics' => 24, 'percent' => 30, 'bank_before' => 80],
+            'resolved_at' => now(),
+        ]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.seasons.boss', $season))
+            ->assertOk()
+            ->assertSee('Pote e desafios')
+            ->assertSee(route('teacher.seasons.boss.bank', $season), false);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.seasons.boss.bank', $season))
+            ->assertOk()
+            ->assertSee('Pote e desafios')
+            ->assertSee($class->name)
+            ->assertSee('80')
+            ->assertSee('5 batalha(s) desde o último sorteio')
+            ->assertDontSee('next_battle')
+            ->assertSee($student->name)
+            ->assertSee('Vitória')
+            ->assertSee('Loot')
+            ->assertSee('Pote:')
+            ->assertSee('30% de 80')
+            ->assertSee(route('teacher.seasons.vigil.show', [$season, $vigil]), false);
+    }
+
+    public function test_boss_bank_desk_date_filter_hides_other_days(): void
+    {
+        [$teacher, $class, $student, $season] = $this->readyBossSeason();
+        $timezone = (string) config('app.display_timezone');
+
+        BossVigil::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $class->id,
+            'student_id' => $student->id,
+            'source' => BossVigil::SOURCE_BOSS,
+            'status' => BossVigil::STATUS_RESOLVED,
+            'seed' => 1,
+            'log' => ['turns' => []],
+            'won' => false,
+            'mark_earned' => false,
+            'glory' => 0,
+            'fee_relics' => 10,
+            'loot' => ['relics' => 1, 'seals' => 1, 'auras' => 1],
+            'resolved_at' => now($timezone),
+        ]);
+
+        $yesterday = now($timezone)->subDay()->toDateString();
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.seasons.boss.bank', ['season' => $season, 'date' => $yesterday]))
+            ->assertOk()
+            ->assertSee('Nenhum desafio pago ao chefão neste dia')
+            ->assertDontSee($student->name);
+    }
+
+    public function test_other_teacher_cannot_view_boss_bank_desk(): void
+    {
+        [, , , $season] = $this->readyBossSeason();
+        $other = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+
+        $this->actingAs($other)
+            ->get(route('teacher.seasons.boss.bank', $season))
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_view_boss_bank_desk(): void
+    {
+        [, $class, , $season] = $this->readyBossSeason();
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+
+        SeasonClassBossBank::query()->create([
+            'season_id' => $season->id,
+            'class_id' => $class->id,
+            'relics' => 40,
+            'battles' => 2,
+            'next_battle' => 10,
+            'payout_percent' => 25,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('teacher.seasons.boss.bank', $season))
+            ->assertOk()
+            ->assertSee($class->name)
+            ->assertSee('40');
     }
 
     /**
