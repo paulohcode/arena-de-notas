@@ -10,7 +10,7 @@
                 <p class="font-semibold {{ $class->isArenaOpen() ? 'text-cyan-300' : 'text-amber-100/70' }}">
                     Arena {{ $class->isArenaOpen() ? 'aberta' : 'fechada' }} hoje ({{ \App\Support\ArenaSchedule::todayLabel() }})
                 </p>
-                <p class="text-sm text-amber-100/55">Duelos RPG e batalhas de guildas geram {{ \App\Models\GameCurrency::label('glory') }} — não mexem na média nem no XP. Com a arena aberta, cada guilda pode batalhar 1 vez por dia. Alunos também podem desafiar outras turmas do mesmo reino por {{ \App\Models\GameCurrency::label('auras') }}.</p>
+                <p class="text-sm text-amber-100/55">Duelos RPG e batalhas de guildas geram {{ \App\Models\GameCurrency::label('glory') }} — não mexem na média nem no XP. Com a arena aberta, cada guilda pode batalhar {{ $class->guildArenaDailyLimit() }} {{ $class->guildArenaDailyLimit() === 1 ? 'vez' : 'vezes' }} por dia. Alunos também podem desafiar outras turmas do mesmo reino por {{ \App\Models\GameCurrency::label('auras') }}.</p>
             </div>
             <a class="game-btn-ghost !py-1 !px-3 text-sm" href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'arena']) }}">Gerenciar arena</a>
         </div>

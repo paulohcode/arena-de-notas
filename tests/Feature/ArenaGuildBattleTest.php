@@ -151,6 +151,64 @@ class ArenaGuildBattleTest extends TestCase
             ->assertSessionHasErrors(['opponent_team_id']);
     }
 
+    public function test_configured_guild_limit_allows_a_second_battle_then_blocks_the_third(): void
+    {
+        [$class, $challenger, $alpha, $beta, $defender] = $this->readyGuilds(arenaOpen: true);
+        $class->update(['guild_arena_daily_limit' => 2]);
+
+        $this->resolveBattle($challenger, $defender, $beta);
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.guild.challenge'), ['opponent_team_id' => $beta->id])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->actingAs($defender)
+            ->post(route('student.arena.guild.accept', TeamBattle::query()->latest('id')->firstOrFail()))
+            ->assertRedirect();
+
+        $this->assertSame(2, app(TeamBattleService::class)->resolvedTodayForTeam($class, $alpha));
+
+        $this->actingAs($challenger)
+            ->from(route('student.arena.index'))
+            ->post(route('student.arena.guild.challenge'), ['opponent_team_id' => $beta->id])
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors([
+                'opponent_team_id' => 'A guilda Alpha já fez 2 batalhas hoje. Só pode de novo amanhã.',
+            ]);
+    }
+
+    public function test_guild_battles_follow_the_limit_of_the_current_weekday(): void
+    {
+        $this->travelTo('2026-09-14 15:00:00');
+
+        [$class, $challenger, $alpha, $beta, $defender] = $this->readyGuilds(arenaOpen: true);
+        $class->update([
+            'guild_arena_schedule' => [
+                1 => ['daily_limit' => 1],
+                2 => ['daily_limit' => 2],
+            ],
+            'guild_arena_daily_limit' => 1,
+        ]);
+
+        $this->resolveBattle($challenger, $defender, $beta);
+
+        $this->actingAs($challenger)
+            ->from(route('student.arena.index'))
+            ->post(route('student.arena.guild.challenge'), ['opponent_team_id' => $beta->id])
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors(['opponent_team_id']);
+
+        $this->travelTo('2026-09-15 15:00:00');
+
+        $this->resolveBattle($challenger, $defender, $beta);
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.guild.challenge'), ['opponent_team_id' => $beta->id])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+    }
+
     public function test_guild_that_fought_today_cannot_be_challenged(): void
     {
         [$class, $challenger, $alpha, $beta, $defender] = $this->readyGuilds(arenaOpen: true);
@@ -285,6 +343,18 @@ class ArenaGuildBattleTest extends TestCase
             ->assertSee('Batalha de Guildas')
             ->assertSee('Beta')
             ->assertSee('0/1 batalha hoje');
+    }
+
+    public function test_arena_page_shows_configured_guild_daily_limit(): void
+    {
+        [$class, $challenger] = $this->readyGuilds(arenaOpen: true);
+        $class->update(['guild_arena_daily_limit' => 3]);
+
+        $this->actingAs($challenger)
+            ->get(route('student.arena.index'))
+            ->assertOk()
+            ->assertSee('0/3 batalhas hoje')
+            ->assertSee('3 batalhas por dia');
     }
 
     public function test_resolved_guild_battle_page_renders_war_stage_and_skip_controls(): void

@@ -332,12 +332,12 @@
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h2 class="font-display text-xl text-cyan-200">Batalha de Guildas</h2>
         @if($ownTeam)
-            <p class="text-xs text-amber-100/50">{{ $guildResolvedToday }}/{{ $guildDailyLimit }} batalha hoje · {{ $ownTeam->emblemIcon() }} {{ $ownTeam->name }}</p>
+            <p class="text-xs text-amber-100/50">{{ $guildResolvedToday }}/{{ $guildDailyLimit }} {{ $guildDailyLimit === 1 ? 'batalha' : 'batalhas' }} hoje · {{ $ownTeam->emblemIcon() }} {{ $ownTeam->name }}</p>
         @endif
     </div>
 
     <div class="mb-4 rounded-lg border border-cyan-400/25 bg-cyan-950/20 p-3 text-xs text-amber-100/75 space-y-1">
-        <p>Cada guilda pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.</p>
+        <p>Cada guilda pode resolver <strong class="text-cyan-200">{{ $guildDailyLimit === 1 ? 'uma batalha por dia' : $guildDailyLimit.' batalhas por dia' }}</strong>.</p>
         <p>Todos os lutadores elegíveis entram: mais forte vs mais forte; sobras enfrentam o mais fraco do outro lado.</p>
         <p>Qualquer membro da guilda desafiada pode aceitar ou recusar. Vitória dá +{{ \App\Models\TeamBattle::GLORY_WIN }} {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }} para quem lutou.</p>
     </div>

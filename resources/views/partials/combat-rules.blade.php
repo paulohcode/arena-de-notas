@@ -6,6 +6,8 @@
     $teamPct = (int) round($rules['team_weight'] * 100);
     $luckPct = (int) round($rules['luck_range'] * 100);
     $gearCapPct = (int) round($rules['gear_cap'] * 100);
+    $guildBattleLimit = $guildDailyLimit ?? (isset($class) ? $class->guildArenaDailyLimit() : \App\Models\TeamBattle::DAILY_RESOLVED_LIMIT);
+    $guildBattleLimitLabel = $guildBattleLimit === 1 ? 'uma batalha por dia' : $guildBattleLimit.' batalhas por dia';
 @endphp
 <div class="rounded-lg border border-amber-400/20 bg-amber-950/20 p-4 text-sm text-amber-100/75 space-y-3">
     <h2 class="font-display text-lg text-amber-200">Como o vencedor é definido</h2>
@@ -61,7 +63,7 @@
             Nas <strong class="text-cyan-200">batalhas de guildas</strong>, os lutadores elegíveis são emparelhados por poder
             (mais forte vs mais forte). Quem sobrar luta de novo contra o mais fraco do outro lado.
             Vence a guilda com mais vitórias; em empate, soma-se o HP dos vencedores; empate total favorece a desafiante.
-            Cada guilda só pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.
+            Cada guilda só pode resolver <strong class="text-cyan-200">{{ $guildBattleLimitLabel }}</strong>.
             A sorte da arena nestas guerras é menor (±6%) do que no duelo 1v1 (±12%).
         </p>
         <p class="text-xs text-amber-100/50">
@@ -85,7 +87,7 @@
         <p>
             Nas <strong class="text-cyan-200">batalhas de guildas</strong>, todos os lutadores elegíveis entram:
             mais forte vs mais forte; quem sobrar enfrenta o mais fraco do outro lado.
-            Cada guilda só pode resolver <strong class="text-cyan-200">uma batalha por dia</strong>.
+            Cada guilda só pode resolver <strong class="text-cyan-200">{{ $guildBattleLimitLabel }}</strong>.
             A sorte nestas guerras é menor (±6%) do que no duelo individual (±12%).
         </p>
         <p>

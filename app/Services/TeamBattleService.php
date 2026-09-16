@@ -613,8 +613,12 @@ class TeamBattleService
 
     private function dailyLimitReason(SchoolClass $class, Team $team): ?string
     {
-        if ($this->resolvedTodayForTeam($class, $team) >= TeamBattle::DAILY_RESOLVED_LIMIT) {
-            return "A guilda {$team->name} já batalhou hoje. Só pode de novo amanhã.";
+        $limit = $class->guildArenaDailyLimit();
+
+        if ($this->resolvedTodayForTeam($class, $team) >= $limit) {
+            $label = $limit === 1 ? 'batalha' : 'batalhas';
+
+            return "A guilda {$team->name} já fez {$limit} {$label} hoje. Só pode de novo amanhã.";
         }
 
         return null;

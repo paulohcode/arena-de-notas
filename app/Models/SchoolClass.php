@@ -27,6 +27,8 @@ class SchoolClass extends Model
         'arena_cooldown_minutes',
         'arena_daily_limit',
         'arena_schedule',
+        'guild_arena_daily_limit',
+        'guild_arena_schedule',
     ];
 
     /**
@@ -36,6 +38,7 @@ class SchoolClass extends Model
         'arena_open' => false,
         'arena_cooldown_minutes' => Duel::CHALLENGE_COOLDOWN_MINUTES,
         'arena_daily_limit' => Duel::DAILY_RESOLVED_LIMIT,
+        'guild_arena_daily_limit' => TeamBattle::DAILY_RESOLVED_LIMIT,
     ];
 
     protected function casts(): array
@@ -45,6 +48,8 @@ class SchoolClass extends Model
             'arena_cooldown_minutes' => 'integer',
             'arena_daily_limit' => 'integer',
             'arena_schedule' => 'array',
+            'guild_arena_daily_limit' => 'integer',
+            'guild_arena_schedule' => 'array',
             'team_grade_weight' => 'integer',
             'behavior_grade_weight' => 'integer',
             'attendance_grade_weight' => 'integer',
@@ -180,6 +185,25 @@ class SchoolClass extends Model
         return $this->arenaToday()['daily_limit'];
     }
 
+    public function guildArenaDailyLimit(): int
+    {
+        return ArenaSchedule::guildLimitForToday(
+            $this->guild_arena_schedule,
+            $this->fallbackGuildArenaDailyLimit(),
+        );
+    }
+
+    /**
+     * @return array<int, array{daily_limit: int}>
+     */
+    public function guildArenaWeek(): array
+    {
+        return ArenaSchedule::guildWeek(
+            $this->guild_arena_schedule,
+            $this->fallbackGuildArenaDailyLimit(),
+        );
+    }
+
     public function arenaCooldownLabel(): string
     {
         return ArenaSchedule::cooldownLabel($this->arenaCooldownMinutes());
@@ -224,6 +248,11 @@ class SchoolClass extends Model
     private function fallbackArenaDailyLimit(): int
     {
         return max(1, (int) ($this->arena_daily_limit ?? Duel::DAILY_RESOLVED_LIMIT));
+    }
+
+    private function fallbackGuildArenaDailyLimit(): int
+    {
+        return max(1, (int) ($this->guild_arena_daily_limit ?? TeamBattle::DAILY_RESOLVED_LIMIT));
     }
 
     public function isRising(): bool

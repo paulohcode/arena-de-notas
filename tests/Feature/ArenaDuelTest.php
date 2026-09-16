@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Duel;
 use App\Models\Enrollment;
 use App\Models\SchoolClass;
+use App\Models\TeamBattle;
 use App\Models\User;
 use App\Notifications\GameAlert;
 use App\Services\ArenaCombatService;
@@ -481,7 +482,8 @@ class ArenaDuelTest extends TestCase
             ->assertSee('Abrir arena')
             ->assertSee('Configurações da arena')
             ->assertSee('Espera (minutos)')
-            ->assertSee('Batalhas no dia')
+            ->assertSee('Duelos no dia')
+            ->assertSee('Guildas no dia')
             ->assertSee('Segunda')
             ->assertSee('Domingo')
             ->assertSee('Como o vencedor é definido')
@@ -566,6 +568,8 @@ class ArenaDuelTest extends TestCase
         $this->assertTrue($class->arenaWeek()[1]['open']);
         $this->assertSame(15, $class->arenaWeek()[3]['cooldown_minutes']);
         $this->assertSame(5, $class->arenaWeek()[5]['daily_limit']);
+        $this->assertSame(TeamBattle::DAILY_RESOLVED_LIMIT, $class->guildArenaDailyLimit());
+        $this->assertSame(TeamBattle::DAILY_RESOLVED_LIMIT, $class->guildArenaWeek()[3]['daily_limit']);
     }
 
     public function test_teacher_can_configure_different_settings_per_weekday(): void
@@ -581,6 +585,10 @@ class ArenaDuelTest extends TestCase
                     1 => ['open' => '0', 'cooldown_minutes' => 10, 'daily_limit' => 1],
                     2 => ['open' => '1', 'cooldown_minutes' => 45, 'daily_limit' => 8],
                 ],
+                'guild_days' => [
+                    1 => ['daily_limit' => 1],
+                    2 => ['daily_limit' => 4],
+                ],
             ]))
             ->assertRedirect(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'arena', 'arena_tab' => 'turma']))
             ->assertSessionHas('success', 'Configurações da arena salvas.');
@@ -593,6 +601,9 @@ class ArenaDuelTest extends TestCase
         $this->assertTrue($class->arenaWeek()[2]['open']);
         $this->assertSame(45, $class->arenaWeek()[2]['cooldown_minutes']);
         $this->assertSame(8, $class->arenaWeek()[2]['daily_limit']);
+        $this->assertSame(1, $class->guildArenaDailyLimit());
+        $this->assertSame(1, $class->guildArenaWeek()[1]['daily_limit']);
+        $this->assertSame(4, $class->guildArenaWeek()[2]['daily_limit']);
     }
 
     public function test_challenges_follow_the_settings_of_the_current_weekday(): void
@@ -665,6 +676,8 @@ class ArenaDuelTest extends TestCase
                 'days.1.open' => 'Informe se a arena está aberta ou fechada.',
                 'days.1.cooldown_minutes' => 'Informe o tempo de espera entre batalhas.',
                 'days.1.daily_limit' => 'Informe quantas batalhas são permitidas no dia.',
+                'guild_days' => 'Informe quantas batalhas de guildas são permitidas em cada dia.',
+                'guild_days.1.daily_limit' => 'Informe quantas batalhas de guildas são permitidas no dia.',
             ]);
 
         $this->assertFalse($class->fresh()->isArenaOpen());
@@ -686,6 +699,24 @@ class ArenaDuelTest extends TestCase
             ]);
 
         $this->assertSame(Duel::DAILY_RESOLVED_LIMIT, $class->fresh()->arenaDailyLimit());
+    }
+
+    public function test_arena_settings_reject_zero_guild_battles(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = $this->createClassForTeacher($teacher);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'arena']))
+            ->put(route('teacher.arena.update', $class), $this->arenaSettingsPayload([
+                'guild_arena_daily_limit' => 0,
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasErrors([
+                'guild_days.1.daily_limit' => 'É preciso permitir pelo menos 1 batalha de guildas por dia.',
+            ]);
+
+        $this->assertSame(TeamBattle::DAILY_RESOLVED_LIMIT, $class->fresh()->guildArenaDailyLimit());
     }
 
     public function test_closing_arena_via_settings_blocks_challenges(): void
@@ -829,18 +860,27 @@ class ArenaDuelTest extends TestCase
         $open = $overrides['arena_open'] ?? '1';
         $cooldown = $overrides['arena_cooldown_minutes'] ?? Duel::CHALLENGE_COOLDOWN_MINUTES;
         $limit = $overrides['arena_daily_limit'] ?? Duel::DAILY_RESOLVED_LIMIT;
+        $guildLimit = $overrides['guild_arena_daily_limit'] ?? TeamBattle::DAILY_RESOLVED_LIMIT;
         $perDay = $overrides['days'] ?? [];
+        $perGuildDay = $overrides['guild_days'] ?? [];
 
         $days = [];
+        $guildDays = [];
         foreach (range(1, 7) as $weekday) {
             $days[$weekday] = array_merge([
                 'open' => $open,
                 'cooldown_minutes' => $cooldown,
                 'daily_limit' => $limit,
             ], $perDay[$weekday] ?? []);
+            $guildDays[$weekday] = array_merge([
+                'daily_limit' => $guildLimit,
+            ], $perGuildDay[$weekday] ?? []);
         }
 
-        return ['days' => $days];
+        return [
+            'days' => $days,
+            'guild_days' => $guildDays,
+        ];
     }
 
     private function enrollStudent(

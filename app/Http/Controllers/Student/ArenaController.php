@@ -194,7 +194,7 @@ class ArenaController extends Controller
             'pendingGuildOutgoing' => $pendingGuildOutgoing,
             'guildHistory' => $guildHistory,
             'guildResolvedToday' => $guildResolvedToday,
-            'guildDailyLimit' => TeamBattle::DAILY_RESOLVED_LIMIT,
+            'guildDailyLimit' => $class->guildArenaDailyLimit(),
             'canChallengeGuild' => $canChallengeGuild,
             'guildNotices' => $guildNotices,
             ...$realm,

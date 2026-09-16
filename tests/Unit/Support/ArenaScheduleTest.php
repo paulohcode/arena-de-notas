@@ -32,6 +32,28 @@ class ArenaScheduleTest extends TestCase
         $this->assertFalse($schedule[2]['open']);
     }
 
+    public function test_guild_week_falls_back_to_the_class_limit_when_a_weekday_is_missing(): void
+    {
+        $week = ArenaSchedule::guildWeek([
+            2 => ['daily_limit' => 4],
+        ], 1);
+
+        $this->assertSame(1, $week[1]['daily_limit']);
+        $this->assertSame(4, $week[2]['daily_limit']);
+    }
+
+    public function test_guild_from_validated_keeps_each_weekday_limit(): void
+    {
+        $schedule = ArenaSchedule::guildFromValidated([
+            1 => ['daily_limit' => '2'],
+            3 => ['daily_limit' => '5'],
+        ]);
+
+        $this->assertSame(2, $schedule[1]['daily_limit']);
+        $this->assertSame(1, $schedule[2]['daily_limit']);
+        $this->assertSame(5, $schedule[3]['daily_limit']);
+    }
+
     public function test_uses_brasilia_weekday_when_utc_already_changed_day(): void
     {
         $this->travelTo('2026-09-15 02:00:00');

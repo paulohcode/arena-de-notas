@@ -233,6 +233,97 @@ class ArenaSchedule
         return is_array($schedule) && $schedule !== [];
     }
 
+    /**
+     * @param  array<int|string, mixed>|null  $schedule
+     * @return array<int, array{daily_limit: int}>
+     */
+    public static function guildWeek(?array $schedule, int $fallbackDailyLimit): array
+    {
+        $week = [];
+
+        foreach (self::weekdays() as $weekday) {
+            $week[$weekday] = [
+                'daily_limit' => self::guildLimitForWeekday($schedule, $weekday, $fallbackDailyLimit),
+            ];
+        }
+
+        return $week;
+    }
+
+    /**
+     * @param  array<int|string, mixed>|null  $schedule
+     */
+    public static function guildLimitForToday(
+        ?array $schedule,
+        int $fallbackDailyLimit,
+        ?CarbonInterface $now = null,
+    ): int {
+        return self::guildLimitForWeekday($schedule, self::todayWeekday($now), $fallbackDailyLimit);
+    }
+
+    /**
+     * @param  array<int|string, mixed>|null  $schedule
+     */
+    public static function guildLimitForWeekday(?array $schedule, int $weekday, int $fallbackDailyLimit): int
+    {
+        $fallback = max(1, $fallbackDailyLimit);
+        $day = $schedule[$weekday] ?? $schedule[(string) $weekday] ?? null;
+
+        if (! is_array($day)) {
+            return $fallback;
+        }
+
+        return max(1, (int) ($day['daily_limit'] ?? $fallback));
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $days
+     * @return array<int, array{daily_limit: int}>
+     */
+    public static function guildFromValidated(array $days): array
+    {
+        return self::guildWeek($days, 1);
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public static function guildRules(string $prefix): array
+    {
+        $rules = [
+            $prefix => ['required', 'array'],
+        ];
+
+        foreach (self::weekdays() as $weekday) {
+            $rules[$prefix.'.'.$weekday] = ['required', 'array'];
+            $rules[$prefix.'.'.$weekday.'.daily_limit'] = ['required', 'integer', 'min:1', 'max:50'];
+        }
+
+        return $rules;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function guildMessages(string $prefix): array
+    {
+        $messages = [
+            $prefix.'.required' => 'Informe quantas batalhas de guildas são permitidas em cada dia.',
+            $prefix.'.array' => 'Informe quantas batalhas de guildas são permitidas em cada dia.',
+        ];
+
+        foreach (self::weekdays() as $weekday) {
+            $messages[$prefix.'.'.$weekday.'.required'] = 'Informe quantas batalhas de guildas são permitidas em cada dia.';
+            $messages[$prefix.'.'.$weekday.'.array'] = 'Informe quantas batalhas de guildas são permitidas em cada dia.';
+            $messages[$prefix.'.'.$weekday.'.daily_limit.required'] = 'Informe quantas batalhas de guildas são permitidas no dia.';
+            $messages[$prefix.'.'.$weekday.'.daily_limit.integer'] = 'A quantidade de batalhas de guildas precisa ser um número inteiro.';
+            $messages[$prefix.'.'.$weekday.'.daily_limit.min'] = 'É preciso permitir pelo menos 1 batalha de guildas por dia.';
+            $messages[$prefix.'.'.$weekday.'.daily_limit.max'] = 'O limite diário de guildas não pode passar de 50 batalhas.';
+        }
+
+        return $messages;
+    }
+
     private static function boolean(mixed $value): bool
     {
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);

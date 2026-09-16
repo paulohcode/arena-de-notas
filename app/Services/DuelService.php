@@ -6,6 +6,7 @@ use App\Models\Duel;
 use App\Models\Enrollment;
 use App\Models\GameCurrency;
 use App\Models\SchoolClass;
+use App\Models\TeamBattle;
 use App\Models\User;
 use App\Notifications\GameAlert;
 use App\Support\ArenaSchedule;
@@ -225,8 +226,9 @@ class DuelService
 
     /**
      * @param  array<int, array{open: bool, cooldown_minutes: int, daily_limit: int}>  $schedule
+     * @param  array<int, array{daily_limit: int}>  $guildSchedule
      */
-    public function updateSettings(SchoolClass $class, array $schedule): SchoolClass
+    public function updateSettings(SchoolClass $class, array $schedule, array $guildSchedule): SchoolClass
     {
         $today = ArenaSchedule::forToday(
             $schedule,
@@ -240,6 +242,11 @@ class DuelService
             'arena_open' => $today['open'],
             'arena_cooldown_minutes' => $today['cooldown_minutes'],
             'arena_daily_limit' => $today['daily_limit'],
+            'guild_arena_schedule' => $guildSchedule,
+            'guild_arena_daily_limit' => ArenaSchedule::guildLimitForToday(
+                $guildSchedule,
+                TeamBattle::DAILY_RESOLVED_LIMIT,
+            ),
         ]);
 
         return $class->fresh();

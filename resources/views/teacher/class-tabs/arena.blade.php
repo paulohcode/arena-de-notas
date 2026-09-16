@@ -33,10 +33,11 @@
                         · Vitória +{{ \App\Models\Duel::GLORY_WIN }} {{ \App\Models\GameCurrency::label('glory') }} · Derrota +{{ \App\Models\Duel::GLORY_LOSS }}
                         · Espera {{ $class->arenaCooldownLabel() }}
                         · Limite {{ $class->arenaDailyLimit() }}/dia
+                        · Guildas {{ $class->guildArenaDailyLimit() }}/dia
                     </p>
                     <p class="text-sm text-cyan-200/70 mt-2">
                         Batalhas de guildas: com a arena aberta, qualquer membro pode desafiar outra guilda.
-                        Cada guilda resolve no máximo <strong>1 batalha por dia</strong>. Quem lutou ganha {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }}; a média e o XP não mudam.
+                        Cada guilda resolve no máximo <strong>{{ $class->guildArenaDailyLimit() }} {{ $class->guildArenaDailyLimit() === 1 ? 'batalha' : 'batalhas' }} por dia</strong>. Quem lutou ganha {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }}; a média e o XP não mudam.
                     </p>
                 </div>
                 @if($class->isArenaOpen())
@@ -69,13 +70,16 @@
                 <input type="hidden" name="arena_tab" value="turma">
                 <div>
                     <h3 class="font-display text-lg text-amber-200">Configurações da arena</h3>
-                    <p class="text-sm text-amber-100/60 mt-1">Defina, para cada dia da semana, se a arena está aberta, o intervalo entre desafios e o limite de batalhas.</p>
+                    <p class="text-sm text-amber-100/60 mt-1">Defina, para cada dia da semana, se a arena está aberta, o intervalo entre desafios e o limite de duelos e de batalhas de guildas.</p>
                 </div>
                 @include('partials.arena-weekday-settings', [
                     'prefix' => 'days',
                     'week' => $class->arenaWeek(),
-                    'limitLabel' => 'Batalhas no dia',
+                    'limitLabel' => 'Duelos no dia',
                     'cooldownHint' => '0 = sem espera. Ex.: 30 para meia hora, 120 para 2 horas.',
+                    'guildPrefix' => 'guild_days',
+                    'guildWeek' => $class->guildArenaWeek(),
+                    'guildLimitLabel' => 'Guildas no dia',
                 ])
                 <button class="game-btn" type="submit">Salvar configurações</button>
             </form>

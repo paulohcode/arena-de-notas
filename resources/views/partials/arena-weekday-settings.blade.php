@@ -4,6 +4,9 @@
     $todayWeekday = \App\Support\ArenaSchedule::todayWeekday();
     $limitLabel = $limitLabel ?? 'Batalhas no dia';
     $cooldownHint = $cooldownHint ?? '0 = sem espera. Ex.: 30 para meia hora, 120 para 2 horas.';
+    $guildPrefix = $guildPrefix ?? null;
+    $guildWeek = $guildWeek ?? [];
+    $guildLimitLabel = $guildLimitLabel ?? 'Guildas no dia';
 @endphp
 <div class="overflow-x-auto">
     <table class="w-full text-sm">
@@ -12,13 +15,17 @@
                 <th class="py-2 pr-3 font-medium">Dia</th>
                 <th class="py-2 pr-3 font-medium">Estado</th>
                 <th class="py-2 pr-3 font-medium">Espera (minutos)</th>
-                <th class="py-2 font-medium">{{ $limitLabel }}</th>
+                <th class="py-2 {{ $guildPrefix ? 'pr-3 ' : '' }}font-medium">{{ $limitLabel }}</th>
+                @if($guildPrefix)
+                    <th class="py-2 font-medium">{{ $guildLimitLabel }}</th>
+                @endif
             </tr>
         </thead>
         <tbody class="divide-y divide-purple-900/40">
             @foreach(\App\Support\ArenaSchedule::WEEKDAY_LABELS as $weekday => $label)
                 @php
                     $day = $week[$weekday] ?? ['open' => false, 'cooldown_minutes' => 0, 'daily_limit' => 1];
+                    $guildDay = $guildWeek[$weekday] ?? ['daily_limit' => 1];
                     $isToday = $weekday === $todayWeekday;
                 @endphp
                 <tr class="{{ $isToday ? 'bg-amber-400/10' : '' }}">
@@ -38,10 +45,16 @@
                         <input class="game-input w-full" type="number" name="{{ $prefix }}[{{ $weekday }}][cooldown_minutes]" min="0" max="10080" required
                             value="{{ old($prefix.'.'.$weekday.'.cooldown_minutes', $day['cooldown_minutes']) }}">
                     </td>
-                    <td class="py-3 align-top min-w-28">
+                    <td class="py-3 {{ $guildPrefix ? 'pr-3 ' : '' }}align-top min-w-28">
                         <input class="game-input w-full" type="number" name="{{ $prefix }}[{{ $weekday }}][daily_limit]" min="1" max="50" required
                             value="{{ old($prefix.'.'.$weekday.'.daily_limit', $day['daily_limit']) }}">
                     </td>
+                    @if($guildPrefix)
+                        <td class="py-3 align-top min-w-28">
+                            <input class="game-input w-full" type="number" name="{{ $guildPrefix }}[{{ $weekday }}][daily_limit]" min="1" max="50" required
+                                value="{{ old($guildPrefix.'.'.$weekday.'.daily_limit', $guildDay['daily_limit']) }}">
+                        </td>
+                    @endif
                 </tr>
             @endforeach
         </tbody>

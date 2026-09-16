@@ -40,11 +40,21 @@ class ArenaController extends Controller
         $this->authorize('manage', $schoolClass);
 
         $data = $request->validate(
-            ArenaSchedule::rules('days'),
-            ArenaSchedule::messages('days'),
+            [
+                ...ArenaSchedule::rules('days'),
+                ...ArenaSchedule::guildRules('guild_days'),
+            ],
+            [
+                ...ArenaSchedule::messages('days'),
+                ...ArenaSchedule::guildMessages('guild_days'),
+            ],
         );
 
-        $this->duels->updateSettings($schoolClass, ArenaSchedule::fromValidated($data['days']));
+        $this->duels->updateSettings(
+            $schoolClass,
+            ArenaSchedule::fromValidated($data['days']),
+            ArenaSchedule::guildFromValidated($data['guild_days']),
+        );
 
         return $this->redirectToArena($schoolClass, 'Configurações da arena salvas.');
     }
