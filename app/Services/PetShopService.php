@@ -282,11 +282,14 @@ class PetShopService
     {
         $this->assertHasPrice($data);
 
-        if ($gif) {
-            if (filled($pet->gif_path)) {
-                Storage::disk('public')->delete($pet->gif_path);
+        if ($gif instanceof UploadedFile && $gif->isValid()) {
+            $newPath = $this->storeGif($gif, (int) $pet->class_id);
+            $oldPath = $pet->gif_path;
+            $pet->gif_path = $newPath;
+
+            if (filled($oldPath) && $oldPath !== $newPath) {
+                Storage::disk('public')->delete($oldPath);
             }
-            $pet->gif_path = $this->storeGif($gif, (int) $pet->class_id);
         }
 
         $pet->fill([

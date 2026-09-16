@@ -26,7 +26,8 @@ class PetMediaController extends Controller
 
         return response()->file($disk->path($path), [
             'Content-Type' => $mime,
-            'Cache-Control' => 'public, max-age=86400',
+            'Cache-Control' => 'public, max-age=86400, must-revalidate',
+            'ETag' => '"'.sha1($path).'"',
         ]);
     }
 }

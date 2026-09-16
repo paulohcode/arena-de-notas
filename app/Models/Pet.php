@@ -81,7 +81,7 @@ class Pet extends Model
             return null;
         }
 
-        return route('pets.file', $this, false);
+        return route('pets.file', $this, false).'?v='.substr(sha1((string) $this->gif_path), 0, 12);
     }
 
     public function spriteKey(): string
