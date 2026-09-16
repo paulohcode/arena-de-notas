@@ -18,6 +18,15 @@
     $auraCss = filled($auraKey) ? (CosmeticCatalog::item($auraKey)['css'] ?? null) : null;
     $accessoryIcon = filled($accessoryKey) ? (CosmeticCatalog::item($accessoryKey)['icon'] ?? null) : null;
 
+    if (! isset($equippedPet) && isset($enrollment) && $enrollment?->equipped_pet_id) {
+        $ownedPet = $enrollment->relationLoaded('equippedPet')
+            ? $enrollment->equippedPet
+            : $enrollment->equippedPet()->with('pet')->first();
+        if ($ownedPet?->pet) {
+            $equippedPet = $ownedPet->toInventoryArray(equipped: true);
+        }
+    }
+
     $portraitClasses = trim(implode(' ', array_filter([
         'hero-portrait',
         $sizeClass,
@@ -31,5 +40,16 @@
     <span>{{ $student->avatarIcon($portraitKey) }}</span>
     @if(filled($accessoryIcon))
         <span class="cosmetic-accessory">{{ $accessoryIcon }}</span>
+    @endif
+    @if(! empty($equippedPet))
+        <span class="hero-pet">
+            @include('partials.pet-sprite', [
+                'spriteKey' => $equippedPet['sprite_key'] ?? 'owl',
+                'gifUrl' => $equippedPet['gif_url'] ?? null,
+                'auraColor' => $equippedPet['aura_color'] ?? null,
+                'name' => $equippedPet['custom_name'] ?? null,
+                'size' => 'sm',
+            ])
+        </span>
     @endif
 </span>

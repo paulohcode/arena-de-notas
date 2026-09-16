@@ -87,6 +87,7 @@ class SchoolClass extends Model
                 'equipped_accessory',
                 'equipped_title',
                 'equipped_aura',
+                'equipped_pet_id',
             ])
             ->withTimestamps();
     }
@@ -141,6 +142,16 @@ class SchoolClass extends Model
         return $this->hasMany(ShopItem::class, 'class_id');
     }
 
+    public function pets(): HasMany
+    {
+        return $this->hasMany(Pet::class, 'class_id');
+    }
+
+    public function petListings(): HasMany
+    {
+        return $this->hasMany(PetListing::class, 'class_id');
+    }
+
     public function resolveChildRouteBinding($childType, $value, $field)
     {
         if ($childType === 'shopItem') {
@@ -154,6 +165,13 @@ class SchoolClass extends Model
                                 ->where('area_id', $this->area_id);
                         });
                 })
+                ->first();
+        }
+
+        if ($childType === 'pet') {
+            return Pet::query()
+                ->where($field ?? 'id', $value)
+                ->where('class_id', $this->id)
                 ->first();
         }
 

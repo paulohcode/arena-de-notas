@@ -24,6 +24,7 @@ class Enrollment extends Model
         'equipped_accessory',
         'equipped_title',
         'equipped_aura',
+        'equipped_pet_id',
     ];
 
     protected function casts(): array
@@ -37,6 +38,7 @@ class Enrollment extends Model
             'arena_wins' => 'integer',
             'arena_losses' => 'integer',
             'behavior_score' => 'float',
+            'equipped_pet_id' => 'integer',
         ];
     }
 
@@ -53,6 +55,16 @@ class Enrollment extends Model
     public function cosmetics(): HasMany
     {
         return $this->hasMany(EnrollmentCosmetic::class);
+    }
+
+    public function pets(): HasMany
+    {
+        return $this->hasMany(EnrollmentPet::class);
+    }
+
+    public function equippedPet(): BelongsTo
+    {
+        return $this->belongsTo(EnrollmentPet::class, 'equipped_pet_id');
     }
 
     public function listings(): HasMany

@@ -182,6 +182,43 @@
 
 <div class="game-card p-6 mb-8">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h2 class="font-display text-xl text-amber-200">Mascote</h2>
+        @unless($viewerIsTeacher)
+            <a href="{{ route('student.pets.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm">Abrir mascotes</a>
+        @endunless
+    </div>
+    @php
+        $ownedPets = $ownedPets ?? [];
+        $equippedPet = $equippedPet ?? null;
+    @endphp
+    @if(empty($ownedPets))
+        <p class="text-purple-200/60">Nenhum mascote nesta turma.</p>
+    @else
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            @foreach($ownedPets as $pet)
+                <article class="game-card p-3 flex items-center gap-3 {{ ! empty($pet['equipped']) ? 'border-emerald-400/40' : '' }}">
+                    @include('partials.pet-sprite', [
+                        'spriteKey' => $pet['sprite_key'],
+                        'gifUrl' => $pet['gif_url'] ?? null,
+                        'auraColor' => $pet['aura_color'] ?? null,
+                        'name' => $pet['custom_name'],
+                        'size' => 'sm',
+                    ])
+                    <div class="min-w-0">
+                        <p class="font-display text-amber-100 truncate">{{ $pet['custom_name'] }}</p>
+                        <p class="text-xs text-purple-200/60">{{ $pet['species_name'] }} · +{{ number_format($pet['combat_bonus_percent'], 1) }}%</p>
+                        @if(! empty($pet['equipped']))
+                            <p class="text-xs text-emerald-300 mt-1">Equipado</p>
+                        @endif
+                    </div>
+                </article>
+            @endforeach
+        </div>
+    @endif
+</div>
+
+<div class="game-card p-6 mb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h2 class="font-display text-xl text-amber-200">Itens comprados</h2>
         @unless($viewerIsTeacher)
             <a href="{{ route('student.shop.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm">Abrir loja</a>

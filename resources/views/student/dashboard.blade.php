@@ -21,6 +21,11 @@
         @if($enrollment?->equippedTitleLabel())
             <p class="cosmetic-title mt-1">{{ $enrollment->equippedTitleLabel() }}</p>
         @endif
+        @if(! empty($equippedPet))
+            <div class="mt-3">
+                @include('partials.pet-companion', ['pet' => $equippedPet, 'size' => 'md'])
+            </div>
+        @endif
         <p class="text-amber-100/65 mt-2 flex flex-wrap items-center gap-2">
             @include('partials.class-badge', ['student' => $student])
             <span>· {{ $class->name }}</span>
@@ -35,6 +40,7 @@
             <a href="{{ route('student.arena.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm">Entrar na arena</a>
             <a href="{{ route('student.events.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm">Eventos</a>
             <a href="{{ route('student.shop.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm">Loja</a>
+            <a href="{{ route('student.pets.index') }}" class="game-btn-ghost !py-1 !px-3 text-sm">Mascotes</a>
             <a href="{{ route('student.character.edit') }}" class="game-btn-ghost !py-1 !px-3 text-sm">Avatar e nome</a>
         </div>
         </div>

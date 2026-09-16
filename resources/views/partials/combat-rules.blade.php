@@ -44,6 +44,10 @@
                 No máximo +{{ $gearCapPct }}% no total. Só vale o que está equipado.
             </li>
             <li>
+                <strong class="text-amber-200">Mascote equipado</strong>: um único companheiro por aluno.
+                O bônus do mascote soma ao poder fora do teto dos cosméticos.
+            </li>
+            <li>
                 <strong class="text-amber-200">Nível de XP</strong> (Iniciante a Mestre) multiplica o resultado final.
             </li>
             <li>

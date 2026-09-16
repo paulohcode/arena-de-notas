@@ -7,6 +7,7 @@ use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Services\CosmeticShopService;
+use App\Services\PetShopService;
 use App\Support\CosmeticCatalog;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -70,6 +71,7 @@ abstract class TestCase extends BaseTestCase
         ], $overrides));
 
         app(CosmeticShopService::class)->seedDefaultStock($class);
+        app(PetShopService::class)->seedForClass($class);
 
         return $class;
     }

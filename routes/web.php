@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DailyReportController as AdminDailyReportControll
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\GameEventController as AdminGameEventController;
 use App\Http\Controllers\Admin\ImpersonationController as AdminImpersonationController;
+use App\Http\Controllers\Admin\PetController as AdminPetController;
 use App\Http\Controllers\Admin\RealmArenaController as AdminRealmArenaController;
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\TeacherController as AdminTeacherController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Student\ArenaController as StudentArenaController;
 use App\Http\Controllers\Student\BossRiteController as StudentBossRiteController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\Student\GameEventController as StudentGameEventController;
+use App\Http\Controllers\Student\PetController as StudentPetController;
 use App\Http\Controllers\Student\ShopController as StudentShopController;
 use App\Http\Controllers\Teacher\ActivityController;
 use App\Http\Controllers\Teacher\ArenaController as TeacherArenaController;
@@ -29,6 +31,7 @@ use App\Http\Controllers\Teacher\ClassController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
 use App\Http\Controllers\Teacher\GameEventController as TeacherGameEventController;
 use App\Http\Controllers\Teacher\GradeController;
+use App\Http\Controllers\Teacher\PetController as TeacherPetController;
 use App\Http\Controllers\Teacher\SeasonController;
 use App\Http\Controllers\Teacher\ShopController as TeacherShopController;
 use App\Http\Controllers\Teacher\StudentController;
@@ -100,6 +103,11 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
     Route::get('/loja/itens/{shopItem}/editar', [AdminShopController::class, 'edit'])->name('shop.items.edit');
     Route::put('/loja/itens/{shopItem}', [AdminShopController::class, 'update'])->name('shop.items.update');
 
+    Route::get('/mascotes', [AdminPetController::class, 'index'])->name('pets.index');
+    Route::post('/mascotes', [AdminPetController::class, 'store'])->name('pets.store');
+    Route::get('/mascotes/{pet}/editar', [AdminPetController::class, 'edit'])->name('pets.edit');
+    Route::put('/mascotes/{pet}', [AdminPetController::class, 'update'])->name('pets.update');
+
     Route::get('/moedas', [AdminCurrencyController::class, 'index'])->name('currencies.index');
     Route::put('/moedas', [AdminCurrencyController::class, 'update'])->name('currencies.update');
 });
@@ -162,6 +170,12 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::get('/turmas/{schoolClass}/loja/itens/{shopItem}/editar', [TeacherShopController::class, 'edit'])->name('shop.items.edit')->scopeBindings();
     Route::put('/turmas/{schoolClass}/loja/itens/{shopItem}', [TeacherShopController::class, 'update'])->name('shop.items.update')->scopeBindings();
     Route::post('/turmas/{schoolClass}/loja/estoque', [TeacherShopController::class, 'restock'])->name('shop.restock');
+
+    Route::get('/turmas/{schoolClass}/mascotes', [TeacherPetController::class, 'show'])->name('pets.show');
+    Route::post('/turmas/{schoolClass}/mascotes', [TeacherPetController::class, 'store'])->name('pets.store');
+    Route::get('/turmas/{schoolClass}/mascotes/{pet}/editar', [TeacherPetController::class, 'edit'])->name('pets.edit')->scopeBindings();
+    Route::put('/turmas/{schoolClass}/mascotes/{pet}', [TeacherPetController::class, 'update'])->name('pets.update')->scopeBindings();
+    Route::post('/turmas/{schoolClass}/mascotes/estoque', [TeacherPetController::class, 'restock'])->name('pets.restock');
 
     Route::get('/temporadas', [SeasonController::class, 'index'])->name('seasons.index');
     Route::get('/temporadas/nova', [SeasonController::class, 'create'])->name('seasons.create');
@@ -228,6 +242,14 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::post('/loja/anuncios/{listing}/comprar', [StudentShopController::class, 'buyListing'])->name('shop.listings.buy');
         Route::post('/loja/equipar', [StudentShopController::class, 'equip'])->name('shop.equip');
         Route::post('/loja/desequipar', [StudentShopController::class, 'unequip'])->name('shop.unequip');
+
+        Route::get('/mascotes', [StudentPetController::class, 'index'])->name('pets.index');
+        Route::post('/mascotes/comprar', [StudentPetController::class, 'purchase'])->name('pets.purchase');
+        Route::post('/mascotes/anunciar', [StudentPetController::class, 'list'])->name('pets.list');
+        Route::post('/mascotes/anunciar/cancelar', [StudentPetController::class, 'unlist'])->name('pets.unlist');
+        Route::post('/mascotes/anuncios/{listing}/comprar', [StudentPetController::class, 'buyListing'])->name('pets.listings.buy');
+        Route::post('/mascotes/equipar', [StudentPetController::class, 'equip'])->name('pets.equip');
+        Route::post('/mascotes/desequipar', [StudentPetController::class, 'unequip'])->name('pets.unequip');
 
         Route::get('/eventos', [StudentGameEventController::class, 'index'])->name('events.index');
         Route::get('/eventos/{gameEvent}', [StudentGameEventController::class, 'show'])->name('events.show');

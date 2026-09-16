@@ -16,6 +16,7 @@ class StudentSheetService
         private RankingService $ranking,
         private ActivityReminderService $reminders,
         private CosmeticShopService $shop,
+        private PetShopService $pets,
     ) {}
 
     /**
@@ -39,6 +40,8 @@ class StudentSheetService
      *     guildPosition: int|null,
      *     auras: int,
      *     ownedItems: array<string, list<array{key: string, slot: string, name: string, rarity: string, rarity_label: string, icon: string, css: ?string, label: ?string, equipped: bool}>>,
+     *     ownedPets: list<array<string, mixed>>,
+     *     equippedPet: ?array<string, mixed>,
      *     entries: Collection,
      *     badges: Collection,
      *     guildMissionAlerts: Collection,
@@ -48,7 +51,7 @@ class StudentSheetService
     public function data(User $student, SchoolClass $class): array
     {
         $enrollment = $student->enrollmentIn($class);
-        $enrollment?->loadMissing('cosmetics');
+        $enrollment?->loadMissing(['cosmetics', 'pets.pet', 'equippedPet.pet']);
         $team = $student->teamInClass($class);
 
         $entries = $class->ledgerEntries()
@@ -79,6 +82,8 @@ class StudentSheetService
             'guildPosition' => $team ? $this->ranking->guildPosition($team->id, $class) : null,
             'auras' => $this->shop->aurasBalance($student, $class),
             'ownedItems' => $this->shop->ownedItemsForStudent($student, $class),
+            'ownedPets' => $this->pets->ownedPetsForStudent($student, $class),
+            'equippedPet' => $this->pets->equippedPetForStudent($student, $class),
             'entries' => $entries,
             'badges' => $student->badges()->wherePivot('class_id', $class->id)->orderBy('name')->get(),
             'guildMissionAlerts' => $team

@@ -21,6 +21,13 @@
             </div>
             <span class="game-btn-ghost !py-1 !px-3 text-sm">Administrar</span>
         </a>
+        <a href="{{ route('teacher.pets.show', $class) }}" class="game-card p-4 flex flex-wrap items-center justify-between gap-3 border-violet-400/20">
+            <div>
+                <p class="font-semibold text-amber-100">Mascotes</p>
+                <p class="text-sm text-amber-100/55">Catálogo caro da turma, estoque, GIF e bônus de combate.</p>
+            </div>
+            <span class="game-btn-ghost !py-1 !px-3 text-sm">Administrar</span>
+        </a>
         <div class="grid lg:grid-cols-2 gap-4">
             <div class="game-card p-5">
                 <h2 class="font-display text-xl text-amber-200 mb-3">Jogadores</h2>

@@ -7,6 +7,7 @@ use App\Models\Area;
 use App\Models\SchoolClass;
 use App\Models\User;
 use App\Services\CosmeticShopService;
+use App\Services\PetShopService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -16,7 +17,10 @@ use Illuminate\View\View;
 
 class ClassController extends Controller
 {
-    public function __construct(private CosmeticShopService $shop) {}
+    public function __construct(
+        private CosmeticShopService $shop,
+        private PetShopService $pets,
+    ) {}
 
     public function create(Request $request): View
     {
@@ -37,6 +41,7 @@ class ClassController extends Controller
 
         $class = SchoolClass::create($data);
         $this->shop->seedDefaultStock($class);
+        $this->pets->seedForClass($class);
 
         return redirect()->route('teacher.classes.show', $class)->with('success', 'Turma criada.');
     }

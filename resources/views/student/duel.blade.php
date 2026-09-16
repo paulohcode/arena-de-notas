@@ -22,6 +22,10 @@
             'tone' => $duel->challenger->avatarTone(),
             'classTone' => $duel->challenger->characterClassTone(),
             'maxHp' => (int) $challengerSnap['max_hp'],
+            'petName' => $challengerSnap['pet_name'] ?? null,
+            'petAura' => $challengerSnap['pet_aura'] ?? null,
+            'petSprite' => $challengerSnap['pet_sprite'] ?? null,
+            'petGif' => $challengerSnap['pet_gif'] ?? null,
         ],
         'right' => [
             'id' => $duel->opponent->id,
@@ -33,6 +37,10 @@
             'tone' => $duel->opponent->avatarTone(),
             'classTone' => $duel->opponent->characterClassTone(),
             'maxHp' => (int) $opponentSnap['max_hp'],
+            'petName' => $opponentSnap['pet_name'] ?? null,
+            'petAura' => $opponentSnap['pet_aura'] ?? null,
+            'petSprite' => $opponentSnap['pet_sprite'] ?? null,
+            'petGif' => $opponentSnap['pet_gif'] ?? null,
         ],
         'turns' => $turns,
         'winnerId' => (int) $duel->winner_id,
@@ -164,11 +172,23 @@
                     }"
                 >
                     <div
-                        class="duel-portrait mx-auto mb-3"
+                        class="duel-portrait mx-auto mb-3 relative"
                         :style="'--portrait-tone:' + left.tone"
                         :class="{ 'duel-portrait--winner': finished && winnerId === left.id, 'duel-portrait--down': left.hp <= 0 }"
                     >
                         <span class="text-4xl md:text-6xl" x-text="left.icon"></span>
+                        <template x-if="left.petSprite || left.petGif">
+                            <span
+                                class="duel-pet"
+                                :class="left.petAura ? 'pet-aura pet-aura--' + left.petAura : ''"
+                                :title="left.petName || 'Mascote'"
+                            >
+                                <img x-show="left.petGif" :src="left.petGif" :alt="left.petName || 'Mascote'" class="duel-pet__gif">
+                                <span x-show="!left.petGif" class="pet-sprite pet-sprite--sm" :class="'pet-sprite--' + (left.petSprite || 'owl')">
+                                    <span class="pet-sprite__body"></span>
+                                </span>
+                            </span>
+                        </template>
                     </div>
                     <p class="font-semibold text-sm md:text-base truncate" x-text="left.arena || left.name"></p>
                     <p class="text-xs text-amber-100/50" x-text="left.class"></p>
@@ -197,11 +217,23 @@
                     }"
                 >
                     <div
-                        class="duel-portrait mx-auto mb-3"
+                        class="duel-portrait mx-auto mb-3 relative"
                         :style="'--portrait-tone:' + right.tone"
                         :class="{ 'duel-portrait--winner': finished && winnerId === right.id, 'duel-portrait--down': right.hp <= 0 }"
                     >
                         <span class="text-4xl md:text-6xl" x-text="right.icon"></span>
+                        <template x-if="right.petSprite || right.petGif">
+                            <span
+                                class="duel-pet"
+                                :class="right.petAura ? 'pet-aura pet-aura--' + right.petAura : ''"
+                                :title="right.petName || 'Mascote'"
+                            >
+                                <img x-show="right.petGif" :src="right.petGif" :alt="right.petName || 'Mascote'" class="duel-pet__gif">
+                                <span x-show="!right.petGif" class="pet-sprite pet-sprite--sm" :class="'pet-sprite--' + (right.petSprite || 'owl')">
+                                    <span class="pet-sprite__body"></span>
+                                </span>
+                            </span>
+                        </template>
                     </div>
                     <p class="font-semibold text-sm md:text-base truncate" x-text="right.arena || right.name"></p>
                     <p class="text-xs text-amber-100/50" x-text="right.class"></p>

@@ -16,5 +16,13 @@
                 (nenhum equipado)
             @endif
         </li>
+        <li>
+            Mascote +{{ $percent((float) ($breakdown['pet_bonus'] ?? 0)) }}
+            @if(! empty($breakdown['pet_name']))
+                ({{ $breakdown['pet_name'] }})
+            @else
+                (nenhum equipado)
+            @endif
+        </li>
     </ul>
 @endif

@@ -22,6 +22,7 @@
         </p>
     </div>
     <div class="flex flex-wrap gap-2">
+        <a class="game-btn-ghost" href="{{ route('student.pets.index') }}">Mascotes</a>
         <a class="game-btn-ghost" href="{{ route('student.arena.realm.index') }}">Entre turmas</a>
         <a class="game-btn-ghost" href="{{ route('student.arena.index') }}">Arena</a>
         <a class="game-btn-ghost" href="{{ route('student.dashboard') }}">Minha ficha</a>

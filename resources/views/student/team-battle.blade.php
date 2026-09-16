@@ -39,6 +39,10 @@
                 'tone' => $leftUser->avatarTone(),
                 'classTone' => $leftUser->characterClassTone(),
                 'maxHp' => (int) $leftSnap['max_hp'],
+                'petName' => $leftSnap['pet_name'] ?? null,
+                'petAura' => $leftSnap['pet_aura'] ?? null,
+                'petSprite' => $leftSnap['pet_sprite'] ?? null,
+                'petGif' => $leftSnap['pet_gif'] ?? null,
             ],
             'right' => [
                 'id' => $rightUser->id,
@@ -50,6 +54,10 @@
                 'tone' => $rightUser->avatarTone(),
                 'classTone' => $rightUser->characterClassTone(),
                 'maxHp' => (int) $rightSnap['max_hp'],
+                'petName' => $rightSnap['pet_name'] ?? null,
+                'petAura' => $rightSnap['pet_aura'] ?? null,
+                'petSprite' => $rightSnap['pet_sprite'] ?? null,
+                'petGif' => $rightSnap['pet_gif'] ?? null,
             ],
             'turns' => $matchup['turns'] ?? [],
             'winnerId' => (int) ($matchup['winner_id'] ?? 0),
@@ -246,7 +254,7 @@
                             }"
                         >
                             <div
-                                class="duel-portrait guild-war__portrait"
+                                class="duel-portrait guild-war__portrait relative"
                                 :style="'--portrait-tone:' + fighter.tone"
                                 :class="{
                                     'duel-portrait--winner': seriesFinished && leftWon && fighter.hp > 0,
@@ -254,6 +262,14 @@
                                 }"
                             >
                                 <span class="text-2xl md:text-4xl" x-text="fighter.icon"></span>
+                                <template x-if="fighter.petSprite || fighter.petGif">
+                                    <span class="duel-pet" :class="fighter.petAura ? 'pet-aura pet-aura--' + fighter.petAura : ''" :title="fighter.petName || 'Mascote'">
+                                        <img x-show="fighter.petGif" :src="fighter.petGif" :alt="fighter.petName || 'Mascote'" class="duel-pet__gif">
+                                        <span x-show="!fighter.petGif" class="pet-sprite pet-sprite--sm" :class="'pet-sprite--' + (fighter.petSprite || 'owl')">
+                                            <span class="pet-sprite__body"></span>
+                                        </span>
+                                    </span>
+                                </template>
                             </div>
                             <p class="font-semibold text-xs md:text-sm truncate" x-text="fighter.arena || fighter.name"></p>
                             <p class="text-[10px] md:text-xs text-amber-100/50 truncate" x-text="fighter.class"></p>
@@ -288,7 +304,7 @@
                             }"
                         >
                             <div
-                                class="duel-portrait guild-war__portrait"
+                                class="duel-portrait guild-war__portrait relative"
                                 :style="'--portrait-tone:' + fighter.tone"
                                 :class="{
                                     'duel-portrait--winner': seriesFinished && !leftWon && fighter.hp > 0,
@@ -296,6 +312,14 @@
                                 }"
                             >
                                 <span class="text-2xl md:text-4xl" x-text="fighter.icon"></span>
+                                <template x-if="fighter.petSprite || fighter.petGif">
+                                    <span class="duel-pet" :class="fighter.petAura ? 'pet-aura pet-aura--' + fighter.petAura : ''" :title="fighter.petName || 'Mascote'">
+                                        <img x-show="fighter.petGif" :src="fighter.petGif" :alt="fighter.petName || 'Mascote'" class="duel-pet__gif">
+                                        <span x-show="!fighter.petGif" class="pet-sprite pet-sprite--sm" :class="'pet-sprite--' + (fighter.petSprite || 'owl')">
+                                            <span class="pet-sprite__body"></span>
+                                        </span>
+                                    </span>
+                                </template>
                             </div>
                             <p class="font-semibold text-xs md:text-sm truncate" x-text="fighter.arena || fighter.name"></p>
                             <p class="text-[10px] md:text-xs text-amber-100/50 truncate" x-text="fighter.class"></p>

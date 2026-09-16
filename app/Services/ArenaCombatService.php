@@ -12,6 +12,11 @@ use InvalidArgumentException;
 
 class ArenaCombatService
 {
+    public function __construct(
+        private GradeCalculator $grades,
+        private PetShopService $pets,
+    ) {}
+
     public const MAX_TURNS = 12;
 
     /** ID fictício do chefão / Sombra nos logs de combate. */
@@ -73,8 +78,6 @@ class ArenaCombatService
         'expert' => 1.4,
         'mestre' => 1.55,
     ];
-
-    public function __construct(private GradeCalculator $grades) {}
 
     /**
      * @return array{
@@ -467,7 +470,15 @@ class ArenaCombatService
             : 0.0;
         $teamScore = $this->grades->combatTeamScore($student, $class);
         $gear = CosmeticCatalog::equippedCombatBonus($enrollment ?? new Enrollment);
-        $power = $this->powerMultiplier($level['key'], $academic, $attendanceScore, $teamScore, $gear['bonus']);
+        $pet = $this->pets->equippedCombatBonus($enrollment);
+        $power = $this->powerMultiplier(
+            $level['key'],
+            $academic,
+            $attendanceScore,
+            $teamScore,
+            $gear['bonus'],
+            $pet['bonus'],
+        );
 
         $maxHp = max(1, (int) round($this->blendClassStat(self::BASE_HP, $meta['hp']) * $power));
         $atk = max(1, (int) round($this->blendClassStat(self::BASE_ATK, $meta['atk']) * $power));
@@ -495,6 +506,11 @@ class ArenaCombatService
             'spd' => $spd,
             'heal_chance' => $healChance,
             'power' => round($power, 3),
+            'pet_name' => $pet['name'],
+            'pet_aura' => $pet['aura_color'],
+            'pet_sprite' => $pet['sprite_key'],
+            'pet_gif' => $pet['gif_url'],
+            'pet_bonus' => $pet['bonus'],
             'breakdown' => [
                 'level_name' => $level['name'],
                 'level_mult' => self::LEVEL_POWER[$level['key']] ?? 1.0,
@@ -506,6 +522,8 @@ class ArenaCombatService
                 'team_bonus' => $teamBonus,
                 'gear_bonus' => $gear['bonus'],
                 'gear_items' => $gear['items'],
+                'pet_bonus' => $pet['bonus'],
+                'pet_name' => $pet['name'],
                 'class_key' => (string) $student->character_class,
                 'class_role' => $meta['role'],
                 'class_influence' => self::CLASS_INFLUENCE,
@@ -513,12 +531,18 @@ class ArenaCombatService
         ];
     }
 
-    private function powerMultiplier(string $levelKey, float $academic, float $attendanceScore, float $teamScore, float $gearBonus): float
-    {
+    private function powerMultiplier(
+        string $levelKey,
+        float $academic,
+        float $attendanceScore,
+        float $teamScore,
+        float $gearBonus,
+        float $petBonus = 0.0,
+    ): float {
         $levelPower = self::LEVEL_POWER[$levelKey] ?? 1.0;
 
         return round(
-            $levelPower * (1 + $this->gradeBonus($academic) + $this->attendanceBonus($attendanceScore) + $this->teamBonus($teamScore) + $gearBonus),
+            $levelPower * (1 + $this->gradeBonus($academic) + $this->attendanceBonus($attendanceScore) + $this->teamBonus($teamScore) + $gearBonus + $petBonus),
             4,
         );
     }

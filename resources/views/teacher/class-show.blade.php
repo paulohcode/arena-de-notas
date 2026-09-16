@@ -11,6 +11,7 @@
     <div class="flex gap-2">
         <a class="game-btn-ghost" href="{{ route('ranking.show', $class) }}">Ver ranking</a>
         <a class="game-btn-ghost" href="{{ route('teacher.shop.show', $class) }}">Loja</a>
+        <a class="game-btn-ghost" href="{{ route('teacher.pets.show', $class) }}">Mascotes</a>
         <a class="game-btn-ghost" href="{{ route('teacher.classes.edit', $class) }}">Editar turma</a>
     </div>
 </div>

@@ -37,6 +37,11 @@
             @if($enrollment?->equippedTitleLabel())
                 <p class="cosmetic-title mt-1">{{ $enrollment->equippedTitleLabel() }}</p>
             @endif
+            @if(! empty($equippedPet))
+                <div class="mt-3">
+                    @include('partials.pet-companion', ['pet' => $equippedPet, 'size' => 'md'])
+                </div>
+            @endif
             <p class="text-amber-100/65 mt-2 flex flex-wrap items-center gap-2">
                 @include('partials.class-badge', ['student' => $student])
                 <span>· {{ $class->name }}</span>
