@@ -293,21 +293,21 @@
                         Som da arena
                     </label>
                     <button type="button" class="game-btn-ghost !py-1 !px-3 text-sm" x-show="!finished" @click="skip()">Pular animação</button>
-                    <p class="text-sm font-semibold" x-show="finished" x-cloak :class="iWon ? 'text-emerald-300' : 'text-rose-300'" x-text="resultLine"></p>
+                    <p class="text-sm font-semibold" x-show="outcomeRevealed && !victoryOpen" x-cloak :class="studentWon ? 'text-emerald-300' : 'text-rose-300'" x-text="resultLine"></p>
                 </div>
             </div>
         </div>
 
         @if($winnerReasonLabel)
-            <p class="text-sm text-amber-100/60 -mt-2" x-show="finished" x-cloak>{{ $winnerReasonLabel }}</p>
+            <p class="text-sm text-amber-100/60 -mt-2" x-show="outcomeRevealed && !victoryOpen" x-cloak>{{ $winnerReasonLabel }}</p>
         @endif
         @if($vigil->mark_earned)
-            <p class="text-sm text-violet-200" x-show="finished" x-cloak>Marca do Rito conquistada — a turma chega mais forte no assalto final.</p>
+            <p class="text-sm text-violet-200" x-show="outcomeRevealed && !victoryOpen" x-cloak>Marca do Rito conquistada — a turma chega mais forte no assalto final.</p>
         @endif
         @if($vigil->isBossChallenge() || ($vigil->isStaffChallenge() && ($lootTotals['relics'] + $lootTotals['seals'] + $lootTotals['auras']) > 0))
             <div
                 class="rounded-lg border border-amber-400/20 bg-black/20 p-4 text-sm space-y-1"
-                x-show="finished && !victoryOpen"
+                x-show="outcomeRevealed && !victoryOpen"
                 x-cloak
                 x-transition.opacity.duration.300ms
             >

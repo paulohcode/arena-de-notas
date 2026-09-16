@@ -38,6 +38,7 @@ export function duelBattle(payload) {
         finished: false,
         playing: false,
         victoryOpen: false,
+        outcomeRevealed: false,
         stageFlash: null,
         effectSeq: 0,
         floatSeq: 0,
@@ -70,12 +71,16 @@ export function duelBattle(payload) {
         },
 
         get headline() {
-            if (! this.finished) {
+            if (! this.outcomeRevealed) {
                 if (this.mode === 'boss_desk') {
-                    return 'Provocação em andamento';
+                    return this.finished ? 'Provocação encerrada' : 'Provocação em andamento';
                 }
 
-                return this.mode === 'vigil' ? 'Vigília em andamento' : 'Combate em andamento';
+                if (this.mode === 'vigil') {
+                    return this.finished ? 'Vigília encerrada' : 'Vigília em andamento';
+                }
+
+                return this.finished ? 'Combate encerrado' : 'Combate em andamento';
             }
 
             if (this.mode === 'boss_desk') {
@@ -90,6 +95,10 @@ export function duelBattle(payload) {
         },
 
         get statusLine() {
+            if (this.finished && ! this.outcomeRevealed) {
+                return 'Revelando o resultado…';
+            }
+
             if (this.finished) {
                 return 'Combate encerrado.';
             }
@@ -415,6 +424,7 @@ export function duelBattle(payload) {
             playArenaSound('duel_result');
             // Dá tempo de ver o palco final antes do modal cobrir a tela.
             setTimeout(() => {
+                this.outcomeRevealed = true;
                 this.victoryOpen = true;
             }, 1400);
         },
