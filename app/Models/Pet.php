@@ -81,9 +81,7 @@ class Pet extends Model
             return null;
         }
 
-        // Relative path so the image loads on the same host as the page
-        // (avoids APP_URL=localhost leaking into production).
-        return '/storage/'.ltrim($this->gif_path, '/');
+        return route('pets.file', $this, false);
     }
 
     public function spriteKey(): string

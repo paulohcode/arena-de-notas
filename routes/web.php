@@ -15,6 +15,7 @@ use App\Http\Controllers\AreaController;
 use App\Http\Controllers\ArenaRulesController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\PetMediaController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\SeasonRankingController;
 use App\Http\Controllers\Student\ArenaController as StudentArenaController;
@@ -41,6 +42,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [RankingController::class, 'home'])->name('home');
 Route::get('/regras', [ArenaRulesController::class, 'show'])->name('arena.rules');
 Route::get('/reinos/{area:slug}', [AreaController::class, 'show'])->name('areas.show');
+
+Route::get('/mascotes/{pet}/arquivo', [PetMediaController::class, 'show'])->name('pets.file');
 
 Route::get('/ranking/{schoolClass}', [RankingController::class, 'show'])->name('ranking.show');
 Route::get('/ranking/{schoolClass}/live', [RankingController::class, 'live'])->name('ranking.live');

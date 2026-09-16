@@ -294,10 +294,55 @@ class PetShopTest extends TestCase
         $pet->refresh();
         $this->assertNotNull($pet->gif_path);
         Storage::disk('public')->assertExists($pet->gif_path);
-        $this->assertSame('/storage/'.$pet->gif_path, $pet->gifUrl());
+        $this->assertSame(route('pets.file', $pet, false), $pet->gifUrl());
 
         Storage::disk('public')->delete($pet->gif_path);
         $this->assertNull($pet->fresh()->gifUrl());
+    }
+
+    public function test_pet_image_is_served_by_the_app_without_the_storage_symlink(): void
+    {
+        Storage::fake('public');
+
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $pet = Pet::query()->where('class_id', $class->id)->where('species_key', 'owl_sage')->firstOrFail();
+        $upload = UploadedFile::fake()->create('coruja.jpg', 40, 'image/jpeg');
+
+        $this->actingAs($teacher)
+            ->put(route('teacher.pets.update', [$class, $pet]), [
+                'name' => $pet->name,
+                'description' => $pet->description,
+                'rarity' => $pet->rarity,
+                'sprite_key' => $pet->sprite_key,
+                'price_relics' => $pet->price_relics,
+                'price_seals' => $pet->price_seals,
+                'price_auras' => $pet->price_auras,
+                'combat_bonus_percent' => $pet->combatBonusPercent(),
+                'active' => 1,
+                'gif' => $upload,
+            ])
+            ->assertRedirect(route('teacher.pets.show', $class));
+
+        $pet->refresh();
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.pets.show', $class))
+            ->assertOk()
+            ->assertSee(route('pets.file', $pet, false), false);
+
+        $this->get(route('pets.file', $pet))
+            ->assertOk();
+    }
+
+    public function test_missing_pet_image_route_returns_404(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $pet = Pet::query()->where('class_id', $class->id)->where('species_key', 'owl_sage')->firstOrFail();
+
+        $this->get(route('pets.file', $pet))
+            ->assertNotFound();
     }
 
     /**
