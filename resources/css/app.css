@@ -2916,7 +2916,7 @@ label.class-aura:has(:checked):hover {
     animation: duel-aura 1.1s ease-in-out infinite;
 }
 
-/* —— Mascotes —— */
+/* Pets */
 .pet-sprite {
     position: relative;
     display: inline-grid;
