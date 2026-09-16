@@ -59,6 +59,7 @@
         'viewerId' => $viewerForBattle,
         'gloryWin' => \App\Support\BossArchetypeCatalog::GLORY_WIN,
         'gloryLoss' => \App\Support\BossArchetypeCatalog::GLORY_LOSS,
+        'gloryAwarded' => (int) $vigil->glory,
         'rewardLabel' => $vigil->isBossChallenge()
             ? \App\Models\GameCurrency::label('relics')
             : \App\Models\GameCurrency::label('glory'),
@@ -66,6 +67,25 @@
         'markEarned' => (bool) $vigil->mark_earned,
         'feeRelics' => (int) $vigil->fee_relics,
         'loot' => $lootTotals,
+        'jackpot' => $jackpotTotals,
+        'currencies' => [
+            'glory' => [
+                'label' => \App\Models\GameCurrency::label('glory'),
+                'icon' => \App\Models\GameCurrency::icon('glory'),
+            ],
+            'relics' => [
+                'label' => \App\Models\GameCurrency::label('relics'),
+                'icon' => \App\Models\GameCurrency::icon('relics'),
+            ],
+            'seals' => [
+                'label' => \App\Models\GameCurrency::label('seals'),
+                'icon' => \App\Models\GameCurrency::icon('seals'),
+            ],
+            'auras' => [
+                'label' => \App\Models\GameCurrency::label('auras'),
+                'icon' => \App\Models\GameCurrency::icon('auras'),
+            ],
+        ],
     ] : null;
 
     $winnerReasonLabel = match ($log['winner_reason'] ?? null) {
@@ -279,13 +299,18 @@
         </div>
 
         @if($winnerReasonLabel)
-            <p class="text-sm text-amber-100/60 -mt-2">{{ $winnerReasonLabel }}</p>
+            <p class="text-sm text-amber-100/60 -mt-2" x-show="finished" x-cloak>{{ $winnerReasonLabel }}</p>
         @endif
         @if($vigil->mark_earned)
-            <p class="text-sm text-violet-200">Marca do Rito conquistada — a turma chega mais forte no assalto final.</p>
+            <p class="text-sm text-violet-200" x-show="finished" x-cloak>Marca do Rito conquistada — a turma chega mais forte no assalto final.</p>
         @endif
         @if($vigil->isBossChallenge() || ($vigil->isStaffChallenge() && ($lootTotals['relics'] + $lootTotals['seals'] + $lootTotals['auras']) > 0))
-            <div class="rounded-lg border border-amber-400/20 bg-black/20 p-4 text-sm space-y-1">
+            <div
+                class="rounded-lg border border-amber-400/20 bg-black/20 p-4 text-sm space-y-1"
+                x-show="finished && !victoryOpen"
+                x-cloak
+                x-transition.opacity.duration.300ms
+            >
                 @if($vigil->isBossChallenge())
                     <p class="text-amber-100/70">
                         Taxa paga: {{ \App\Models\GameCurrency::format('relics', (int) $vigil->fee_relics) }}
@@ -331,6 +356,70 @@
                 @endif
             </div>
         @endif
+
+        <div
+            x-show="victoryOpen"
+            x-cloak
+            x-transition.opacity.duration.400ms
+            class="duel-victory class-aura"
+            :class="(studentWon ? left.classKey : right.classKey) ? ('class-aura--' + (studentWon ? left.classKey : right.classKey)) : ''"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="boss-reward-title"
+            @keydown.escape.window="victoryOpen = false"
+        >
+            <span
+                class="class-fx"
+                :class="(studentWon ? left.classKey : right.classKey) ? ('class-fx--' + (studentWon ? left.classKey : right.classKey)) : ''"
+                aria-hidden="true"
+            >
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+            </span>
+            <div class="duel-victory__stage">
+                <div class="duel-victory__burst" aria-hidden="true"></div>
+                <div class="duel-victory__content">
+                    <p class="hero-kicker !mb-3" x-text="victoryKicker"></p>
+                    <p class="duel-victory__icon" x-text="studentWon ? left.icon : right.icon"></p>
+                    <h2 id="boss-reward-title" class="duel-victory__name font-display" x-text="victoryTitle"></h2>
+                    <p class="duel-victory__class" x-text="studentWon ? (left.arena || left.name) : (right.arena || right.name)"></p>
+                    <p class="duel-victory__glory" x-text="victoryGloryLine"></p>
+
+                    <template x-if="gloryAwarded > 0">
+                        <div class="boss-loot-row">
+                            <div class="boss-loot-item" style="--loot-delay: 0.08s">
+                                <span class="boss-loot-item__icon" x-text="currencyIcon('glory')"></span>
+                                <span class="boss-loot-item__amount" x-text="'+' + gloryAwarded"></span>
+                                <span class="boss-loot-item__label" x-text="currencyLabel('glory')"></span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-if="hasLootRewards">
+                        <div class="boss-loot-row">
+                            <template x-for="item in lootItems" :key="item.key">
+                                <div class="boss-loot-item" :style="{ '--loot-delay': item.delay }">
+                                    <span class="boss-loot-item__icon" x-text="item.icon"></span>
+                                    <span class="boss-loot-item__amount" x-text="'+' + item.amount"></span>
+                                    <span class="boss-loot-item__label" x-text="item.label"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="jackpotRelics > 0">
+                        <p class="boss-loot-jackpot">
+                            <span x-text="currencyIcon('relics')"></span>
+                            Pote da turma:
+                            <strong x-text="'+' + jackpotRelics"></strong>
+                            <span class="boss-loot-jackpot__meta" x-text="currencyLabel('relics')"></span>
+                        </p>
+                    </template>
+
+                    <button type="button" class="game-btn mt-8" @click="victoryOpen = false">Continuar</button>
+                </div>
+            </div>
+        </div>
 
         <div class="game-card p-5">
             <h2 class="font-display text-xl text-amber-200 mb-3">Histórico de danos</h2>

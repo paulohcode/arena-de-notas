@@ -4,6 +4,16 @@ export function duelBattle(payload) {
     const leftId = Number(payload.left?.id);
     const rightId = Number(payload.right?.id);
     const phaseOrder = { julgamento: 0, prova: 1, veredito: 2 };
+    const loot = payload.loot && typeof payload.loot === 'object'
+        ? {
+            relics: Math.max(0, Number(payload.loot.relics) || 0),
+            seals: Math.max(0, Number(payload.loot.seals) || 0),
+            auras: Math.max(0, Number(payload.loot.auras) || 0),
+        }
+        : { relics: 0, seals: 0, auras: 0 };
+    const currencies = payload.currencies && typeof payload.currencies === 'object'
+        ? payload.currencies
+        : {};
 
     return {
         left: { ...payload.left, id: leftId, hp: payload.left.maxHp, hit: false, healed: false, striking: false, isBoss: Boolean(payload.left?.isBoss) },
@@ -13,9 +23,13 @@ export function duelBattle(payload) {
         viewerId: Number(payload.viewerId),
         gloryWin: payload.gloryWin,
         gloryLoss: payload.gloryLoss,
+        gloryAwarded: Math.max(0, Number(payload.gloryAwarded) || 0),
         rewardLabel: payload.rewardLabel || 'Glória',
         mode: payload.mode || 'duel',
         markEarned: Boolean(payload.markEarned),
+        loot,
+        jackpot: payload.jackpot && typeof payload.jackpot === 'object' ? payload.jackpot : null,
+        currencies,
         currentPhase: 'julgamento',
         index: 0,
         log: [],
@@ -87,7 +101,43 @@ export function duelBattle(payload) {
             return `Turno ${this.index} de ${this.turns.length}`;
         },
 
+        get studentWon() {
+            if (this.mode === 'boss_desk') {
+                return ! this.iWon;
+            }
+
+            return this.iWon;
+        },
+
+        get hasLootRewards() {
+            return (this.loot.relics + this.loot.seals + this.loot.auras) > 0;
+        },
+
+        get lootItems() {
+            return ['relics', 'seals', 'auras']
+                .filter((key) => this.loot[key] > 0)
+                .map((key, index) => {
+                    const meta = currencies[key] || {};
+
+                    return {
+                        key,
+                        amount: this.loot[key],
+                        label: meta.label || key,
+                        icon: meta.icon || '',
+                        delay: `${0.18 + (index * 0.14)}s`,
+                    };
+                });
+        },
+
+        get jackpotRelics() {
+            return Math.max(0, Number(this.jackpot?.relics) || 0);
+        },
+
         get resultLine() {
+            if (this.hasLootRewards || this.mode === 'boss_challenge') {
+                return this.studentWon ? 'Recompensas conquistadas' : 'Consolação recebida';
+            }
+
             if (this.mode === 'boss_desk') {
                 return this.iWon
                     ? `Aluno recebe +${this.gloryLoss} ${this.rewardLabel}`
@@ -103,14 +153,57 @@ export function duelBattle(payload) {
             return this.winnerId === this.left.id ? this.left : this.right;
         },
 
+        get victoryKicker() {
+            if (this.hasLootRewards) {
+                return this.studentWon ? 'Recompensas' : 'Consolação';
+            }
+
+            return 'Vencedor da arena';
+        },
+
+        get victoryTitle() {
+            if (this.mode === 'boss_desk') {
+                return this.studentWon ? 'O aluno resistiu' : 'O chefão prevaleceu';
+            }
+
+            if (this.mode === 'vigil' && this.studentWon && this.markEarned) {
+                return 'Vitória · Marca do Rito!';
+            }
+
+            return this.studentWon ? 'Vitória!' : 'Derrota';
+        },
+
         get victoryGloryLine() {
             const name = this.winner.arena || this.winner.name;
+
+            if (this.hasLootRewards) {
+                return this.studentWon
+                    ? 'Itens conquistados nesta batalha'
+                    : 'Você ainda leva um pouco de loot';
+            }
+
+            if (this.gloryAwarded > 0) {
+                const gloryMeta = currencies.glory || {};
+                const gloryLabel = gloryMeta.label || this.rewardLabel;
+
+                return this.mode === 'boss_desk'
+                    ? `Aluno recebe +${this.gloryAwarded} ${gloryLabel}`
+                    : `+${this.gloryAwarded} ${gloryLabel} para você`;
+            }
 
             if (this.iWon) {
                 return `+${this.gloryWin} ${this.rewardLabel} para você`;
             }
 
             return `${name} leva +${this.gloryWin} ${this.rewardLabel}`;
+        },
+
+        currencyLabel(key) {
+            return currencies[key]?.label || key;
+        },
+
+        currencyIcon(key) {
+            return currencies[key]?.icon || '';
         },
 
         prefersReducedMotion() {
