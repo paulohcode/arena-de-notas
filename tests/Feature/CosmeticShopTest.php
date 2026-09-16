@@ -426,6 +426,74 @@ class CosmeticShopTest extends TestCase
         $this->assertSame(0, $student->enrollmentIn($class)->listings()->count());
     }
 
+    public function test_equipping_legend_title_does_not_write_it_to_classmate_enrollments(): void
+    {
+        [$class, $owner, $classmate] = $this->readyPair();
+
+        $this->giveAndEquip($owner, $class, 'title_legend');
+
+        $this->actingAs($owner)
+            ->post(route('student.shop.equip'), ['item' => 'title_legend'])
+            ->assertRedirect(route('student.shop.index'));
+
+        $this->assertSame('title_legend', $owner->enrollmentIn($class)->fresh()->equipped_title);
+        $this->assertNull($classmate->enrollmentIn($class)->fresh()->equipped_title);
+    }
+
+    public function test_ranking_shows_legend_title_only_on_the_student_who_equipped_it(): void
+    {
+        [$class, $owner, $classmate] = $this->readyPair();
+        $this->giveAndEquip($owner, $class, 'title_legend');
+
+        $html = $this->actingAs($owner)
+            ->get(route('ranking.show', $class))
+            ->assertOk()
+            ->assertSee($owner->name)
+            ->assertSee($classmate->name)
+            ->getContent();
+
+        $this->assertSame(1, substr_count($html, '>Lenda</span>'));
+    }
+
+    public function test_arena_hall_shows_legend_title_only_on_the_student_who_equipped_it(): void
+    {
+        [$class, $owner, $classmate] = $this->readyPair(arenaOpen: true);
+        $this->giveAndEquip($owner, $class, 'title_legend');
+        $owner->enrollmentIn($class)->update(['glory' => 10]);
+        $classmate->enrollmentIn($class)->update(['glory' => 5]);
+
+        $html = $this->actingAs($owner)
+            ->get(route('student.arena.index'))
+            ->assertOk()
+            ->assertSee($owner->name)
+            ->assertSee($classmate->name)
+            ->getContent();
+
+        $this->assertSame(1, substr_count($html, '>Lenda</span>'));
+    }
+
+    public function test_pending_duel_shows_each_fighter_own_title(): void
+    {
+        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+        $this->giveAndEquip($challenger, $class, 'title_legend');
+        $this->giveAndEquip($opponent, $class, 'title_champion');
+
+        $duel = Duel::query()->create([
+            'class_id' => $class->id,
+            'challenger_id' => $challenger->id,
+            'opponent_id' => $opponent->id,
+            'status' => Duel::STATUS_PENDING,
+        ]);
+
+        $html = $this->actingAs($challenger)
+            ->get(route('student.arena.show', $duel))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame(1, substr_count($html, '>Lenda</span>'));
+        $this->assertSame(1, substr_count($html, '>Campeão</span>'));
+    }
+
     /**
      * @return array{0: SchoolClass, 1: User, 2: User}
      */
@@ -487,5 +555,19 @@ class CosmeticShopTest extends TestCase
         ]);
 
         return $student->fresh();
+    }
+
+    private function giveAndEquip(User $student, SchoolClass $class, string $itemKey): void
+    {
+        $enrollment = $student->enrollmentIn($class);
+        $item = CosmeticCatalog::item($itemKey);
+        $column = CosmeticCatalog::slotColumn($item['slot']);
+
+        EnrollmentCosmetic::query()->create([
+            'enrollment_id' => $enrollment->id,
+            'item_key' => $itemKey,
+        ]);
+
+        $enrollment->update([$column => $itemKey]);
     }
 }

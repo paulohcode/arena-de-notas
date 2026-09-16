@@ -2,16 +2,11 @@
     use App\Support\CosmeticCatalog;
 
     $showPending = $showPending ?? false;
-
-    $loadout = $cosmetics ?? null;
-    if ($loadout === null && isset($enrollment) && $enrollment) {
-        $loadout = is_array($enrollment)
-            ? $enrollment
-            : CosmeticCatalog::loadoutFromEnrollment($enrollment);
-    } elseif ($loadout === null && isset($student->pivot)) {
-        $loadout = CosmeticCatalog::loadoutFromEnrollment($student->pivot);
-    }
-
+    $loadout = CosmeticCatalog::resolveLoadout(
+        $student ?? null,
+        $enrollment ?? null,
+        $cosmetics ?? null,
+    );
     $titleLabel = CosmeticCatalog::titleLabel($loadout['title'] ?? null);
 @endphp
 <span class="inline-flex items-center gap-2 min-w-0">

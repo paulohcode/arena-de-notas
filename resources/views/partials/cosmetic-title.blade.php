@@ -1,16 +1,12 @@
 @php
     use App\Support\CosmeticCatalog;
 
-    $titleKey = $titleKey ?? null;
-    if ($titleKey === null && isset($enrollment) && $enrollment) {
-        $titleKey = is_array($enrollment)
-            ? ($enrollment['title'] ?? null)
-            : ($enrollment->equipped_title ?? null);
-    } elseif ($titleKey === null && isset($student) && isset($student->pivot)) {
-        $titleKey = $student->pivot->equipped_title ?? null;
-    }
-
-    $label = CosmeticCatalog::titleLabel($titleKey);
+    $loadout = CosmeticCatalog::resolveLoadout(
+        $student ?? null,
+        $enrollment ?? null,
+        $cosmetics ?? null,
+    );
+    $label = CosmeticCatalog::titleLabel($loadout['title'] ?? null);
     $inline = ($inline ?? true);
 @endphp
 @if($label)

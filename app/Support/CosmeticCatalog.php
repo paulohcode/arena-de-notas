@@ -483,6 +483,54 @@ class CosmeticCatalog
         ];
     }
 
+    /**
+     * Resolve cosmetics for a player card without inheriting another student's loadout.
+     *
+     * Blade includes share the parent view's variables, so a list can receive the
+     * viewer's $enrollment together with a classmate $student.
+     *
+     * @param  array{frame: ?string, accessory: ?string, title: ?string, aura: ?string}|null  $cosmetics
+     * @return array{frame: ?string, accessory: ?string, title: ?string, aura: ?string}
+     */
+    public static function resolveLoadout(?object $student = null, mixed $enrollment = null, ?array $cosmetics = null): array
+    {
+        $empty = [
+            'frame' => null,
+            'accessory' => null,
+            'title' => null,
+            'aura' => null,
+        ];
+
+        if (is_array($cosmetics)) {
+            return array_merge($empty, $cosmetics);
+        }
+
+        if (is_array($enrollment)) {
+            return array_merge($empty, $enrollment);
+        }
+
+        $studentId = is_object($student) && isset($student->id) ? (int) $student->id : null;
+        $enrollmentStudentId = is_object($enrollment) && isset($enrollment->student_id) && $enrollment->student_id !== null
+            ? (int) $enrollment->student_id
+            : null;
+        $enrollmentMatchesStudent = is_object($enrollment)
+            && ($studentId === null || ($enrollmentStudentId !== null && $enrollmentStudentId === $studentId));
+
+        if ($enrollmentMatchesStudent) {
+            return self::loadoutFromEnrollment($enrollment);
+        }
+
+        if (is_object($student) && isset($student->pivot) && is_object($student->pivot)) {
+            return self::loadoutFromEnrollment($student->pivot);
+        }
+
+        if (is_object($enrollment)) {
+            return self::loadoutFromEnrollment($enrollment);
+        }
+
+        return $empty;
+    }
+
     public static function titleLabel(?string $itemKey): ?string
     {
         if (! filled($itemKey)) {

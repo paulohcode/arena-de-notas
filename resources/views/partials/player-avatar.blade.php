@@ -4,16 +4,11 @@
     $portraitKey = $avatarKey ?? $student->character_avatar;
     $sizeClass = ($size ?? 'md') === 'lg' ? 'hero-portrait--lg' : (($size ?? 'md') === 'sm' ? 'hero-portrait--sm' : '');
 
-    $loadout = $cosmetics ?? null;
-    if ($loadout === null && isset($enrollment) && $enrollment) {
-        $loadout = is_array($enrollment)
-            ? $enrollment
-            : CosmeticCatalog::loadoutFromEnrollment($enrollment);
-    } elseif ($loadout === null && isset($student->pivot)) {
-        $loadout = CosmeticCatalog::loadoutFromEnrollment($student->pivot);
-    } else {
-        $loadout = $loadout ?? ['frame' => null, 'accessory' => null, 'title' => null, 'aura' => null];
-    }
+    $loadout = CosmeticCatalog::resolveLoadout(
+        $student ?? null,
+        $enrollment ?? null,
+        $cosmetics ?? null,
+    );
 
     $frameKey = $loadout['frame'] ?? null;
     $accessoryKey = $loadout['accessory'] ?? null;
