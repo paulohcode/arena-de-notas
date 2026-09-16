@@ -163,8 +163,8 @@ class PetCatalog
             'gif' => [
                 $requireGif ? 'required' : 'nullable',
                 'file',
-                'mimes:gif,webp,png',
-                'max:2048',
+                'mimes:gif,webp,png,jpg,jpeg',
+                'max:5120',
             ],
         ];
     }
@@ -195,8 +195,8 @@ class PetCatalog
             'price_auras.required' => 'Informe o preço em '.GameCurrency::label('auras').'.',
             'combat_bonus_percent.required' => 'Informe o bônus de poder.',
             'combat_bonus_percent.max' => 'O bônus do mascote não pode passar de 15%.',
-            'gif.mimes' => 'Envie um GIF, WebP ou PNG.',
-            'gif.max' => 'O arquivo do mascote pode ter no máximo 2 MB.',
+            'gif.mimes' => 'Envie um GIF, WebP, PNG ou JPG.',
+            'gif.max' => 'O arquivo do mascote pode ter no máximo 5 MB.',
         ];
     }
 

@@ -57,8 +57,8 @@
     @endunless
     <label class="block">
         <span class="text-sm">GIF / imagem animada</span>
-        <input class="game-input mt-1 w-full" type="file" name="gif" accept=".gif,.webp,.png,image/gif,image/webp,image/png">
-        <span class="block text-xs text-amber-100/50 mt-1">Opcional. Até 2 MB. Sem arquivo, usa o sprite animado.</span>
+        <input class="game-input mt-1 w-full" type="file" name="gif" accept=".gif,.webp,.png,.jpg,.jpeg,image/gif,image/webp,image/png,image/jpeg">
+        <span class="block text-xs text-amber-100/50 mt-1">Opcional. GIF, WebP, PNG ou JPG até 5 MB. Sem arquivo, usa o sprite animado.</span>
     </label>
     @if($editing)
         <label class="flex items-center gap-2 mt-6">

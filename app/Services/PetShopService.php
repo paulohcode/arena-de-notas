@@ -15,6 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PetShopService
@@ -236,11 +237,22 @@ class PetShopService
 
         $classes = SchoolClass::query()->orderBy('id')->get();
         $created = collect();
+        $firstPath = null;
 
         foreach ($classes as $class) {
             $path = null;
             if ($gif) {
-                $path = $this->storeGif($gif, $class->id);
+                if ($firstPath === null) {
+                    $firstPath = $this->storeGif($gif, $class->id);
+                    $path = $firstPath;
+                } else {
+                    $path = 'pets/'.$class->id.'/'.basename($firstPath);
+                    if (! Storage::disk('public')->copy($firstPath, $path)) {
+                        throw ValidationException::withMessages([
+                            'gif' => 'Não foi possível salvar o arquivo do mascote. Tente novamente.',
+                        ]);
+                    }
+                }
             }
 
             $created->push(Pet::query()->create([
@@ -726,7 +738,25 @@ class PetShopService
 
     private function storeGif(UploadedFile $gif, int $classId): string
     {
-        return $gif->store('pets/'.$classId, 'public');
+        $extension = strtolower((string) ($gif->getClientOriginalExtension() ?: $gif->extension() ?: 'gif'));
+
+        if (! in_array($extension, ['gif', 'webp', 'png', 'jpg', 'jpeg'], true)) {
+            $extension = 'gif';
+        }
+
+        $path = $gif->storeAs(
+            'pets/'.$classId,
+            Str::random(40).'.'.$extension,
+            'public'
+        );
+
+        if (! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path)) {
+            throw ValidationException::withMessages([
+                'gif' => 'Não foi possível salvar o arquivo do mascote. Tente novamente.',
+            ]);
+        }
+
+        return $path;
     }
 
     private function debitPrices(User $student, SchoolClass $class, Enrollment $enrollment, Pet $pet): void

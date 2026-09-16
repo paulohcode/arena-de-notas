@@ -12,6 +12,8 @@ use App\Services\ArenaCombatService;
 use App\Services\PetShopService;
 use App\Support\PetCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PetShopTest extends TestCase
@@ -262,6 +264,40 @@ class PetShopTest extends TestCase
             ->assertRedirect(route('teacher.pets.show', $class));
 
         $this->assertSame(420, (int) $pet->fresh()->price_relics);
+    }
+
+    public function test_teacher_can_upload_pet_image_and_missing_file_falls_back(): void
+    {
+        Storage::fake('public');
+
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $pet = Pet::query()->where('class_id', $class->id)->where('species_key', 'owl_sage')->firstOrFail();
+
+        $upload = UploadedFile::fake()->create('coruja.jpg', 40, 'image/jpeg');
+
+        $this->actingAs($teacher)
+            ->put(route('teacher.pets.update', [$class, $pet]), [
+                'name' => $pet->name,
+                'description' => $pet->description,
+                'rarity' => $pet->rarity,
+                'sprite_key' => $pet->sprite_key,
+                'price_relics' => $pet->price_relics,
+                'price_seals' => $pet->price_seals,
+                'price_auras' => $pet->price_auras,
+                'combat_bonus_percent' => $pet->combatBonusPercent(),
+                'active' => 1,
+                'gif' => $upload,
+            ])
+            ->assertRedirect(route('teacher.pets.show', $class));
+
+        $pet->refresh();
+        $this->assertNotNull($pet->gif_path);
+        Storage::disk('public')->assertExists($pet->gif_path);
+        $this->assertNotNull($pet->gifUrl());
+
+        Storage::disk('public')->delete($pet->gif_path);
+        $this->assertNull($pet->fresh()->gifUrl());
     }
 
     /**

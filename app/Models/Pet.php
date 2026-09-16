@@ -77,6 +77,10 @@ class Pet extends Model
             return null;
         }
 
+        if (! Storage::disk('public')->exists($this->gif_path)) {
+            return null;
+        }
+
         return Storage::disk('public')->url($this->gif_path);
     }
 
