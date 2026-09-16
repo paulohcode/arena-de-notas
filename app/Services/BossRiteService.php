@@ -662,6 +662,15 @@ class BossRiteService
             $result = $this->combat->resolveAgainstBoss($student, $class, $boss, $seed, luckRange: 0.08);
             $studentWon = $result['winner_id'] === $student->id;
             $glory = $studentWon ? BossArchetypeCatalog::GLORY_WIN : BossArchetypeCatalog::GLORY_LOSS;
+            $loot = [
+                'relics' => $glory,
+                'seals' => $studentWon
+                    ? BossArchetypeCatalog::STAFF_SEALS_WIN
+                    : BossArchetypeCatalog::STAFF_SEALS_LOSS,
+                'auras' => $studentWon
+                    ? BossArchetypeCatalog::STAFF_AURAS_WIN
+                    : BossArchetypeCatalog::STAFF_AURAS_LOSS,
+            ];
 
             $locked->update([
                 'status' => BossVigil::STATUS_RESOLVED,
@@ -670,16 +679,20 @@ class BossRiteService
                 'won' => $studentWon,
                 'mark_earned' => false,
                 'glory' => $glory,
+                'loot' => $loot,
                 'resolved_at' => now(),
             ]);
 
-            $this->awardGloryAndRelics($class, $student->id, $glory, $studentWon);
+            $this->applyStaffChallengeOutcome($class, $season, $student->id, $studentWon, $glory, $loot);
 
             $bossName = $season->bossDisplayName() ?? 'O chefão';
             $studentLabel = $student->arenaName() ?: $student->name;
+            $lootLine = GameCurrency::format('relics', $loot['relics'])
+                .' · '.GameCurrency::format('seals', $loot['seals'])
+                .' · '.GameCurrency::format('auras', $loot['auras']);
             $resultMessage = $studentWon
-                ? "{$studentLabel} aceitou e venceu. +{$glory} ".GameCurrency::label('glory').'.'
-                : "{$studentLabel} aceitou, mas {$bossName} prevaleceu. +{$glory} ".GameCurrency::label('glory').'.';
+                ? "{$studentLabel} aceitou e venceu. +{$glory} ".GameCurrency::label('glory')." · {$lootLine}."
+                : "{$studentLabel} aceitou, mas {$bossName} prevaleceu. +{$glory} ".GameCurrency::label('glory')." · {$lootLine}.";
 
             if ($locked->initiator) {
                 $locked->initiator->notify(new GameAlert(
@@ -1124,6 +1137,47 @@ class BossRiteService
         }
 
         $enrollment->save();
+    }
+
+    /**
+     * Glória + pacote misto (relíquias, selos, auras) da provocação do chefão.
+     *
+     * @param  array{relics: int, seals: int, auras: int}  $loot
+     */
+    private function applyStaffChallengeOutcome(
+        SchoolClass $class,
+        Season $season,
+        int $studentId,
+        bool $won,
+        int $glory,
+        array $loot,
+    ): void {
+        $enrollment = Enrollment::query()
+            ->where('class_id', $class->id)
+            ->where('student_id', $studentId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $enrollment) {
+            throw new RuntimeException('Matrícula não encontrada para premiar a provocação do chefão.');
+        }
+
+        $enrollment->glory = (int) $enrollment->glory + $glory;
+        $enrollment->relics = (int) $enrollment->relics + max(0, (int) ($loot['relics'] ?? 0));
+        $enrollment->seals = (int) $enrollment->seals + max(0, (int) ($loot['seals'] ?? 0));
+
+        if ($won) {
+            $enrollment->arena_wins = (int) $enrollment->arena_wins + 1;
+        } else {
+            $enrollment->arena_losses = (int) $enrollment->arena_losses + 1;
+        }
+
+        $enrollment->save();
+
+        $auras = max(0, (int) ($loot['auras'] ?? 0));
+        if ($auras > 0 && $season->area_id) {
+            $this->awardAura((int) $season->area_id, $studentId, $auras);
+        }
     }
 
     private function awardRelicsOnly(SchoolClass $class, int $studentId, int $amount): void

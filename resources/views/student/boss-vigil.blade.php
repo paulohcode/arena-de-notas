@@ -284,11 +284,17 @@
         @if($vigil->mark_earned)
             <p class="text-sm text-violet-200">Marca do Rito conquistada — a turma chega mais forte no assalto final.</p>
         @endif
-        @if($vigil->isBossChallenge())
+        @if($vigil->isBossChallenge() || ($vigil->isStaffChallenge() && ($lootTotals['relics'] + $lootTotals['seals'] + $lootTotals['auras']) > 0))
             <div class="rounded-lg border border-amber-400/20 bg-black/20 p-4 text-sm space-y-1">
-                <p class="text-amber-100/70">
-                    Taxa paga: {{ \App\Models\GameCurrency::format('relics', (int) $vigil->fee_relics) }}
-                </p>
+                @if($vigil->isBossChallenge())
+                    <p class="text-amber-100/70">
+                        Taxa paga: {{ \App\Models\GameCurrency::format('relics', (int) $vigil->fee_relics) }}
+                    </p>
+                @elseif($vigil->isStaffChallenge() && (int) $vigil->glory > 0)
+                    <p class="text-amber-100/70">
+                        Glória: +{{ \App\Models\GameCurrency::format('glory', (int) $vigil->glory) }}
+                    </p>
+                @endif
                 @if($vigil->won)
                     <p class="text-emerald-300">
                         Loot:

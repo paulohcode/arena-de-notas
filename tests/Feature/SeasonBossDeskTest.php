@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Activity;
+use App\Models\AreaBalance;
 use App\Models\BossVigil;
 use App\Models\Enrollment;
+use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\Season;
 use App\Models\SeasonClassBossBank;
@@ -130,6 +132,54 @@ class SeasonBossDeskTest extends TestCase
 
         $this->assertSame(0, $rites->resolvedVigilsToday($season, $class, $student));
         $this->assertNull($rites->vigilRestriction($season, $class, $student));
+    }
+
+    public function test_staff_challenge_awards_glory_relics_seals_and_auras(): void
+    {
+        [$teacher, $class, $student, $season] = $this->readyBossSeason();
+        $rites = app(BossRiteService::class);
+
+        $vigil = $rites->staffChallenge($season, $class, $student, $teacher);
+        $resolved = $rites->acceptStaffChallenge($vigil, $student);
+
+        $this->assertTrue($resolved->isResolved());
+        $loot = $resolved->lootTotals();
+        $expectedGlory = $resolved->won
+            ? BossArchetypeCatalog::GLORY_WIN
+            : BossArchetypeCatalog::GLORY_LOSS;
+        $expectedSeals = $resolved->won
+            ? BossArchetypeCatalog::STAFF_SEALS_WIN
+            : BossArchetypeCatalog::STAFF_SEALS_LOSS;
+        $expectedAuras = $resolved->won
+            ? BossArchetypeCatalog::STAFF_AURAS_WIN
+            : BossArchetypeCatalog::STAFF_AURAS_LOSS;
+
+        $this->assertSame($expectedGlory, (int) $resolved->glory);
+        $this->assertSame($expectedGlory, $loot['relics']);
+        $this->assertSame($expectedSeals, $loot['seals']);
+        $this->assertSame($expectedAuras, $loot['auras']);
+
+        $enrollment = Enrollment::query()
+            ->where('class_id', $class->id)
+            ->where('student_id', $student->id)
+            ->firstOrFail();
+
+        $this->assertSame($expectedGlory, (int) $enrollment->glory);
+        $this->assertSame($expectedGlory, (int) $enrollment->relics);
+        $this->assertSame($expectedSeals, (int) $enrollment->seals);
+
+        $auras = (int) AreaBalance::query()
+            ->where('area_id', $season->area_id)
+            ->where('student_id', $student->id)
+            ->value('auras');
+        $this->assertSame($expectedAuras, $auras);
+
+        $this->actingAs($student)
+            ->withSession(['current_class_id' => $class->id])
+            ->get(route('student.arena.vigil.show', $resolved).'?replay=1')
+            ->assertOk()
+            ->assertSee(GameCurrency::format('seals', $expectedSeals), false)
+            ->assertSee(GameCurrency::format('auras', $expectedAuras), false);
     }
 
     public function test_staff_cannot_challenge_student_without_persona(): void

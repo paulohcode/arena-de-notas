@@ -134,9 +134,14 @@ class BossRiteController extends Controller
             ]);
         }
 
+        $loot = $resolved->lootTotals();
+        $lootLine = GameCurrency::format('relics', $loot['relics'])
+            .' · '.GameCurrency::format('seals', $loot['seals'])
+            .' · '.GameCurrency::format('auras', $loot['auras']);
+
         return redirect($url)->with('success', $resolved->won
-            ? 'Você venceu o chefão!'
-            : 'O chefão prevaleceu. Sem punição de nota.');
+            ? "Você venceu o chefão! +{$resolved->glory} ".GameCurrency::label('glory')." · {$lootLine}."
+            : "O chefão prevaleceu. Sem punição de nota. +{$resolved->glory} ".GameCurrency::label('glory')." · {$lootLine}.");
     }
 
     public function declineVigil(Request $request, BossVigil $vigil): RedirectResponse|JsonResponse

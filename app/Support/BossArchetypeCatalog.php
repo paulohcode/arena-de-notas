@@ -97,6 +97,15 @@ class BossArchetypeCatalog
 
     public const GLORY_LOSS = 2;
 
+    /** Selos e auras da provocação do chefão (mesa do professor). Relíquias = glória. */
+    public const STAFF_SEALS_WIN = 3;
+
+    public const STAFF_AURAS_WIN = 2;
+
+    public const STAFF_SEALS_LOSS = 1;
+
+    public const STAFF_AURAS_LOSS = 1;
+
     public const RELICS_RITE_WIN = 25;
 
     public const RELICS_RITE_LOSS = 8;
