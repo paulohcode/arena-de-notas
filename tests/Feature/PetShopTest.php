@@ -294,7 +294,7 @@ class PetShopTest extends TestCase
         $pet->refresh();
         $this->assertNotNull($pet->gif_path);
         Storage::disk('public')->assertExists($pet->gif_path);
-        $this->assertNotNull($pet->gifUrl());
+        $this->assertSame('/storage/'.$pet->gif_path, $pet->gifUrl());
 
         Storage::disk('public')->delete($pet->gif_path);
         $this->assertNull($pet->fresh()->gifUrl());
