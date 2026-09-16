@@ -94,7 +94,7 @@ class DuelService
         $this->assertDailyResolvedLimit($class, $duel->challenger);
         $this->assertDailyResolvedLimit($class, $opponent);
 
-        return DB::transaction(function () use ($duel, $opponent, $class) {
+        $resolved = DB::transaction(function () use ($duel, $opponent, $class) {
             /** @var Duel $locked */
             $locked = Duel::query()->whereKey($duel->id)->lockForUpdate()->firstOrFail();
 
@@ -156,6 +156,11 @@ class DuelService
 
             return $locked->fresh(['challenger', 'opponent', 'winner']);
         });
+
+        $this->expirePendingIncomingAtDailyLimit($resolved->challenger);
+        $this->expirePendingIncomingAtDailyLimit($resolved->opponent);
+
+        return $resolved;
     }
 
     /**
@@ -291,6 +296,7 @@ class DuelService
         return $this->pendingBetweenReason($class, $challenger, $opponent)
             ?? $this->duplicateTodayReason($class, $challenger, $opponent)
             ?? $this->dailyLimitReason($class, $challenger)
+            ?? $this->dailyLimitReason($class, $opponent, $this->fighterLabel($opponent))
             ?? $this->cooldownReason($class, $challenger);
     }
 
@@ -310,6 +316,50 @@ class DuelService
         }
 
         return $notices;
+    }
+
+    /**
+     * Encerra desafios recebidos que o aluno já não pode aceitar hoje.
+     */
+    public function expirePendingIncomingAtDailyLimit(User $student): void
+    {
+        DB::transaction(function () use ($student) {
+            $duels = Duel::query()
+                ->with(['challenger', 'schoolClass'])
+                ->where('opponent_id', $student->id)
+                ->where('status', Duel::STATUS_PENDING)
+                ->lockForUpdate()
+                ->orderBy('id')
+                ->get();
+
+            foreach ($duels->groupBy('class_id') as $classDuels) {
+                $class = $classDuels->first()?->schoolClass;
+
+                if (! $class || $this->dailyLimitReason($class, $student) === null) {
+                    continue;
+                }
+
+                foreach ($classDuels as $duel) {
+                    $duel->update([
+                        'status' => Duel::STATUS_EXPIRED,
+                        'resolved_at' => now(),
+                    ]);
+
+                    $opponentLabel = $this->fighterLabel($student);
+
+                    $duel->challenger->notify(new GameAlert(
+                        'duel_expired',
+                        'Desafio expirado',
+                        "{$opponentLabel} já atingiu o limite de duelos de hoje. Sem punição.",
+                        [
+                            'duel_id' => $duel->id,
+                            'class_id' => $duel->class_id,
+                            'url' => ArenaUrl::route('student.arena.index'),
+                        ],
+                    ));
+                }
+            }
+        });
     }
 
     /**
@@ -397,14 +447,15 @@ class DuelService
         }
     }
 
-    private function dailyLimitReason(SchoolClass $class, User $student): ?string
+    private function dailyLimitReason(SchoolClass $class, User $student, ?string $subject = null): ?string
     {
         $limit = $class->arenaDailyLimit();
 
         if ($this->resolvedTodayCount($class, $student) >= $limit) {
             $label = $limit === 1 ? 'duelo' : 'duelos';
+            $who = $subject ?? 'Você';
 
-            return "Você já fez {$limit} {$label} hoje. Só pode duelar de novo amanhã.";
+            return "{$who} já fez {$limit} {$label} hoje. Só pode duelar de novo amanhã.";
         }
 
         return null;

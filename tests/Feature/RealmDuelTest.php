@@ -117,6 +117,47 @@ class RealmDuelTest extends TestCase
         $this->assertSame(150, (int) $opponentEnrollment->xp);
     }
 
+    public function test_cannot_challenge_student_who_already_reached_realm_daily_limit(): void
+    {
+        [$classA, $challenger, $classB, $opponent] = $this->readyRealmPair(
+            challengerArenaOpen: true,
+            opponentArenaOpen: true,
+        );
+        $classC = $this->createClassForTeacher($classA->teacher, [
+            'area' => $classA->area,
+            'arena_open' => true,
+            'name' => 'Turma Leste',
+        ]);
+        $filler = $this->enrollStudent($classC, 'Carla Dias', characterClass: 'arqueiro');
+
+        for ($index = 0; $index < RealmDuel::DAILY_RESOLVED_LIMIT; $index++) {
+            RealmDuel::query()->create([
+                'area_id' => $classA->area_id,
+                'challenger_class_id' => $classC->id,
+                'opponent_class_id' => $classB->id,
+                'challenger_id' => $filler->id,
+                'opponent_id' => $opponent->id,
+                'status' => RealmDuel::STATUS_RESOLVED,
+                'seed' => 2000 + $index,
+                'log' => ['turns' => [], 'fighters' => [], 'winner_id' => $opponent->id],
+                'winner_id' => $opponent->id,
+                'aura_winner' => RealmDuel::AURA_WIN,
+                'aura_loser' => RealmDuel::AURA_LOSS,
+                'resolved_at' => now(),
+            ]);
+        }
+
+        $this->actingAs($challenger)
+            ->from(route('student.arena.realm.index'))
+            ->post(route('student.arena.realm.challenge'), ['opponent_id' => $opponent->id])
+            ->assertRedirect(route('student.arena.realm.index'))
+            ->assertSessionHasErrors([
+                'opponent_id' => 'Heroi Bruno Lima já fez '.RealmDuel::DAILY_RESOLVED_LIMIT.' duelos do reino hoje. Só pode de novo amanhã.',
+            ]);
+
+        $this->assertSame(0, RealmDuel::query()->where('status', RealmDuel::STATUS_PENDING)->count());
+    }
+
     public function test_pending_json_includes_realm_challenges(): void
     {
         Notification::fake();

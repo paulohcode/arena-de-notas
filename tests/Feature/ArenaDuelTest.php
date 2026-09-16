@@ -322,44 +322,106 @@ class ArenaDuelTest extends TestCase
             ]);
     }
 
-    public function test_daily_resolved_limit_blocks_further_accepts(): void
+    public function test_cannot_challenge_student_who_already_reached_daily_limit(): void
     {
-        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+        [$class, $exhausted, $pastOpponent] = $this->readyPair(arenaOpen: true);
         $third = $this->enrollStudent($class, 'Carla Dias', approvedPersona: true, characterClass: 'arqueiro');
         $fourth = $this->enrollStudent($class, 'Diego Rocha', approvedPersona: true, characterClass: 'paladino');
+        $challenger = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
 
-        foreach ([$opponent, $third, $fourth] as $index => $peer) {
-            Duel::query()->create([
-                'class_id' => $class->id,
-                'challenger_id' => $peer->id,
-                'opponent_id' => $challenger->id,
-                'status' => Duel::STATUS_RESOLVED,
-                'seed' => 1000 + $index,
-                'log' => ['turns' => [], 'fighters' => [], 'winner_id' => $challenger->id],
-                'winner_id' => $challenger->id,
-                'glory_winner' => Duel::GLORY_WIN,
-                'glory_loser' => Duel::GLORY_LOSS,
-                'resolved_at' => now(),
-            ]);
+        foreach ([$pastOpponent, $third, $fourth] as $index => $peer) {
+            $this->createResolvedDuelToday($class, $peer, $exhausted, $exhausted, 1000 + $index);
         }
 
-        $this->assertSame(3, app(DuelService::class)->resolvedTodayCount($class, $challenger));
-
-        $extra = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
-
-        $this->actingAs($extra)
-            ->post(route('student.arena.challenge'), ['opponent_id' => $challenger->id])
-            ->assertRedirect();
-
-        $duel = Duel::query()->where('status', Duel::STATUS_PENDING)->firstOrFail();
+        $this->assertSame(Duel::DAILY_RESOLVED_LIMIT, app(DuelService::class)->resolvedTodayCount($class, $exhausted));
 
         $this->actingAs($challenger)
+            ->from(route('student.arena.index'))
+            ->post(route('student.arena.challenge'), ['opponent_id' => $exhausted->id])
+            ->assertRedirect(route('student.arena.index'))
+            ->assertSessionHasErrors([
+                'opponent_id' => 'Heroi Ana Souza já fez '.Duel::DAILY_RESOLVED_LIMIT.' duelos hoje. Só pode duelar de novo amanhã.',
+            ]);
+
+        $this->assertSame(0, Duel::query()->where('status', Duel::STATUS_PENDING)->count());
+    }
+
+    public function test_arena_hides_challenge_button_when_opponent_reached_daily_limit(): void
+    {
+        [$class, $exhausted, $pastOpponent] = $this->readyPair(arenaOpen: true);
+        $third = $this->enrollStudent($class, 'Carla Dias', approvedPersona: true, characterClass: 'arqueiro');
+        $fourth = $this->enrollStudent($class, 'Diego Rocha', approvedPersona: true, characterClass: 'paladino');
+        $challenger = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
+
+        foreach ([$pastOpponent, $third, $fourth] as $index => $peer) {
+            $this->createResolvedDuelToday($class, $peer, $exhausted, $exhausted, 1000 + $index);
+        }
+
+        $this->actingAs($challenger)
+            ->get(route('student.arena.index'))
+            ->assertOk()
+            ->assertSee('Heroi Ana Souza já fez '.Duel::DAILY_RESOLVED_LIMIT.' duelos hoje. Só pode duelar de novo amanhã.')
+            ->assertDontSee('name="opponent_id" value="'.$exhausted->id.'"', false);
+    }
+
+    public function test_pending_poll_expires_incoming_challenges_when_daily_limit_is_reached(): void
+    {
+        Notification::fake();
+
+        [$class, $exhausted, $pastOpponent] = $this->readyPair(arenaOpen: true);
+        $third = $this->enrollStudent($class, 'Carla Dias', approvedPersona: true, characterClass: 'arqueiro');
+        $fourth = $this->enrollStudent($class, 'Diego Rocha', approvedPersona: true, characterClass: 'paladino');
+        $challenger = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
+
+        foreach ([$pastOpponent, $third, $fourth] as $index => $peer) {
+            $this->createResolvedDuelToday($class, $peer, $exhausted, $exhausted, 1000 + $index);
+        }
+
+        $leftover = Duel::query()->create([
+            'class_id' => $class->id,
+            'challenger_id' => $challenger->id,
+            'opponent_id' => $exhausted->id,
+            'status' => Duel::STATUS_PENDING,
+        ]);
+
+        $this->actingAs($exhausted)
+            ->getJson(route('student.arena.pending'))
+            ->assertOk()
+            ->assertJsonPath('challenges', []);
+
+        $this->assertSame(Duel::STATUS_EXPIRED, $leftover->fresh()->status);
+
+        Notification::assertSentTo($challenger, GameAlert::class);
+        Notification::assertNotSentTo($exhausted, GameAlert::class);
+    }
+
+    public function test_accept_is_blocked_when_student_already_reached_daily_limit(): void
+    {
+        [$class, $exhausted, $pastOpponent] = $this->readyPair(arenaOpen: true);
+        $third = $this->enrollStudent($class, 'Carla Dias', approvedPersona: true, characterClass: 'arqueiro');
+        $fourth = $this->enrollStudent($class, 'Diego Rocha', approvedPersona: true, characterClass: 'paladino');
+        $challenger = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
+
+        foreach ([$pastOpponent, $third, $fourth] as $index => $peer) {
+            $this->createResolvedDuelToday($class, $peer, $exhausted, $exhausted, 1000 + $index);
+        }
+
+        $duel = Duel::query()->create([
+            'class_id' => $class->id,
+            'challenger_id' => $challenger->id,
+            'opponent_id' => $exhausted->id,
+            'status' => Duel::STATUS_PENDING,
+        ]);
+
+        $this->actingAs($exhausted)
             ->from(route('student.arena.index'))
             ->post(route('student.arena.accept', $duel))
             ->assertRedirect(route('student.arena.index'))
             ->assertSessionHasErrors([
                 'opponent_id' => 'Você já fez '.Duel::DAILY_RESOLVED_LIMIT.' duelos hoje. Só pode duelar de novo amanhã.',
             ]);
+
+        $this->assertSame(Duel::STATUS_PENDING, $duel->fresh()->status);
     }
 
     public function test_combat_with_same_seed_is_reproducible(): void
@@ -689,39 +751,23 @@ class ArenaDuelTest extends TestCase
         $this->assertSame(2, Duel::query()->where('challenger_id', $challenger->id)->count());
     }
 
-    public function test_configured_daily_limit_blocks_further_accepts(): void
+    public function test_configured_daily_limit_blocks_challenging_an_exhausted_opponent(): void
     {
-        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+        [$class, $exhausted, $pastOpponent] = $this->readyPair(arenaOpen: true);
         $class->update(['arena_daily_limit' => 1]);
+        $challenger = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
 
-        Duel::query()->create([
-            'class_id' => $class->id,
-            'challenger_id' => $opponent->id,
-            'opponent_id' => $challenger->id,
-            'status' => Duel::STATUS_RESOLVED,
-            'seed' => 1001,
-            'log' => ['turns' => [], 'fighters' => [], 'winner_id' => $challenger->id],
-            'winner_id' => $challenger->id,
-            'glory_winner' => Duel::GLORY_WIN,
-            'glory_loser' => Duel::GLORY_LOSS,
-            'resolved_at' => now(),
-        ]);
-
-        $extra = $this->enrollStudent($class, 'Eva Nunes', approvedPersona: true, characterClass: 'bardo');
-
-        $this->actingAs($extra)
-            ->post(route('student.arena.challenge'), ['opponent_id' => $challenger->id])
-            ->assertRedirect();
-
-        $duel = Duel::query()->where('status', Duel::STATUS_PENDING)->firstOrFail();
+        $this->createResolvedDuelToday($class, $pastOpponent, $exhausted, $exhausted, 1001);
 
         $this->actingAs($challenger)
             ->from(route('student.arena.index'))
-            ->post(route('student.arena.accept', $duel))
+            ->post(route('student.arena.challenge'), ['opponent_id' => $exhausted->id])
             ->assertRedirect(route('student.arena.index'))
             ->assertSessionHasErrors([
-                'opponent_id' => 'Você já fez 1 duelo hoje. Só pode duelar de novo amanhã.',
+                'opponent_id' => 'Heroi Ana Souza já fez 1 duelo hoje. Só pode duelar de novo amanhã.',
             ]);
+
+        $this->assertSame(0, Duel::query()->where('status', Duel::STATUS_PENDING)->count());
     }
 
     public function test_student_arena_shows_configured_limits(): void
@@ -751,6 +797,27 @@ class ArenaDuelTest extends TestCase
         $opponent = $this->enrollStudent($class, 'Bruno Lima', approvedPersona: true, characterClass: 'mago');
 
         return [$class, $challenger, $opponent];
+    }
+
+    private function createResolvedDuelToday(
+        SchoolClass $class,
+        User $challenger,
+        User $opponent,
+        User $winner,
+        int $seed,
+    ): Duel {
+        return Duel::query()->create([
+            'class_id' => $class->id,
+            'challenger_id' => $challenger->id,
+            'opponent_id' => $opponent->id,
+            'status' => Duel::STATUS_RESOLVED,
+            'seed' => $seed,
+            'log' => ['turns' => [], 'fighters' => [], 'winner_id' => $winner->id],
+            'winner_id' => $winner->id,
+            'glory_winner' => Duel::GLORY_WIN,
+            'glory_loser' => Duel::GLORY_LOSS,
+            'resolved_at' => now(),
+        ]);
     }
 
     /**

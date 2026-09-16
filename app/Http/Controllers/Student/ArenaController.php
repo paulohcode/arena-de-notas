@@ -46,6 +46,8 @@ class ArenaController extends Controller
         $student = $request->user();
         $this->authorize('viewAsStudent', $class);
         $class->loadMissing('area');
+        $this->duels->expirePendingIncomingAtDailyLimit($student);
+        $this->realmDuels->expirePendingIncomingAtDailyLimit($student);
 
         $opponents = $class->students()
             ->where('users.id', '!=', $student->id)
@@ -234,6 +236,7 @@ class ArenaController extends Controller
         $student = $request->user();
         $this->authorize('viewAsStudent', $class);
         $class->loadMissing('area');
+        $this->realmDuels->expirePendingIncomingAtDailyLimit($student);
 
         $canChallenge = $class->isArenaOpen() && $student->hasApprovedPersona();
         $realm = $this->realmArenaData($class, $student, $canChallenge);
@@ -335,6 +338,8 @@ class ArenaController extends Controller
     public function pending(Request $request): JsonResponse
     {
         $student = $request->user();
+        $this->duels->expirePendingIncomingAtDailyLimit($student);
+        $this->realmDuels->expirePendingIncomingAtDailyLimit($student);
 
         $duelChallenges = Duel::query()
             ->with('challenger')

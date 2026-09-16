@@ -105,7 +105,7 @@ class RealmDuelService
         $this->assertDailyResolvedLimit($duel->area, $duel->challenger);
         $this->assertDailyResolvedLimit($duel->area, $opponent);
 
-        return DB::transaction(function () use ($duel, $opponent, $challengerClass, $opponentClass) {
+        $resolved = DB::transaction(function () use ($duel, $opponent, $challengerClass, $opponentClass) {
             /** @var RealmDuel $locked */
             $locked = RealmDuel::query()->whereKey($duel->id)->lockForUpdate()->firstOrFail();
 
@@ -180,6 +180,11 @@ class RealmDuelService
                 'area',
             ]);
         });
+
+        $this->expirePendingIncomingAtDailyLimit($resolved->challenger);
+        $this->expirePendingIncomingAtDailyLimit($resolved->opponent);
+
+        return $resolved;
     }
 
     /**
@@ -266,6 +271,7 @@ class RealmDuelService
         return $this->pendingBetweenReason($area, $challenger, $opponent)
             ?? $this->duplicateTodayReason($area, $challenger, $opponent)
             ?? $this->dailyLimitReason($area, $challenger)
+            ?? $this->dailyLimitReason($area, $opponent, $opponent->arenaName() ?: $opponent->name)
             ?? $this->cooldownReason($area, $challenger);
     }
 
@@ -329,6 +335,50 @@ class RealmDuelService
         }
 
         return $notices;
+    }
+
+    /**
+     * Encerra desafios recebidos que o aluno já não pode aceitar hoje.
+     */
+    public function expirePendingIncomingAtDailyLimit(User $student): void
+    {
+        DB::transaction(function () use ($student) {
+            $duels = RealmDuel::query()
+                ->with(['challenger', 'area'])
+                ->where('opponent_id', $student->id)
+                ->where('status', RealmDuel::STATUS_PENDING)
+                ->lockForUpdate()
+                ->orderBy('id')
+                ->get();
+
+            foreach ($duels->groupBy('area_id') as $areaDuels) {
+                $area = $areaDuels->first()?->area;
+
+                if (! $area || $this->dailyLimitReason($area, $student) === null) {
+                    continue;
+                }
+
+                $opponentLabel = $student->arenaName() ?: $student->name;
+
+                foreach ($areaDuels as $duel) {
+                    $duel->update([
+                        'status' => RealmDuel::STATUS_EXPIRED,
+                        'resolved_at' => now(),
+                    ]);
+
+                    $duel->challenger->notify(new GameAlert(
+                        'realm_duel_expired',
+                        'Desafio do reino expirado',
+                        "{$opponentLabel} já atingiu o limite de duelos do reino de hoje. Sem punição.",
+                        [
+                            'realm_duel_id' => $duel->id,
+                            'area_id' => $duel->area_id,
+                            'url' => ArenaUrl::route('student.arena.realm.index'),
+                        ],
+                    ));
+                }
+            }
+        });
     }
 
     public function resolvedTodayCount(Area $area, User $student): int
@@ -494,14 +544,15 @@ class RealmDuelService
         }
     }
 
-    private function dailyLimitReason(Area $area, User $student): ?string
+    private function dailyLimitReason(Area $area, User $student, ?string $subject = null): ?string
     {
         $limit = $area->realmArenaDailyLimit();
 
         if ($this->resolvedTodayCount($area, $student) >= $limit) {
             $label = $limit === 1 ? 'duelo do reino' : 'duelos do reino';
+            $who = $subject ?? 'Você';
 
-            return "Você já fez {$limit} {$label} hoje. Só pode de novo amanhã.";
+            return "{$who} já fez {$limit} {$label} hoje. Só pode de novo amanhã.";
         }
 
         return null;
