@@ -36,24 +36,24 @@
         @foreach($catalog as $pet)
             @php $petOwners = $owners[$pet->id] ?? []; @endphp
             <article class="game-card p-4 flex flex-col gap-3">
-                <div class="flex items-start gap-3">
+                <div class="pet-card-preview">
                     @include('partials.pet-sprite', [
                         'spriteKey' => $pet->spriteKey(),
                         'gifUrl' => $pet->gifUrl(),
-                        'size' => 'md',
+                        'size' => 'xl',
                         'name' => $pet->name,
                     ])
-                    <div class="min-w-0">
-                        <p class="font-display text-lg text-amber-100 truncate">{{ $pet->name }}</p>
-                        <p class="text-xs text-amber-100/55">{{ $pet->rarityLabel() }} · +{{ number_format($pet->combatBonusPercent(), 1) }}%</p>
-                        <p class="text-sm text-cyan-300 mt-2">{{ $pet->priceLine() }}</p>
-                        <p class="text-sm mt-1 {{ $pet->stock > 0 ? 'text-emerald-300/80' : 'text-rose-300/80' }}">
-                            {{ $pet->stock > 0 ? $pet->stock.' à venda' : 'Esgotado' }}
-                            @unless($pet->active)
-                                · inativo
-                            @endunless
-                        </p>
-                    </div>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-display text-lg text-amber-100 truncate">{{ $pet->name }}</p>
+                    <p class="text-xs text-amber-100/55">{{ $pet->rarityLabel() }} · +{{ number_format($pet->combatBonusPercent(), 1) }}%</p>
+                    <p class="text-sm text-cyan-300 mt-2">{{ $pet->priceLine() }}</p>
+                    <p class="text-sm mt-1 {{ $pet->stock > 0 ? 'text-emerald-300/80' : 'text-rose-300/80' }}">
+                        {{ $pet->stock > 0 ? $pet->stock.' à venda' : 'Esgotado' }}
+                        @unless($pet->active)
+                            · inativo
+                        @endunless
+                    </p>
                 </div>
                 <p class="text-sm text-amber-100/70">
                     @if(count($petOwners) === 0)

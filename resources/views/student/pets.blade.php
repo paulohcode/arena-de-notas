@@ -60,7 +60,7 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach($catalog as $pet)
             <article class="game-card p-4 flex flex-col gap-3 {{ $pet['owned'] ? 'opacity-80' : '' }}">
-                <div class="flex items-center justify-center rounded-xl bg-violet-950/40 py-4">
+                <div class="pet-card-preview">
                     @include('partials.pet-sprite', [
                         'spriteKey' => $pet['sprite_key'],
                         'gifUrl' => $pet['gif_url'],
@@ -183,13 +183,15 @@
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($listings as $listing)
                 <article class="game-card p-4 flex flex-col gap-3">
-                    @include('partials.pet-sprite', [
-                        'spriteKey' => $listing['sprite_key'],
-                        'gifUrl' => $listing['gif_url'],
-                        'auraColor' => $listing['aura_color'],
-                        'name' => $listing['custom_name'],
-                        'size' => 'md',
-                    ])
+                    <div class="pet-card-preview">
+                        @include('partials.pet-sprite', [
+                            'spriteKey' => $listing['sprite_key'],
+                            'gifUrl' => $listing['gif_url'],
+                            'auraColor' => $listing['aura_color'],
+                            'name' => $listing['custom_name'],
+                            'size' => 'xl',
+                        ])
+                    </div>
                     <div>
                         <p class="font-display text-amber-100">{{ $listing['custom_name'] }}</p>
                         <p class="text-xs text-amber-100/55">{{ $listing['species_name'] }} · +{{ number_format($listing['combat_bonus_percent'], 1) }}%</p>
