@@ -2928,6 +2928,7 @@ label.class-aura:has(:checked):hover {
 
 .pet-sprite--sm { width: 2.25rem; height: 2.25rem; }
 .pet-sprite--lg { width: 4.5rem; height: 4.5rem; }
+.pet-sprite--xl { width: 14rem; height: 14rem; }
 
 .pet-sprite__gif {
     width: 100%;

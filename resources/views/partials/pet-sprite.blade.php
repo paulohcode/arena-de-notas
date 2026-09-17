@@ -4,7 +4,12 @@
     $gif = $gifUrl ?? null;
     $size = $size ?? 'md';
     $name = $name ?? null;
-    $sizeClass = $size === 'lg' ? 'pet-sprite--lg' : ($size === 'sm' ? 'pet-sprite--sm' : '');
+    $sizeClass = match ($size) {
+        'sm' => 'pet-sprite--sm',
+        'lg' => 'pet-sprite--lg',
+        'xl' => 'pet-sprite--xl',
+        default => '',
+    };
     $auraClass = $aura ? 'pet-aura pet-aura--'.$aura : '';
 @endphp
 <span class="pet-sprite pet-sprite--{{ $sprite }} {{ $sizeClass }} {{ $auraClass }}" @if($name) title="{{ $name }}" @endif>

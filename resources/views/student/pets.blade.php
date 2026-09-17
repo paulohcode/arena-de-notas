@@ -60,20 +60,20 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach($catalog as $pet)
             <article class="game-card p-4 flex flex-col gap-3 {{ $pet['owned'] ? 'opacity-80' : '' }}">
-                <div class="flex items-start gap-3">
+                <div class="flex items-center justify-center rounded-xl bg-violet-950/40 py-4">
                     @include('partials.pet-sprite', [
                         'spriteKey' => $pet['sprite_key'],
                         'gifUrl' => $pet['gif_url'],
-                        'size' => 'md',
+                        'size' => 'xl',
                         'name' => $pet['name'],
                     ])
-                    <div class="min-w-0">
-                        <p class="font-display text-lg text-amber-100 truncate">{{ $pet['name'] }}</p>
-                        <p class="text-xs text-amber-100/55">{{ $pet['rarity_label'] }} · +{{ number_format($pet['combat_bonus_percent'], 1) }}%</p>
-                        @if($pet['description'])
-                            <p class="text-xs text-amber-100/50 mt-1">{{ $pet['description'] }}</p>
-                        @endif
-                    </div>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-display text-lg text-amber-100 truncate">{{ $pet['name'] }}</p>
+                    <p class="text-xs text-amber-100/55">{{ $pet['rarity_label'] }} · +{{ number_format($pet['combat_bonus_percent'], 1) }}%</p>
+                    @if($pet['description'])
+                        <p class="text-xs text-amber-100/50 mt-1">{{ $pet['description'] }}</p>
+                    @endif
                 </div>
                 <p class="text-sm text-cyan-300">
                     @if($pet['price_relics'] > 0){{ \App\Models\GameCurrency::format('relics', $pet['price_relics']) }}@endif
