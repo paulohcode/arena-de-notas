@@ -2931,22 +2931,40 @@ label.class-aura:has(:checked):hover {
 .pet-sprite--xl { width: 12rem; height: 12rem; }
 
 .pet-card-preview {
+    position: relative;
+    z-index: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 14rem;
-    padding: 0.75rem;
+    height: 14rem;
+    padding: 0.5rem;
+    overflow: hidden;
+    flex-shrink: 0;
     border-radius: 0.75rem;
-    background: rgb(46 16 80 / 0.4);
+    background: #000;
 }
 
 .pet-card-preview .pet-sprite,
 .pet-card-preview .pet-sprite--sm,
 .pet-card-preview .pet-sprite--lg,
 .pet-card-preview .pet-sprite--xl {
-    width: 12rem;
-    height: 12rem;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pet-card-preview .pet-sprite__gif {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
 }
 
 .pet-sprite__gif {

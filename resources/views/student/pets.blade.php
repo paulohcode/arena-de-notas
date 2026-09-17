@@ -68,7 +68,7 @@
                         'name' => $pet['name'],
                     ])
                 </div>
-                <div class="min-w-0">
+                <div class="relative z-10 min-w-0">
                     <p class="font-display text-lg text-amber-100 truncate">{{ $pet['name'] }}</p>
                     <p class="text-xs text-amber-100/55">{{ $pet['rarity_label'] }} · +{{ number_format($pet['combat_bonus_percent'], 1) }}%</p>
                     @if($pet['description'])
@@ -192,7 +192,7 @@
                             'size' => 'xl',
                         ])
                     </div>
-                    <div>
+                    <div class="relative z-10">
                         <p class="font-display text-amber-100">{{ $listing['custom_name'] }}</p>
                         <p class="text-xs text-amber-100/55">{{ $listing['species_name'] }} · +{{ number_format($listing['combat_bonus_percent'], 1) }}%</p>
                         <p class="text-sm text-cyan-300 mt-1">{{ \App\Models\GameCurrency::format('relics', $listing['price']) }}</p>

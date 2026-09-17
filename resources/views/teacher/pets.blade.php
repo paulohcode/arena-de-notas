@@ -44,7 +44,7 @@
                         'name' => $pet->name,
                     ])
                 </div>
-                <div class="min-w-0">
+                <div class="relative z-10 min-w-0">
                     <p class="font-display text-lg text-amber-100 truncate">{{ $pet->name }}</p>
                     <p class="text-xs text-amber-100/55">{{ $pet->rarityLabel() }} · +{{ number_format($pet->combatBonusPercent(), 1) }}%</p>
                     <p class="text-sm text-cyan-300 mt-2">{{ $pet->priceLine() }}</p>
