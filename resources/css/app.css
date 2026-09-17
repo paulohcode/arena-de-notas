@@ -2937,8 +2937,9 @@ label.class-aura:has(:checked):hover {
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: 14rem;
-    padding: 0.5rem;
+    min-height: 10rem;
+    height: auto;
+    padding: 0;
     overflow: hidden;
     flex-shrink: 0;
     border-radius: 0.75rem;
@@ -2949,22 +2950,26 @@ label.class-aura:has(:checked):hover {
 .pet-card-preview .pet-sprite--sm,
 .pet-card-preview .pet-sprite--lg,
 .pet-card-preview .pet-sprite--xl {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    height: 100%;
+    height: auto;
     max-width: 100%;
-    max-height: 100%;
     min-width: 0;
-    min-height: 0;
-    overflow: hidden;
+    min-height: 10rem;
+    overflow: visible;
 }
 
 .pet-card-preview .pet-sprite__gif {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: auto;
+    height: auto;
     max-width: 100%;
-    max-height: 100%;
+    max-height: 22rem;
     object-fit: contain;
+    object-position: center;
+    margin-inline: auto;
 }
 
 .pet-sprite__gif {
