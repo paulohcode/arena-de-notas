@@ -233,9 +233,22 @@ class PetShopService
      */
     public function createItemForAllClasses(array $data, ?UploadedFile $gif = null): Collection
     {
+        return $this->createItemForClasses(
+            $data,
+            SchoolClass::query()->orderBy('id')->get(),
+            $gif,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  iterable<int, SchoolClass>  $classes
+     * @return Collection<int, Pet>
+     */
+    public function createItemForClasses(array $data, iterable $classes, ?UploadedFile $gif = null): Collection
+    {
         $this->assertHasPrice($data);
 
-        $classes = SchoolClass::query()->orderBy('id')->get();
         $created = collect();
         $firstPath = null;
 

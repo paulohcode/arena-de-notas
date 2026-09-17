@@ -36,6 +36,7 @@ class AdminPetTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.pets.store'), [
+                'scope' => 'all',
                 'name' => 'Tigre Solar',
                 'description' => 'Ruge ao meio-dia',
                 'rarity' => 'epic',
@@ -52,6 +53,59 @@ class AdminPetTest extends TestCase
         $this->assertSame(1, Pet::query()->where('class_id', $classA->id)->where('name', 'Tigre Solar')->count());
         $this->assertSame(1, Pet::query()->where('class_id', $classB->id)->where('name', 'Tigre Solar')->count());
         $this->assertSame(count(PetCatalog::SPECIES) + 1, Pet::query()->where('class_id', $classA->id)->count());
+    }
+
+    public function test_admin_can_create_pet_for_a_single_class(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $classA = $this->createClassForTeacher($teacher, ['name' => 'A']);
+        $classB = $this->createClassForTeacher($teacher, ['name' => 'B']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.pets.store'), [
+                'scope' => 'one',
+                'class_id' => $classA->id,
+                'name' => 'Tigre Lunar',
+                'description' => 'Ruge à noite',
+                'rarity' => 'epic',
+                'sprite_key' => 'dragon',
+                'price_relics' => 900,
+                'price_seals' => 120,
+                'price_auras' => 900,
+                'combat_bonus_percent' => 6,
+                'stock' => 2,
+            ])
+            ->assertRedirect(route('admin.pets.index'));
+
+        $this->assertSame(1, Pet::query()->where('class_id', $classA->id)->where('name', 'Tigre Lunar')->count());
+        $this->assertSame(0, Pet::query()->where('class_id', $classB->id)->where('name', 'Tigre Lunar')->count());
+    }
+
+    public function test_admin_create_for_one_class_requires_class_id(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $this->createClassForTeacher($teacher);
+
+        $this->actingAs($admin)
+            ->from(route('admin.pets.index'))
+            ->post(route('admin.pets.store'), [
+                'scope' => 'one',
+                'name' => 'Tigre Sem Turma',
+                'description' => 'Faltou a turma',
+                'rarity' => 'epic',
+                'sprite_key' => 'dragon',
+                'price_relics' => 900,
+                'price_seals' => 120,
+                'price_auras' => 900,
+                'combat_bonus_percent' => 6,
+                'stock' => 2,
+            ])
+            ->assertRedirect(route('admin.pets.index'))
+            ->assertSessionHasErrors([
+                'class_id' => 'Escolha a turma do mascote.',
+            ]);
     }
 
     public function test_teacher_cannot_open_admin_pets_hub(): void

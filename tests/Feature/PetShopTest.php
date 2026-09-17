@@ -233,6 +233,8 @@ class PetShopTest extends TestCase
 
         $this->actingAs($teacher)
             ->post(route('teacher.pets.store', $class), [
+                'scope' => 'one',
+                'class_id' => $class->id,
                 'name' => 'Gato Lunar',
                 'description' => 'Mia na lua cheia',
                 'rarity' => 'rare',
@@ -264,6 +266,62 @@ class PetShopTest extends TestCase
             ->assertRedirect(route('teacher.pets.show', $class));
 
         $this->assertSame(420, (int) $pet->fresh()->price_relics);
+    }
+
+    public function test_teacher_can_create_pet_for_all_managed_classes(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $classA = $this->createClassForTeacher($teacher, ['name' => 'Turma A']);
+        $classB = $this->createClassForTeacher($teacher, ['name' => 'Turma B', 'area' => $classA->area]);
+        $other = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $foreign = $this->createClassForTeacher($other, ['name' => 'Turma Alheia']);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.pets.show', $classA))
+            ->post(route('teacher.pets.store', $classA), [
+                'scope' => 'all',
+                'name' => 'Lince Solar',
+                'description' => 'Corre entre as turmas',
+                'rarity' => 'rare',
+                'sprite_key' => 'fox',
+                'price_relics' => 400,
+                'price_seals' => 50,
+                'price_auras' => 400,
+                'combat_bonus_percent' => 4,
+                'stock' => 2,
+            ])
+            ->assertRedirect(route('teacher.pets.show', $classA))
+            ->assertSessionHas('success');
+
+        $this->assertSame(1, Pet::query()->where('class_id', $classA->id)->where('name', 'Lince Solar')->count());
+        $this->assertSame(1, Pet::query()->where('class_id', $classB->id)->where('name', 'Lince Solar')->count());
+        $this->assertSame(0, Pet::query()->where('class_id', $foreign->id)->where('name', 'Lince Solar')->count());
+    }
+
+    public function test_teacher_cannot_create_pet_for_another_teachers_class(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $other = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $foreign = $this->createClassForTeacher($other, ['name' => 'Turma Alheia']);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.pets.store', $class), [
+                'scope' => 'one',
+                'class_id' => $foreign->id,
+                'name' => 'Gato Invasor',
+                'description' => 'Não deveria existir',
+                'rarity' => 'common',
+                'sprite_key' => 'owl',
+                'price_relics' => 300,
+                'price_seals' => 40,
+                'price_auras' => 300,
+                'combat_bonus_percent' => 2,
+                'stock' => 1,
+            ])
+            ->assertForbidden();
+
+        $this->assertSame(0, Pet::query()->where('name', 'Gato Invasor')->count());
     }
 
     public function test_teacher_can_upload_pet_image_and_missing_file_falls_back(): void

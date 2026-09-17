@@ -5,17 +5,19 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\Pet;
 use App\Models\SchoolClass;
+use App\Models\User;
 use App\Services\PetShopService;
 use App\Support\PetCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class PetController extends Controller
 {
     public function __construct(private PetShopService $pets) {}
 
-    public function show(SchoolClass $schoolClass): View
+    public function show(Request $request, SchoolClass $schoolClass): View
     {
         $this->authorize('manage', $schoolClass);
 
@@ -28,6 +30,7 @@ class PetController extends Controller
             'listingsCount' => $inventory['listings_count'],
             'rarities' => PetCatalog::RARITIES,
             'spriteKeys' => PetCatalog::spriteKeys(),
+            'scopeClasses' => $this->scopeClasses($request->user()),
         ]);
     }
 
@@ -35,11 +38,31 @@ class PetController extends Controller
     {
         $this->authorize('manage', $schoolClass);
 
-        $data = $request->validate(PetCatalog::itemRules(), PetCatalog::itemMessages());
-        $pet = $this->pets->createItem($data, $schoolClass, $request->file('gif'));
+        $data = $request->validate(PetCatalog::itemStoreRules(), PetCatalog::itemMessages());
+        $gif = $request->file('gif');
+
+        if ($data['scope'] === 'all') {
+            $created = $this->pets->createItemForClasses(
+                $data,
+                $this->scopeClasses($request->user()),
+                $gif,
+            );
+            $count = $created->count();
+            $name = $data['name'];
+
+            return redirect()
+                ->route('teacher.pets.show', $schoolClass)
+                ->with('success', $count === 0
+                    ? 'Nenhuma turma para receber o mascote.'
+                    : $name.' cadastrado em '.$count.' turma(s).');
+        }
+
+        $target = SchoolClass::query()->findOrFail((int) $data['class_id']);
+        $this->authorize('manage', $target);
+        $pet = $this->pets->createItem($data, $target, $gif);
 
         return redirect()
-            ->route('teacher.pets.show', $schoolClass)
+            ->route('teacher.pets.show', $target)
             ->with('success', $pet->name.' cadastrado na loja de mascotes.');
     }
 
@@ -82,5 +105,19 @@ class PetController extends Controller
         return redirect()
             ->route('teacher.pets.show', $schoolClass)
             ->with('success', 'Estoque de '.$pet->name.' atualizado.');
+    }
+
+    /**
+     * @return Collection<int, SchoolClass>
+     */
+    private function scopeClasses(User $user): Collection
+    {
+        return ($user->isAdmin()
+            ? SchoolClass::query()
+            : $user->taughtClasses()
+        )
+            ->with('area')
+            ->orderBy('name')
+            ->get();
     }
 }

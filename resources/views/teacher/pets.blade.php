@@ -20,9 +20,14 @@
 <div class="game-card p-5 mb-8 reveal space-y-4">
     <div>
         <h2 class="font-display text-xl text-amber-200">Cadastrar mascote</h2>
-        <p class="text-sm text-amber-100/60 mt-1">O mascote fica só nesta turma. Sem GIF, o sprite animado padrão é usado.</p>
+        <p class="text-sm text-amber-100/60 mt-1">Escolha se o mascote entra só em uma turma ou em todas as que você gerencia. Sem GIF, o sprite animado padrão é usado.</p>
     </div>
-    @include('partials.pet-form', ['action' => route('teacher.pets.store', $class)])
+    @include('partials.pet-form', [
+        'action' => route('teacher.pets.store', $class),
+        'scopeClasses' => $scopeClasses,
+        'defaultScope' => 'one',
+        'selectedClassId' => $class->id,
+    ])
 </div>
 
 <section class="mb-8 reveal">

@@ -9,17 +9,21 @@
         <p class="hero-kicker !mb-1">Companheiros da arena</p>
         <h1 class="font-display text-4xl text-amber-300">Mascotes</h1>
         <p class="text-amber-100/65 mt-1 max-w-2xl">
-            Cadastre um mascote para todas as turmas (cada uma com estoque e preço próprios). Professores também gerenciam pela tela da turma.
+            Escolha se o mascote entra em uma turma ou em todas (cada turma fica com estoque e preço próprios). Professores também gerenciam pela tela da turma.
         </p>
     </div>
 </div>
 
 <div class="game-card p-5 mb-8 reveal space-y-4">
     <div>
-        <h2 class="font-display text-xl text-amber-200">Cadastrar mascote global</h2>
-        <p class="text-sm text-amber-100/60 mt-1">Cria uma cópia em cada turma. Valores padrão já vêm altos (~10 dias de farm).</p>
+        <h2 class="font-display text-xl text-amber-200">Cadastrar mascote</h2>
+        <p class="text-sm text-amber-100/60 mt-1">Uma turma específica ou todas de uma vez. Valores padrão já vêm altos (~10 dias de farm).</p>
     </div>
-    @include('partials.pet-form', ['action' => route('admin.pets.store')])
+    @include('partials.pet-form', [
+        'action' => route('admin.pets.store'),
+        'scopeClasses' => $scopeClasses,
+        'defaultScope' => 'all',
+    ])
 </div>
 
 @if($customPets->isNotEmpty())

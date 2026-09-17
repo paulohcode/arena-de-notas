@@ -34,14 +34,25 @@ class PetController extends Controller
                 ->get(),
             'rarities' => PetCatalog::RARITIES,
             'spriteKeys' => PetCatalog::spriteKeys(),
+            'scopeClasses' => $classes,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $request->validate(PetCatalog::itemRules(), PetCatalog::itemMessages());
-        $created = $this->pets->createItemForAllClasses($data, $request->file('gif'));
+        $data = $request->validate(PetCatalog::itemStoreRules(), PetCatalog::itemMessages());
+        $gif = $request->file('gif');
 
+        if ($data['scope'] === 'one') {
+            $class = SchoolClass::query()->findOrFail((int) $data['class_id']);
+            $pet = $this->pets->createItem($data, $class, $gif);
+
+            return redirect()
+                ->route('admin.pets.index')
+                ->with('success', $pet->name.' cadastrado em '.$class->name.'.');
+        }
+
+        $created = $this->pets->createItemForAllClasses($data, $gif);
         $count = $created->count();
         $name = $data['name'];
 
@@ -49,7 +60,7 @@ class PetController extends Controller
             ->route('admin.pets.index')
             ->with('success', $count === 0
                 ? 'Nenhuma turma para receber o mascote.'
-                : "{$name} criado em {$count} turma(s).");
+                : $name.' cadastrado em '.$count.' turma(s).');
     }
 
     public function edit(Pet $pet): View

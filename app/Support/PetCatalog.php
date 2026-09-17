@@ -172,6 +172,18 @@ class PetCatalog
     /**
      * @return array<string, list<string|object>>
      */
+    public static function itemStoreRules(): array
+    {
+        return [
+            ...self::itemRules(),
+            'scope' => ['required', Rule::in(['one', 'all'])],
+            'class_id' => ['required_if:scope,one', 'nullable', 'integer', 'exists:classes,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, list<string|object>>
+     */
     public static function itemUpdateRules(): array
     {
         $rules = self::itemRules();
@@ -197,6 +209,10 @@ class PetCatalog
             'combat_bonus_percent.max' => 'O bônus do mascote não pode passar de 15%.',
             'gif.mimes' => 'Envie um GIF, WebP, PNG ou JPG.',
             'gif.max' => 'O arquivo do mascote pode ter no máximo 5 MB.',
+            'scope.required' => 'Escolha se o mascote entra em uma turma ou em todas.',
+            'scope.in' => 'O destino do mascote é inválido.',
+            'class_id.required_if' => 'Escolha a turma do mascote.',
+            'class_id.exists' => 'A turma escolhida não existe.',
         ];
     }
 
