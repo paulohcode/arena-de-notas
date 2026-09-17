@@ -14,6 +14,7 @@
         'action' => route('admin.pets.update', $pet),
         'pet' => $pet,
         'cancel' => route('admin.pets.index'),
+        'scopeClasses' => $scopeClasses,
     ])
 </div>
 @endsection

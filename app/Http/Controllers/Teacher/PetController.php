@@ -66,7 +66,7 @@ class PetController extends Controller
             ->with('success', $pet->name.' cadastrado na loja de mascotes.');
     }
 
-    public function edit(SchoolClass $schoolClass, Pet $pet): View
+    public function edit(Request $request, SchoolClass $schoolClass, Pet $pet): View
     {
         $this->authorize('manage', $schoolClass);
 
@@ -75,6 +75,7 @@ class PetController extends Controller
             'pet' => $pet,
             'rarities' => PetCatalog::RARITIES,
             'spriteKeys' => PetCatalog::spriteKeys(),
+            'scopeClasses' => $this->scopeClasses($request->user()),
         ]);
     }
 
@@ -84,7 +85,24 @@ class PetController extends Controller
 
         $data = $request->validate(PetCatalog::itemUpdateRules(), PetCatalog::itemMessages());
         $data['active'] = $request->boolean('active', true);
-        $updated = $this->pets->updateItem($pet, $data, $request->file('gif'));
+        $gif = $request->file('gif');
+
+        if ($data['scope'] === 'all') {
+            $updated = $this->pets->updateItemForClasses(
+                $pet,
+                $data,
+                $this->scopeClasses($request->user()),
+                $gif,
+            );
+            $count = $updated->count();
+            $name = $updated->first()?->name ?? $data['name'];
+
+            return redirect()
+                ->route('teacher.pets.show', $schoolClass)
+                ->with('success', $name.' atualizado em '.$count.' turma(s).');
+        }
+
+        $updated = $this->pets->updateItem($pet, $data, $gif);
 
         return redirect()
             ->route('teacher.pets.show', $schoolClass)

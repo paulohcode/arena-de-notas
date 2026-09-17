@@ -65,10 +65,16 @@ class PetController extends Controller
 
     public function edit(Pet $pet): View
     {
+        $pet->loadMissing('schoolClass');
+
         return view('admin.pets.edit', [
             'pet' => $pet,
             'rarities' => PetCatalog::RARITIES,
             'spriteKeys' => PetCatalog::spriteKeys(),
+            'scopeClasses' => SchoolClass::query()
+                ->with('area')
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 
@@ -76,7 +82,24 @@ class PetController extends Controller
     {
         $data = $request->validate(PetCatalog::itemUpdateRules(), PetCatalog::itemMessages());
         $data['active'] = $request->boolean('active', true);
-        $updated = $this->pets->updateItem($pet, $data, $request->file('gif'));
+        $gif = $request->file('gif');
+
+        if ($data['scope'] === 'all') {
+            $updated = $this->pets->updateItemForClasses(
+                $pet,
+                $data,
+                SchoolClass::query()->orderBy('id')->get(),
+                $gif,
+            );
+            $count = $updated->count();
+            $name = $updated->first()?->name ?? $data['name'];
+
+            return redirect()
+                ->route('admin.pets.index')
+                ->with('success', $name.' atualizado em '.$count.' turma(s).');
+        }
+
+        $updated = $this->pets->updateItem($pet, $data, $gif);
 
         return redirect()
             ->route('admin.pets.index')

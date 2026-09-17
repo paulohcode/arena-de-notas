@@ -253,6 +253,7 @@ class PetShopTest extends TestCase
 
         $this->actingAs($teacher)
             ->put(route('teacher.pets.update', [$class, $pet]), [
+                'scope' => 'one',
                 'name' => 'Gato Lunar',
                 'description' => 'Mia na lua cheia',
                 'rarity' => 'rare',
@@ -324,6 +325,197 @@ class PetShopTest extends TestCase
         $this->assertSame(0, Pet::query()->where('name', 'Gato Invasor')->count());
     }
 
+    public function test_teacher_edit_form_lets_them_apply_to_all_classes(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $pet = Pet::query()->where('class_id', $class->id)->where('name', 'Coruja Sábia')->firstOrFail();
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.pets.edit', [$class, $pet]))
+            ->assertOk()
+            ->assertSee('Onde aplicar as alterações')
+            ->assertSee('Só nesta turma')
+            ->assertSee('Todas as turmas');
+    }
+
+    public function test_teacher_can_update_pet_across_all_managed_classes(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $classA = $this->createClassForTeacher($teacher, ['name' => 'Turma A']);
+        $classB = $this->createClassForTeacher($teacher, ['name' => 'Turma B', 'area' => $classA->area]);
+        $other = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $foreign = $this->createClassForTeacher($other, ['name' => 'Turma Alheia']);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.pets.store', $classA), [
+                'scope' => 'one',
+                'class_id' => $classA->id,
+                'name' => 'Lince Noturno',
+                'description' => 'Só nesta turma',
+                'rarity' => 'rare',
+                'sprite_key' => 'fox',
+                'price_relics' => 400,
+                'price_seals' => 50,
+                'price_auras' => 400,
+                'combat_bonus_percent' => 4,
+                'stock' => 2,
+            ])
+            ->assertRedirect(route('teacher.pets.show', $classA));
+
+        $pet = Pet::query()->where('class_id', $classA->id)->where('name', 'Lince Noturno')->firstOrFail();
+
+        $this->actingAs($teacher)
+            ->put(route('teacher.pets.update', [$classA, $pet]), [
+                'scope' => 'all',
+                'name' => 'Lince Solar',
+                'description' => 'Agora nas duas turmas',
+                'rarity' => 'rare',
+                'sprite_key' => 'fox',
+                'price_relics' => 450,
+                'price_seals' => 60,
+                'price_auras' => 450,
+                'combat_bonus_percent' => 5,
+                'active' => 1,
+            ])
+            ->assertRedirect(route('teacher.pets.show', $classA))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $classA->id,
+            'name' => 'Lince Solar',
+            'price_relics' => 450,
+        ]);
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $classB->id,
+            'name' => 'Lince Solar',
+            'price_relics' => 450,
+        ]);
+        $this->assertDatabaseMissing('pets', [
+            'class_id' => $foreign->id,
+            'name' => 'Lince Solar',
+        ]);
+    }
+
+    public function test_teacher_update_for_one_class_does_not_change_the_other(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $classA = $this->createClassForTeacher($teacher, ['name' => 'Turma A']);
+        $classB = $this->createClassForTeacher($teacher, ['name' => 'Turma B', 'area' => $classA->area]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.pets.store', $classA), [
+                'scope' => 'all',
+                'name' => 'Lince Gêmeo',
+                'description' => 'Nas duas',
+                'rarity' => 'rare',
+                'sprite_key' => 'fox',
+                'price_relics' => 400,
+                'price_seals' => 50,
+                'price_auras' => 400,
+                'combat_bonus_percent' => 4,
+                'stock' => 2,
+            ])
+            ->assertRedirect(route('teacher.pets.show', $classA));
+
+        $pet = Pet::query()->where('class_id', $classA->id)->where('name', 'Lince Gêmeo')->firstOrFail();
+
+        $this->actingAs($teacher)
+            ->put(route('teacher.pets.update', [$classA, $pet]), [
+                'scope' => 'one',
+                'name' => 'Lince Só Aqui',
+                'description' => 'Só nesta turma',
+                'rarity' => 'rare',
+                'sprite_key' => 'fox',
+                'price_relics' => 500,
+                'price_seals' => 70,
+                'price_auras' => 500,
+                'combat_bonus_percent' => 5,
+                'active' => 1,
+            ])
+            ->assertRedirect(route('teacher.pets.show', $classA));
+
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $classA->id,
+            'name' => 'Lince Só Aqui',
+            'price_relics' => 500,
+        ]);
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $classB->id,
+            'name' => 'Lince Gêmeo',
+            'price_relics' => 400,
+        ]);
+    }
+
+    public function test_teacher_update_requires_scope(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $pet = Pet::query()->where('class_id', $class->id)->where('species_key', 'owl_sage')->firstOrFail();
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.pets.edit', [$class, $pet]))
+            ->put(route('teacher.pets.update', [$class, $pet]), [
+                'name' => $pet->name,
+                'description' => $pet->description,
+                'rarity' => $pet->rarity,
+                'sprite_key' => $pet->sprite_key,
+                'price_relics' => $pet->price_relics,
+                'price_seals' => $pet->price_seals,
+                'price_auras' => $pet->price_auras,
+                'combat_bonus_percent' => $pet->combatBonusPercent(),
+                'active' => 1,
+            ])
+            ->assertRedirect(route('teacher.pets.edit', [$class, $pet]))
+            ->assertSessionHasErrors([
+                'scope' => 'Escolha se o mascote entra em uma turma ou em todas.',
+            ]);
+    }
+
+    public function test_teacher_can_update_catalog_pet_across_all_managed_classes(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $classA = $this->createClassForTeacher($teacher, ['name' => 'Turma A']);
+        $classB = $this->createClassForTeacher($teacher, ['name' => 'Turma B', 'area' => $classA->area]);
+        $other = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $foreign = $this->createClassForTeacher($other, ['name' => 'Turma Alheia']);
+
+        $pet = Pet::query()->where('class_id', $classA->id)->where('species_key', 'owl_sage')->firstOrFail();
+
+        $this->actingAs($teacher)
+            ->put(route('teacher.pets.update', [$classA, $pet]), [
+                'scope' => 'all',
+                'name' => 'Coruja Dourada',
+                'description' => $pet->description,
+                'rarity' => $pet->rarity,
+                'sprite_key' => $pet->sprite_key,
+                'price_relics' => 350,
+                'price_seals' => 40,
+                'price_auras' => 350,
+                'combat_bonus_percent' => $pet->combatBonusPercent(),
+                'active' => 1,
+            ])
+            ->assertRedirect(route('teacher.pets.show', $classA));
+
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $classA->id,
+            'species_key' => 'owl_sage',
+            'name' => 'Coruja Dourada',
+            'price_relics' => 350,
+        ]);
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $classB->id,
+            'species_key' => 'owl_sage',
+            'name' => 'Coruja Dourada',
+            'price_relics' => 350,
+        ]);
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $foreign->id,
+            'species_key' => 'owl_sage',
+            'name' => 'Coruja Sábia',
+        ]);
+    }
+
     public function test_teacher_can_upload_pet_image_and_missing_file_falls_back(): void
     {
         Storage::fake('public');
@@ -336,6 +528,7 @@ class PetShopTest extends TestCase
 
         $this->actingAs($teacher)
             ->put(route('teacher.pets.update', [$class, $pet]), [
+                'scope' => 'one',
                 'name' => $pet->name,
                 'description' => $pet->description,
                 'rarity' => $pet->rarity,
@@ -366,6 +559,7 @@ class PetShopTest extends TestCase
         $class = $this->createClassForTeacher($teacher);
         $pet = Pet::query()->where('class_id', $class->id)->where('species_key', 'owl_sage')->firstOrFail();
         $payload = [
+            'scope' => 'one',
             'name' => $pet->name,
             'description' => $pet->description,
             'rarity' => $pet->rarity,
@@ -419,6 +613,7 @@ class PetShopTest extends TestCase
 
         $this->actingAs($teacher)
             ->put(route('teacher.pets.update', [$class, $pet]), [
+                'scope' => 'one',
                 'name' => $pet->name,
                 'description' => $pet->description,
                 'rarity' => $pet->rarity,

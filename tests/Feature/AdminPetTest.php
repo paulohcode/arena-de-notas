@@ -129,4 +129,62 @@ class AdminPetTest extends TestCase
             ->assertSee('Coruja Sábia')
             ->assertSee('280');
     }
+
+    public function test_admin_can_update_pet_across_all_classes(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $classA = $this->createClassForTeacher($teacher, ['name' => 'A']);
+        $classB = $this->createClassForTeacher($teacher, ['name' => 'B']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.pets.store'), [
+                'scope' => 'one',
+                'class_id' => $classA->id,
+                'name' => 'Tigre Lunar',
+                'description' => 'Ruge à noite',
+                'rarity' => 'epic',
+                'sprite_key' => 'dragon',
+                'price_relics' => 900,
+                'price_seals' => 120,
+                'price_auras' => 900,
+                'combat_bonus_percent' => 6,
+                'stock' => 2,
+            ])
+            ->assertRedirect(route('admin.pets.index'));
+
+        $pet = Pet::query()->where('class_id', $classA->id)->where('name', 'Tigre Lunar')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('admin.pets.edit', $pet))
+            ->assertOk()
+            ->assertSee('Onde aplicar as alterações')
+            ->assertSee('Todas as turmas');
+
+        $this->actingAs($admin)
+            ->put(route('admin.pets.update', $pet), [
+                'scope' => 'all',
+                'name' => 'Tigre Solar',
+                'description' => 'Ruge ao meio-dia',
+                'rarity' => 'epic',
+                'sprite_key' => 'dragon',
+                'price_relics' => 950,
+                'price_seals' => 130,
+                'price_auras' => 950,
+                'combat_bonus_percent' => 6,
+                'active' => 1,
+            ])
+            ->assertRedirect(route('admin.pets.index'));
+
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $classA->id,
+            'name' => 'Tigre Solar',
+            'price_relics' => 950,
+        ]);
+        $this->assertDatabaseHas('pets', [
+            'class_id' => $classB->id,
+            'name' => 'Tigre Solar',
+            'price_relics' => 950,
+        ]);
+    }
 }

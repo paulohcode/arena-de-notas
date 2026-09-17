@@ -23,6 +23,7 @@
         'action' => route('teacher.pets.update', [$class, $pet]),
         'pet' => $pet,
         'cancel' => route('teacher.pets.show', $class),
+        'scopeClasses' => $scopeClasses,
     ])
 </div>
 @endsection

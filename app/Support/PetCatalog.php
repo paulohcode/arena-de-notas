@@ -189,7 +189,10 @@ class PetCatalog
         $rules = self::itemRules();
         unset($rules['stock']);
 
-        return $rules;
+        return [
+            ...$rules,
+            'scope' => ['required', Rule::in(['one', 'all'])],
+        ];
     }
 
     /**

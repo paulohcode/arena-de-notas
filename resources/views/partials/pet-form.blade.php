@@ -9,7 +9,7 @@
     @if($editing)
         @method('PUT')
     @endif
-    @if(! $editing && isset($scopeClasses) && $scopeClasses->isNotEmpty())
+    @if(isset($scopeClasses) && $scopeClasses->isNotEmpty())
         @php
             $defaultScope = old('scope', $defaultScope ?? 'one');
             $selectedClassId = (string) old('class_id', $selectedClassId ?? $scopeClasses->first()?->id);
@@ -18,30 +18,38 @@
             class="md:col-span-2 lg:col-span-3 rounded-lg border border-amber-400/20 bg-black/20 p-4 space-y-3"
             x-data="{ scope: {{ \Illuminate\Support\Js::from($defaultScope) }} }"
         >
-            <p class="text-sm font-semibold text-amber-100">Onde o mascote entra</p>
+            <p class="text-sm font-semibold text-amber-100">
+                {{ $editing ? 'Onde aplicar as alterações' : 'Onde o mascote entra' }}
+            </p>
             <div class="flex flex-wrap gap-4">
                 <label class="flex items-center gap-2 text-sm">
                     <input type="radio" name="scope" value="one" x-model="scope" @checked($defaultScope === 'one')>
-                    <span>Uma turma específica</span>
+                    <span>{{ $editing ? 'Só nesta turma' : 'Uma turma específica' }}</span>
                 </label>
                 <label class="flex items-center gap-2 text-sm">
                     <input type="radio" name="scope" value="all" x-model="scope" @checked($defaultScope === 'all')>
                     <span>Todas as turmas</span>
                 </label>
             </div>
-            <label class="block max-w-md" x-show="scope === 'one'" x-cloak>
-                <span class="text-sm">Turma</span>
-                <select class="game-select mt-1 w-full" name="class_id" x-bind:disabled="scope !== 'one'">
-                    @foreach($scopeClasses as $scopeClass)
-                        <option value="{{ $scopeClass->id }}" @selected((string) $scopeClass->id === $selectedClassId)>
-                            {{ $scopeClass->name }}
-                            @if($scopeClass->area?->name)
-                                · {{ $scopeClass->area->name }}
-                            @endif
-                        </option>
-                    @endforeach
-                </select>
-            </label>
+            @if($editing)
+                <p class="text-xs text-amber-100/50" x-show="scope === 'all'" x-cloak>
+                    Atualiza este mascote em todas as suas turmas e cadastra nas que ainda não tiverem.
+                </p>
+            @else
+                <label class="block max-w-md" x-show="scope === 'one'" x-cloak>
+                    <span class="text-sm">Turma</span>
+                    <select class="game-select mt-1 w-full" name="class_id" x-bind:disabled="scope !== 'one'">
+                        @foreach($scopeClasses as $scopeClass)
+                            <option value="{{ $scopeClass->id }}" @selected((string) $scopeClass->id === $selectedClassId)>
+                                {{ $scopeClass->name }}
+                                @if($scopeClass->area?->name)
+                                    · {{ $scopeClass->area->name }}
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </label>
+            @endif
         </div>
     @endif
     <label class="block">

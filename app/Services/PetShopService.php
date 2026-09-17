@@ -259,12 +259,7 @@ class PetShopService
                     $firstPath = $this->storeGif($gif, $class->id);
                     $path = $firstPath;
                 } else {
-                    $path = 'pets/'.$class->id.'/'.basename($firstPath);
-                    if (! Storage::disk('public')->copy($firstPath, $path)) {
-                        throw ValidationException::withMessages([
-                            'gif' => 'Não foi possível salvar o arquivo do mascote. Tente novamente.',
-                        ]);
-                    }
+                    $path = $this->copyStoredGif($firstPath, (int) $class->id);
                 }
             }
 
@@ -296,29 +291,86 @@ class PetShopService
         $this->assertHasPrice($data);
 
         if ($gif instanceof UploadedFile && $gif->isValid()) {
-            $newPath = $this->storeGif($gif, (int) $pet->class_id);
-            $oldPath = $pet->gif_path;
-            $pet->gif_path = $newPath;
-
-            if (filled($oldPath) && $oldPath !== $newPath) {
-                Storage::disk('public')->delete($oldPath);
-            }
+            $this->replaceGifPath($pet, $this->storeGif($gif, (int) $pet->class_id));
         }
 
-        $pet->fill([
-            'name' => $data['name'],
-            'description' => $data['description'] ?? null,
-            'rarity' => $data['rarity'],
-            'sprite_key' => $data['sprite_key'] ?? $pet->sprite_key ?? 'owl',
-            'price_relics' => (int) $data['price_relics'],
-            'price_seals' => (int) $data['price_seals'],
-            'price_auras' => (int) $data['price_auras'],
-            'combat_bonus' => PetCatalog::percentToBonus($data['combat_bonus_percent'] ?? $pet->combatBonusPercent()),
-            'active' => array_key_exists('active', $data) ? (bool) $data['active'] : $pet->active,
-        ]);
+        $this->applyItemData($pet, $data);
         $pet->save();
 
         return $pet;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  iterable<int, SchoolClass>  $classes
+     * @return Collection<int, Pet>
+     */
+    public function updateItemForClasses(Pet $pet, array $data, iterable $classes, ?UploadedFile $gif = null): Collection
+    {
+        $this->assertHasPrice($data);
+
+        $classes = collect($classes)->unique('id')->values();
+
+        if ($classes->isEmpty()) {
+            return collect([$this->updateItem($pet, $data, $gif)]);
+        }
+
+        $related = $this->relatedPetsInClasses($pet, $classes->pluck('id'));
+        $related->put((int) $pet->class_id, $pet);
+
+        $ordered = $classes->sortBy(fn (SchoolClass $class): int => (int) $class->id === (int) $pet->class_id ? 0 : 1)->values();
+        $firstStoredPath = null;
+        $hasNewGif = $gif instanceof UploadedFile && $gif->isValid();
+        $updated = collect();
+
+        foreach ($ordered as $class) {
+            $gifPath = null;
+
+            if ($hasNewGif) {
+                if ($firstStoredPath === null) {
+                    $firstStoredPath = $this->storeGif($gif, (int) $class->id);
+                    $gifPath = $firstStoredPath;
+                } else {
+                    $gifPath = $this->copyStoredGif($firstStoredPath, (int) $class->id);
+                }
+            }
+
+            $target = $related->get((int) $class->id);
+
+            if ($target) {
+                if ($gifPath !== null) {
+                    $this->replaceGifPath($target, $gifPath);
+                }
+
+                $this->applyItemData($target, $data);
+                $target->save();
+                $updated->push($target);
+
+                continue;
+            }
+
+            if ($gifPath === null) {
+                $gifPath = $this->copyExistingGifToClass($pet, (int) $class->id);
+            }
+
+            $updated->push(Pet::query()->create([
+                'class_id' => $class->id,
+                'species_key' => $pet->species_key,
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'rarity' => $data['rarity'],
+                'sprite_key' => $data['sprite_key'] ?? $pet->sprite_key ?? 'owl',
+                'gif_path' => $gifPath,
+                'price_relics' => (int) $data['price_relics'],
+                'price_seals' => (int) $data['price_seals'],
+                'price_auras' => (int) $data['price_auras'],
+                'combat_bonus' => PetCatalog::percentToBonus($data['combat_bonus_percent'] ?? $pet->combatBonusPercent()),
+                'stock' => PetCatalog::DEFAULT_STOCK,
+                'active' => array_key_exists('active', $data) ? (bool) $data['active'] : true,
+            ]));
+        }
+
+        return $updated;
     }
 
     public function restock(SchoolClass $class, int $petId, int $quantity): Pet
@@ -750,6 +802,77 @@ class PetShopService
                 'price_relics' => 'Informe pelo menos um preço maior que zero.',
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function applyItemData(Pet $pet, array $data): void
+    {
+        $pet->fill([
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'rarity' => $data['rarity'],
+            'sprite_key' => $data['sprite_key'] ?? $pet->sprite_key ?? 'owl',
+            'price_relics' => (int) $data['price_relics'],
+            'price_seals' => (int) $data['price_seals'],
+            'price_auras' => (int) $data['price_auras'],
+            'combat_bonus' => PetCatalog::percentToBonus($data['combat_bonus_percent'] ?? $pet->combatBonusPercent()),
+            'active' => array_key_exists('active', $data) ? (bool) $data['active'] : $pet->active,
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $classIds
+     * @return Collection<int, Pet>
+     */
+    private function relatedPetsInClasses(Pet $pet, Collection $classIds): Collection
+    {
+        $query = Pet::query()->whereIn('class_id', $classIds->all());
+
+        if (filled($pet->species_key)) {
+            $query->where('species_key', $pet->species_key);
+        } else {
+            $query->whereNull('species_key')->where('name', $pet->name);
+        }
+
+        return $query->get()->keyBy(fn (Pet $item): int => (int) $item->class_id);
+    }
+
+    private function replaceGifPath(Pet $pet, string $newPath): void
+    {
+        $oldPath = $pet->gif_path;
+        $pet->gif_path = $newPath;
+
+        if (filled($oldPath) && $oldPath !== $newPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
+    }
+
+    private function copyStoredGif(string $sourcePath, int $classId): string
+    {
+        $path = 'pets/'.$classId.'/'.basename($sourcePath);
+
+        if ($path === $sourcePath) {
+            return $sourcePath;
+        }
+
+        if (! Storage::disk('public')->copy($sourcePath, $path)) {
+            throw ValidationException::withMessages([
+                'gif' => 'Não foi possível salvar o arquivo do mascote. Tente novamente.',
+            ]);
+        }
+
+        return $path;
+    }
+
+    private function copyExistingGifToClass(Pet $pet, int $classId): ?string
+    {
+        if (! filled($pet->gif_path) || ! Storage::disk('public')->exists($pet->gif_path)) {
+            return null;
+        }
+
+        return $this->copyStoredGif((string) $pet->gif_path, $classId);
     }
 
     private function storeGif(UploadedFile $gif, int $classId): string
