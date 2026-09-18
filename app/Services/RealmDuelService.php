@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Area;
 use App\Models\AreaBalance;
+use App\Models\GameCurrency;
 use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Models\User;
@@ -19,6 +20,7 @@ class RealmDuelService
 {
     public function __construct(
         private ArenaCombatService $combat,
+        private DuelService $duels,
     ) {}
 
     /**
@@ -115,70 +117,7 @@ class RealmDuelService
                 ]);
             }
 
-            $seed = random_int(1, PHP_INT_MAX);
-            $result = $this->combat->resolve(
-                $locked->challenger,
-                $opponent,
-                $challengerClass,
-                $seed,
-                null,
-                $opponentClass,
-            );
-            $winnerId = $result['winner_id'];
-            $loserId = $winnerId === $locked->challenger_id
-                ? $locked->opponent_id
-                : $locked->challenger_id;
-
-            $locked->update([
-                'status' => RealmDuel::STATUS_RESOLVED,
-                'seed' => $seed,
-                'log' => $result,
-                'winner_id' => $winnerId,
-                'aura_winner' => RealmDuel::AURA_WIN,
-                'aura_loser' => RealmDuel::AURA_LOSS,
-                'resolved_at' => now(),
-            ]);
-
-            $this->awardAura($locked->area, $winnerId, RealmDuel::AURA_WIN);
-            $this->awardAura($locked->area, $loserId, RealmDuel::AURA_LOSS);
-
-            $winner = User::query()->findOrFail($winnerId);
-            $winnerLabel = $winner->arenaName() ?: $winner->name;
-
-            $locked->challenger->notify(new GameAlert(
-                'realm_duel_result',
-                'Duelo do reino resolvido',
-                $winnerId === $locked->challenger_id
-                    ? 'Você venceu e ganhou '.RealmDuel::AURA_WIN.' de Aura!'
-                    : "{$winnerLabel} venceu. Você ganhou ".RealmDuel::AURA_LOSS.' de Aura.',
-                [
-                    'realm_duel_id' => $locked->id,
-                    'area_id' => $locked->area_id,
-                    'url' => ArenaUrl::route('student.arena.realm.show', $locked).'?replay=1',
-                ],
-            ));
-
-            $opponent->notify(new GameAlert(
-                'realm_duel_result',
-                'Duelo do reino resolvido',
-                $winnerId === $opponent->id
-                    ? 'Você venceu e ganhou '.RealmDuel::AURA_WIN.' de Aura!'
-                    : "{$winnerLabel} venceu. Você ganhou ".RealmDuel::AURA_LOSS.' de Aura.',
-                [
-                    'realm_duel_id' => $locked->id,
-                    'area_id' => $locked->area_id,
-                    'url' => ArenaUrl::route('student.arena.realm.show', $locked).'?replay=1',
-                ],
-            ));
-
-            return $locked->fresh([
-                'challenger',
-                'opponent',
-                'winner',
-                'challengerClass',
-                'opponentClass',
-                'area',
-            ]);
+            return $this->finalizeCombat($locked, $locked->challenger, $opponent, $challengerClass, $opponentClass);
         });
 
         $this->expirePendingIncomingAtDailyLimit($resolved->challenger);
@@ -204,25 +143,58 @@ class RealmDuelService
             ]);
         }
 
-        $duel->update([
-            'status' => RealmDuel::STATUS_DECLINED,
-            'resolved_at' => now(),
-        ]);
+        return DB::transaction(function () use ($duel, $opponent) {
+            /** @var RealmDuel $locked */
+            $locked = RealmDuel::query()->whereKey($duel->id)->lockForUpdate()->firstOrFail();
 
-        $opponentLabel = $opponent->arenaName() ?: $opponent->name;
+            if (! $locked->isPending()) {
+                throw ValidationException::withMessages([
+                    'duel' => 'Este desafio não está mais pendente.',
+                ]);
+            }
 
-        $duel->challenger->notify(new GameAlert(
-            'realm_duel_declined',
-            'Desafio do reino recusado',
-            "{$opponentLabel} recusou o duelo por Aura. Sem punição.",
-            [
-                'realm_duel_id' => $duel->id,
-                'area_id' => $duel->area_id,
-                'url' => ArenaUrl::route('student.arena.realm.index'),
-            ],
-        ));
+            $locked->update([
+                'status' => RealmDuel::STATUS_DECLINED,
+                'resolved_at' => now(),
+            ]);
 
-        return $duel->fresh(['challenger', 'opponent', 'challengerClass', 'opponentClass']);
+            $this->applyDeclinePenalty($locked->area, $opponent);
+
+            $opponentLabel = $opponent->arenaName() ?: $opponent->name;
+            $auraLabel = GameCurrency::label('auras');
+
+            $locked->challenger->notify(new GameAlert(
+                'realm_duel_declined',
+                'Desafio do reino recusado',
+                "{$opponentLabel} recusou o duelo por Aura (−".RealmDuel::DECLINE_PENALTY_AURA." {$auraLabel}).",
+                [
+                    'realm_duel_id' => $locked->id,
+                    'area_id' => $locked->area_id,
+                    'url' => ArenaUrl::route('student.arena.realm.index'),
+                ],
+            ));
+
+            $opponent->notify(new GameAlert(
+                'realm_duel_declined_self',
+                'Você recusou o duelo do reino',
+                'Recusar custa −'.RealmDuel::DECLINE_PENALTY_AURA." {$auraLabel}. Aceitar e perder ainda rende +".RealmDuel::AURA_LOSS.' de Aura.',
+                [
+                    'realm_duel_id' => $locked->id,
+                    'area_id' => $locked->area_id,
+                    'url' => ArenaUrl::route('student.arena.realm.index'),
+                ],
+            ));
+
+            return $locked->fresh(['challenger', 'opponent', 'challengerClass', 'opponentClass']);
+        });
+    }
+
+    /**
+     * Multa por recusar ou deixar o desafio do reino expirar (piso 0).
+     */
+    public function applyDeclinePenalty(Area $area, User $student): void
+    {
+        $this->debitAura($area, $student->id, RealmDuel::DECLINE_PENALTY_AURA);
     }
 
     /**
@@ -359,6 +331,7 @@ class RealmDuelService
                 }
 
                 $opponentLabel = $student->arenaName() ?: $student->name;
+                $auraLabel = GameCurrency::label('auras');
 
                 foreach ($areaDuels as $duel) {
                     $duel->update([
@@ -366,10 +339,12 @@ class RealmDuelService
                         'resolved_at' => now(),
                     ]);
 
+                    $this->applyDeclinePenalty($area, $student);
+
                     $duel->challenger->notify(new GameAlert(
                         'realm_duel_expired',
                         'Desafio do reino expirado',
-                        "{$opponentLabel} já atingiu o limite de duelos do reino de hoje. Sem punição.",
+                        "{$opponentLabel} já atingiu o limite de duelos do reino de hoje (−".RealmDuel::DECLINE_PENALTY_AURA." {$auraLabel} para quem não respondeu).",
                         [
                             'realm_duel_id' => $duel->id,
                             'area_id' => $duel->area_id,
@@ -459,6 +434,115 @@ class RealmDuelService
 
         $balance->auras = (int) $balance->auras + $amount;
         $balance->save();
+    }
+
+    private function debitAura(Area $area, int $studentId, int $amount): void
+    {
+        $balance = AreaBalance::query()
+            ->where('area_id', $area->id)
+            ->where('student_id', $studentId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $balance) {
+            $balance = AreaBalance::query()->create([
+                'area_id' => $area->id,
+                'student_id' => $studentId,
+                'auras' => 0,
+            ]);
+            $balance = AreaBalance::query()->whereKey($balance->id)->lockForUpdate()->firstOrFail();
+        }
+
+        $balance->auras = max(0, (int) $balance->auras - $amount);
+        $balance->save();
+    }
+
+    private function finalizeCombat(
+        RealmDuel $locked,
+        User $challenger,
+        User $opponent,
+        SchoolClass $challengerClass,
+        SchoolClass $opponentClass,
+    ): RealmDuel {
+        $seed = random_int(1, PHP_INT_MAX);
+        $challengerPower = (float) $this->combat->buildFighter($challenger, $challengerClass)['power'];
+        $opponentPower = (float) $this->combat->buildFighter($opponent, $opponentClass)['power'];
+        $result = $this->combat->resolve(
+            $challenger,
+            $opponent,
+            $challengerClass,
+            $seed,
+            null,
+            $opponentClass,
+        );
+        $winnerId = $result['winner_id'];
+        $loserId = $winnerId === $locked->challenger_id
+            ? $locked->opponent_id
+            : $locked->challenger_id;
+
+        $winnerPower = $winnerId === $challenger->id ? $challengerPower : $opponentPower;
+        $loserPower = $winnerId === $challenger->id ? $opponentPower : $challengerPower;
+        $upset = $this->duels->upsetBonus($winnerPower, $loserPower);
+        $auraWinner = RealmDuel::AURA_WIN + $upset;
+        $auraLoser = RealmDuel::AURA_LOSS;
+
+        $result['upset_bonus'] = $upset;
+        $result['base_powers'] = [
+            'challenger' => $challengerPower,
+            'opponent' => $opponentPower,
+        ];
+
+        $locked->update([
+            'status' => RealmDuel::STATUS_RESOLVED,
+            'seed' => $seed,
+            'log' => $result,
+            'winner_id' => $winnerId,
+            'aura_winner' => $auraWinner,
+            'aura_loser' => $auraLoser,
+            'resolved_at' => now(),
+        ]);
+
+        $this->awardAura($locked->area, $winnerId, $auraWinner);
+        $this->awardAura($locked->area, $loserId, $auraLoser);
+
+        $winner = User::query()->findOrFail($winnerId);
+        $winnerLabel = $winner->arenaName() ?: $winner->name;
+        $upsetNote = $upset > 0 ? " (zebra +{$upset}!)" : '';
+
+        $locked->challenger->notify(new GameAlert(
+            'realm_duel_result',
+            'Duelo do reino resolvido',
+            $winnerId === $locked->challenger_id
+                ? "Você venceu e ganhou {$auraWinner} de Aura!{$upsetNote}"
+                : "{$winnerLabel} venceu. Você ganhou {$auraLoser} de Aura.",
+            [
+                'realm_duel_id' => $locked->id,
+                'area_id' => $locked->area_id,
+                'url' => ArenaUrl::route('student.arena.realm.show', $locked).'?replay=1',
+            ],
+        ));
+
+        $opponent->notify(new GameAlert(
+            'realm_duel_result',
+            'Duelo do reino resolvido',
+            $winnerId === $opponent->id
+                ? "Você venceu e ganhou {$auraWinner} de Aura!{$upsetNote}"
+                : "{$winnerLabel} venceu. Você ganhou {$auraLoser} de Aura.",
+            [
+                'realm_duel_id' => $locked->id,
+                'area_id' => $locked->area_id,
+                'url' => ArenaUrl::route('student.arena.realm.show', $locked).'?replay=1',
+            ],
+        ));
+
+        return $locked->fresh([
+            'challenger',
+            'opponent',
+            'winner',
+            'challengerClass',
+            'opponentClass',
+            'area',
+        ]);
     }
 
     private function requireArea(SchoolClass $class): Area

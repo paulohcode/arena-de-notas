@@ -45,7 +45,7 @@
                     </form>
                     <form method="POST" action="{{ route('student.arena.realm.decline', $duel) }}">
                         @csrf
-                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Recusar</button>
+                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit" title="Custa {{ \App\Models\RealmDuel::DECLINE_PENALTY_AURA }} Aura">Recusar (−{{ \App\Models\RealmDuel::DECLINE_PENALTY_AURA }} Aura)</button>
                     </form>
                 </div>
             </div>

@@ -222,7 +222,7 @@
                     </form>
                     <form method="POST" action="{{ route('student.arena.realm.decline', $duel) }}">
                         @csrf
-                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Recusar</button>
+                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit" title="Custa {{ \App\Models\RealmDuel::DECLINE_PENALTY_AURA }} Aura">Recusar (−{{ \App\Models\RealmDuel::DECLINE_PENALTY_AURA }} Aura)</button>
                     </form>
                 </div>
             </div>
@@ -250,7 +250,7 @@
             @endif
             <p>Limite de <strong class="text-amber-200">{{ $dailyLimit }} {{ $dailyLimit === 1 ? 'duelo resolvido' : 'duelos resolvidos' }}</strong> por dia.</p>
             @if($weeklyQuota > 0)
-                <p>Cota semanal: <strong class="text-amber-200">{{ $weeklyResolved }}/{{ $weeklyQuota }}</strong> duelos. Ficar abaixo custa {{ \App\Models\Duel::WEEKLY_QUOTA_PENALTY }} {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }}.</p>
+                <p>Cota semanal: <strong class="text-amber-200">{{ $weeklyResolved }}/{{ $weeklyQuota }}</strong> duelos (turma + entre turmas). Ficar abaixo custa {{ \App\Models\Duel::WEEKLY_QUOTA_PENALTY }} {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }}.</p>
             @endif
             <p>Recusar um desafio custa <strong class="text-rose-200">−{{ \App\Models\Duel::DECLINE_PENALTY_GLORY }} {{ \App\Models\GameCurrency::label('glory') }}</strong> e <strong class="text-rose-200">−{{ \App\Models\Duel::DECLINE_PENALTY_RELICS }} {{ \App\Models\GameCurrency::label('relics') }}</strong>. Aceitar e perder ainda rende +{{ \App\Models\Duel::GLORY_LOSS }} de cada.</p>
             <p>Vencer alguém mais forte dá <strong class="text-emerald-200">bônus de zebra</strong> (+5 a +15).</p>

@@ -16,7 +16,8 @@
     @else
         <div class="mb-4 rounded-lg border border-violet-400/25 bg-violet-950/20 p-3 text-xs text-amber-100/75 space-y-1">
             <p>Desafie alunos de <strong class="text-violet-200">outras turmas do reino {{ $area->name }}</strong>.</p>
-            <p>Vitória: +{{ \App\Models\RealmDuel::AURA_WIN }} {{ \App\Models\GameCurrency::label('auras') }} · Derrota: +{{ \App\Models\RealmDuel::AURA_LOSS }} {{ \App\Models\GameCurrency::label('auras') }}. Sem {{ \App\Models\GameCurrency::label('glory') }} nem {{ \App\Models\GameCurrency::label('relics') }}.</p>
+            <p>Vitória: +{{ \App\Models\RealmDuel::AURA_WIN }} {{ \App\Models\GameCurrency::label('auras') }} · Derrota: +{{ \App\Models\RealmDuel::AURA_LOSS }}. Zebra: +5 a +15. Conta na cota semanal da turma.</p>
+            <p>Recusar (ou deixar expirar) custa <strong class="text-rose-200">−{{ \App\Models\RealmDuel::DECLINE_PENALTY_AURA }} {{ \App\Models\GameCurrency::label('auras') }}</strong>. Aceitar e perder ainda rende +{{ \App\Models\RealmDuel::AURA_LOSS }}.</p>
             <p>Mesmo par 1×/dia · até {{ $realmDailyLimit }} duelos resolvidos por dia.</p>
             @if($realmCooldownMinutes > 0)
                 <p>Espere <strong class="text-violet-200">{{ $realmCooldownLabel }}</strong> entre um desafio do reino e outro.</p>

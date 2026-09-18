@@ -9,6 +9,8 @@ use App\Models\SchoolClass;
 use App\Models\ShopItem;
 use App\Models\User;
 use App\Notifications\GameAlert;
+use App\Services\ArenaCombatService;
+use App\Services\DuelService;
 use App\Support\CosmeticCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -268,6 +270,105 @@ class RealmDuelTest extends TestCase
             ->assertSessionHasErrors('item');
 
         $this->assertSame(0, $student->enrollmentIn($class)->listings()->count());
+    }
+
+    public function test_realm_decline_penalizes_aura(): void
+    {
+        Notification::fake();
+
+        [$classA, $challenger, $classB, $opponent] = $this->readyRealmPair(true, true);
+        $classA->area->update(['realm_arena_open' => true]);
+        AreaBalance::query()->create([
+            'area_id' => $classA->area_id,
+            'student_id' => $opponent->id,
+            'auras' => 10,
+        ]);
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.realm.challenge'), ['opponent_id' => $opponent->id])
+            ->assertRedirect();
+
+        $duel = RealmDuel::query()->firstOrFail();
+
+        $this->actingAs($opponent)
+            ->post(route('student.arena.realm.decline', $duel))
+            ->assertRedirect(route('student.arena.realm.index'));
+
+        $this->assertSame(RealmDuel::STATUS_DECLINED, $duel->fresh()->status);
+        $this->assertSame(7, (int) AreaBalance::query()
+            ->where('area_id', $classA->area_id)
+            ->where('student_id', $opponent->id)
+            ->value('auras'));
+    }
+
+    public function test_realm_accept_awards_upset_bonus_when_underdog_wins(): void
+    {
+        Notification::fake();
+
+        [$classA, $challenger, $classB, $opponent] = $this->readyRealmPair(true, true);
+        $classA->area->update(['realm_arena_open' => true]);
+
+        $combat = \Mockery::mock(ArenaCombatService::class);
+        $combat->shouldReceive('buildFighter')
+            ->andReturnUsing(function (User $student) use ($challenger) {
+                return [
+                    'power' => $student->id === $challenger->id ? 1.0 : 1.5,
+                ];
+            });
+        $combat->shouldReceive('resolve')->once()->andReturn([
+            'winner_id' => $challenger->id,
+            'winner_reason' => 'ko',
+            'turns' => [],
+            'fighters' => [
+                'challenger' => ['id' => $challenger->id, 'hp' => 10],
+                'opponent' => ['id' => $opponent->id, 'hp' => 0],
+            ],
+        ]);
+        $this->instance(ArenaCombatService::class, $combat);
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.realm.challenge'), ['opponent_id' => $opponent->id]);
+
+        $duel = RealmDuel::query()->firstOrFail();
+
+        $this->actingAs($opponent)
+            ->post(route('student.arena.realm.accept', $duel))
+            ->assertRedirect();
+
+        $duel->refresh();
+        $this->assertSame(RealmDuel::STATUS_RESOLVED, $duel->status);
+        $this->assertSame(25, (int) $duel->aura_winner);
+        $this->assertSame(15, (int) ($duel->log['upset_bonus'] ?? 0));
+        $this->assertSame(25, (int) AreaBalance::query()
+            ->where('area_id', $classA->area_id)
+            ->where('student_id', $challenger->id)
+            ->value('auras'));
+        $this->assertSame(2, (int) AreaBalance::query()
+            ->where('area_id', $classA->area_id)
+            ->where('student_id', $opponent->id)
+            ->value('auras'));
+    }
+
+    public function test_realm_duel_counts_toward_weekly_quota(): void
+    {
+        [$classA, $challenger, $classB, $opponent] = $this->readyRealmPair(true, true);
+
+        RealmDuel::query()->create([
+            'area_id' => $classA->area_id,
+            'challenger_class_id' => $classA->id,
+            'opponent_class_id' => $classB->id,
+            'challenger_id' => $challenger->id,
+            'opponent_id' => $opponent->id,
+            'status' => RealmDuel::STATUS_RESOLVED,
+            'winner_id' => $challenger->id,
+            'aura_winner' => RealmDuel::AURA_WIN,
+            'aura_loser' => RealmDuel::AURA_LOSS,
+            'resolved_at' => now(),
+        ]);
+
+        $this->assertSame(1, app(DuelService::class)->resolvedInWeekCount($classA, $challenger));
+        $this->assertSame(1, app(DuelService::class)->resolvedInWeekCount($classB, $opponent));
+        $this->assertSame(0, app(DuelService::class)->resolvedInWeekCount($classA, $opponent));
     }
 
     /**

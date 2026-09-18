@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Duel;
 use App\Models\Enrollment;
 use App\Models\GameCurrency;
+use App\Models\RealmDuel;
 use App\Models\SchoolClass;
 use App\Models\TeamBattle;
 use App\Models\User;
@@ -422,6 +423,7 @@ class DuelService
 
     /**
      * Contagem de duelos resolvidos na semana civil (segunda–domingo).
+     * Inclui 1v1 da turma e duelos entre turmas do mesmo aluno nesta turma.
      */
     public function resolvedInWeekCount(SchoolClass $class, User $student, ?Carbon $reference = null): int
     {
@@ -429,7 +431,7 @@ class DuelService
         $start = $reference->copy()->startOfWeek(Carbon::MONDAY);
         $end = $reference->copy()->endOfWeek(Carbon::SUNDAY);
 
-        return Duel::query()
+        $classDuels = Duel::query()
             ->where('class_id', $class->id)
             ->where('status', Duel::STATUS_RESOLVED)
             ->where(function ($query) use ($student) {
@@ -438,6 +440,22 @@ class DuelService
             })
             ->whereBetween('resolved_at', [$start, $end])
             ->count();
+
+        $realmDuels = RealmDuel::query()
+            ->where('status', RealmDuel::STATUS_RESOLVED)
+            ->where(function ($query) use ($student, $class) {
+                $query->where(function ($inner) use ($student, $class) {
+                    $inner->where('challenger_id', $student->id)
+                        ->where('challenger_class_id', $class->id);
+                })->orWhere(function ($inner) use ($student, $class) {
+                    $inner->where('opponent_id', $student->id)
+                        ->where('opponent_class_id', $class->id);
+                });
+            })
+            ->whereBetween('resolved_at', [$start, $end])
+            ->count();
+
+        return $classDuels + $realmDuels;
     }
 
     /**

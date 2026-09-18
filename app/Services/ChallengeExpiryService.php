@@ -19,6 +19,7 @@ class ChallengeExpiryService
 
     public function __construct(
         private DuelService $duels,
+        private RealmDuelService $realmDuels,
     ) {}
 
     public function expirePending(): int
@@ -116,12 +117,16 @@ class ChallengeExpiryService
     {
         return (int) DB::transaction(function () use ($cutoff) {
             $duels = RealmDuel::query()
-                ->with(['challenger', 'opponent'])
+                ->with(['challenger', 'opponent', 'area'])
                 ->where('status', RealmDuel::STATUS_PENDING)
                 ->where('created_at', '<=', $cutoff)
                 ->lockForUpdate()
                 ->orderBy('id')
                 ->get();
+
+            $auraLabel = GameCurrency::label('auras');
+            $message = 'O duelo por Aura ficou pendente demais e expirou. Quem não respondeu perdeu −'
+                .RealmDuel::DECLINE_PENALTY_AURA." {$auraLabel}.";
 
             foreach ($duels as $duel) {
                 $duel->update([
@@ -129,11 +134,15 @@ class ChallengeExpiryService
                     'resolved_at' => now(),
                 ]);
 
+                if ($duel->opponent && $duel->area) {
+                    $this->realmDuels->applyDeclinePenalty($duel->area, $duel->opponent);
+                }
+
                 $this->notifyExpired(
                     [$duel->challenger, $duel->opponent],
                     'realm_duel_expired',
                     'Desafio do reino expirado',
-                    'O duelo por Aura ficou pendente demais e expirou. Sem punição.',
+                    $message,
                     [
                         'realm_duel_id' => $duel->id,
                         'area_id' => $duel->area_id,

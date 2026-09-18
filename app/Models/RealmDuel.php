@@ -34,6 +34,8 @@ class RealmDuel extends Model
 
     public const AURA_LOSS = 2;
 
+    public const DECLINE_PENALTY_AURA = 3;
+
     public const DAILY_RESOLVED_LIMIT = 3;
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Duel;
+use App\Models\RealmDuel;
 use App\Models\User;
 use Illuminate\View\View;
 
@@ -16,6 +17,7 @@ class ArenaRulesController extends Controller
             'gloryLoss' => Duel::GLORY_LOSS,
             'declineGlory' => Duel::DECLINE_PENALTY_GLORY,
             'declineRelics' => Duel::DECLINE_PENALTY_RELICS,
+            'declineAura' => RealmDuel::DECLINE_PENALTY_AURA,
             'weeklyQuotaDefault' => Duel::WEEKLY_QUOTA_DEFAULT,
             'weeklyQuotaPenalty' => Duel::WEEKLY_QUOTA_PENALTY,
         ]);

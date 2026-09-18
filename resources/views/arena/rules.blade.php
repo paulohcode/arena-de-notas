@@ -118,7 +118,8 @@
             Vencer alguém mais forte (pelo poder de combate) dá <strong class="text-emerald-200">bônus de zebra</strong> (+5, +10 ou +15).
         </p>
         <p class="text-lg text-amber-100/80 leading-relaxed">
-            Entre turmas, a recompensa é <strong class="text-violet-200">{{ \App\Models\GameCurrency::label('auras') }}</strong>.
+            Entre turmas, a moeda é <strong class="text-violet-200">{{ \App\Models\GameCurrency::label('auras') }}</strong>
+            (vitória +{{ \App\Models\RealmDuel::AURA_WIN }}, derrota +{{ \App\Models\RealmDuel::AURA_LOSS }}, com o mesmo bônus de zebra).
             Nas guerras de guilda, quem lutou também ganha {{ \App\Models\GameCurrency::label('glory') }} e {{ \App\Models\GameCurrency::label('relics') }}.
         </p>
     </div>
@@ -128,14 +129,17 @@
             Recusar (ou deixar expirar) um duelo da turma custa
             <strong class="text-rose-200">−{{ $declineGlory }} {{ \App\Models\GameCurrency::label('glory') }}</strong>
             e <strong class="text-rose-200">−{{ $declineRelics }} {{ \App\Models\GameCurrency::label('relics') }}</strong>.
-            Aceitar e perder ainda rende +{{ $gloryLoss }} de cada.
+            No duelo entre turmas, a multa é
+            <strong class="text-rose-200">−{{ $declineAura }} {{ \App\Models\GameCurrency::label('auras') }}</strong>.
+            Aceitar e perder ainda rende +{{ $gloryLoss }} (turma) ou +{{ \App\Models\RealmDuel::AURA_LOSS }} Aura (reino).
         </p>
         <p class="text-lg md:text-xl text-amber-100/85 leading-relaxed">
             Há uma <strong class="text-amber-200">cota semanal</strong> de duelos (padrão {{ $weeklyQuotaDefault }}; o professor pode ajustar ou desligar).
-            Ficar abaixo custa −{{ $weeklyQuotaPenalty }} de cada moeda.
+            Contam duelos da turma <strong class="text-amber-200">e</strong> entre turmas.
+            Ficar abaixo custa −{{ $weeklyQuotaPenalty }} {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }}.
         </p>
         <p class="text-lg md:text-xl text-amber-100/85 leading-relaxed">
-            O professor pode <strong class="text-cyan-200">marcar um duelo</strong> entre dois alunos — a luta resolve na hora.
+            O professor pode <strong class="text-cyan-200">marcar um duelo</strong> entre dois alunos da turma — a luta resolve na hora.
         </p>
     </div>
 </section>

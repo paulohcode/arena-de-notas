@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AreaBalance;
 use App\Models\Duel;
 use App\Models\RealmDuel;
 use App\Models\SchoolClass;
@@ -54,6 +55,11 @@ class ChallengeExpiryTest extends TestCase
             'area' => $class->area,
         ]);
         $realmOpponent = $this->enrollStudent($realmClass, 'Carla Dias');
+        AreaBalance::query()->create([
+            'area_id' => $class->area_id,
+            'student_id' => $realmOpponent->id,
+            'auras' => 9,
+        ]);
         $realmDuel = RealmDuel::query()->create([
             'area_id' => $class->area_id,
             'challenger_class_id' => $class->id,
@@ -75,6 +81,10 @@ class ChallengeExpiryTest extends TestCase
         $this->assertSame(4, (int) $challenger->enrollmentIn($class)->fresh()->glory);
         $this->assertSame(6, (int) $opponent->enrollmentIn($class)->fresh()->glory);
         $this->assertSame(6, (int) $opponent->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(6, (int) AreaBalance::query()
+            ->where('area_id', $class->area_id)
+            ->where('student_id', $realmOpponent->id)
+            ->value('auras'));
         $this->assertSame(now()->timestamp, (int) Cache::get(GameEventService::LAST_TICK_CACHE_KEY));
 
         Notification::assertSentTo($challenger, GameAlert::class);
