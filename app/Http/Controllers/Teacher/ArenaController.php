@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\RealmDuel;
 use App\Models\SchoolClass;
+use App\Models\User;
 use App\Services\DuelService;
 use App\Services\RealmDuelService;
 use App\Support\ArenaSchedule;
@@ -43,10 +44,14 @@ class ArenaController extends Controller
             [
                 ...ArenaSchedule::rules('days'),
                 ...ArenaSchedule::guildRules('guild_days'),
+                'arena_weekly_quota' => ['required', 'integer', 'min:0', 'max:21'],
             ],
             [
                 ...ArenaSchedule::messages('days'),
                 ...ArenaSchedule::guildMessages('guild_days'),
+                'arena_weekly_quota.required' => 'Informe a cota semanal de duelos (0 desliga).',
+                'arena_weekly_quota.min' => 'A cota semanal não pode ser negativa.',
+                'arena_weekly_quota.max' => 'A cota semanal máxima é 21.',
             ],
         );
 
@@ -54,9 +59,38 @@ class ArenaController extends Controller
             $schoolClass,
             ArenaSchedule::fromValidated($data['days']),
             ArenaSchedule::guildFromValidated($data['guild_days']),
+            (int) $data['arena_weekly_quota'],
         );
 
         return $this->redirectToArena($schoolClass, 'Configurações da arena salvas.');
+    }
+
+    public function arrange(Request $request, SchoolClass $schoolClass): RedirectResponse
+    {
+        $this->authorize('manage', $schoolClass);
+
+        $data = $request->validate([
+            'challenger_id' => ['required', 'integer', 'exists:users,id'],
+            'opponent_id' => ['required', 'integer', 'exists:users,id', 'different:challenger_id'],
+        ], [
+            'opponent_id.different' => 'Escolha dois alunos diferentes.',
+        ]);
+
+        $challenger = User::query()->findOrFail($data['challenger_id']);
+        $opponent = User::query()->findOrFail($data['opponent_id']);
+
+        try {
+            $duel = $this->duels->staffArrange($schoolClass, $challenger, $opponent, $request->user());
+        } catch (ValidationException $exception) {
+            return $this->redirectToArena($schoolClass)->withErrors($exception->errors());
+        }
+
+        $winnerName = $duel->winner?->arenaName() ?: $duel->winner?->name;
+
+        return $this->redirectToArena(
+            $schoolClass,
+            "Duelo marcado e resolvido. Vencedor: {$winnerName}.",
+        );
     }
 
     public function cancelRealm(Request $request, SchoolClass $schoolClass, RealmDuel $realmDuel): RedirectResponse

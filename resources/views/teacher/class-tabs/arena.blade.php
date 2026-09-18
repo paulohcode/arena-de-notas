@@ -31,6 +31,8 @@
                             {{ $class->isArenaOpen() ? 'aberta' : 'fechada' }}
                         </span>
                         · Vitória +{{ \App\Models\Duel::GLORY_WIN }} {{ \App\Models\GameCurrency::label('glory') }} · Derrota +{{ \App\Models\Duel::GLORY_LOSS }}
+                        · Recusar −{{ \App\Models\Duel::DECLINE_PENALTY_GLORY }}/−{{ \App\Models\Duel::DECLINE_PENALTY_RELICS }}
+                        · Cota {{ $class->arenaWeeklyQuota() }}/semana
                         · Espera {{ $class->arenaCooldownLabel() }}
                         · Limite {{ $class->arenaDailyLimit() }}/dia
                         · Guildas {{ $class->guildArenaDailyLimit() }}/dia
@@ -72,6 +74,19 @@
                     <h3 class="font-display text-lg text-amber-200">Configurações da arena</h3>
                     <p class="text-sm text-amber-100/60 mt-1">Defina, para cada dia da semana, se a arena está aberta, o intervalo entre desafios e o limite de duelos e de batalhas de guildas.</p>
                 </div>
+                <div>
+                    <label class="block text-sm text-amber-100/70 mb-1" for="arena_weekly_quota">Cota semanal de duelos 1v1 (0 = desligada)</label>
+                    <input
+                        id="arena_weekly_quota"
+                        name="arena_weekly_quota"
+                        type="number"
+                        min="0"
+                        max="21"
+                        value="{{ old('arena_weekly_quota', $class->arenaWeeklyQuota()) }}"
+                        class="game-input w-40"
+                    >
+                    <p class="text-xs text-amber-100/45 mt-1">Quem ficar abaixo na semana paga −{{ \App\Models\Duel::WEEKLY_QUOTA_PENALTY }} {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }}.</p>
+                </div>
                 @include('partials.arena-weekday-settings', [
                     'prefix' => 'days',
                     'week' => $class->arenaWeek(),
@@ -82,6 +97,43 @@
                     'guildLimitLabel' => 'Guildas no dia',
                 ])
                 <button class="game-btn" type="submit">Salvar configurações</button>
+            </form>
+
+            <form method="POST" action="{{ route('teacher.arena.arrange', $class) }}" class="game-card p-5 space-y-4">
+                @csrf
+                <div>
+                    <h3 class="font-display text-lg text-amber-200">Marcar duelo</h3>
+                    <p class="text-sm text-amber-100/60 mt-1">Escolha dois alunos com personagem aprovado. O combate resolve na hora (conta na cota semanal e pode pagar bônus de zebra).</p>
+                </div>
+                @if(($arenaEligibleFighters ?? collect())->count() < 2)
+                    <p class="text-sm text-amber-100/55">Precisa de pelo menos dois alunos com persona aprovada.</p>
+                @else
+                    <div class="grid sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-amber-100/70 mb-1" for="arrange_challenger_id">Aluno A</label>
+                            <select id="arrange_challenger_id" name="challenger_id" class="game-input w-full" required>
+                                <option value="">Selecione…</option>
+                                @foreach($arenaEligibleFighters as $fighter)
+                                    <option value="{{ $fighter->id }}" @selected((string) old('challenger_id') === (string) $fighter->id)>
+                                        {{ $fighter->name }}@if($fighter->arenaName()) · {{ $fighter->arenaName() }}@endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-amber-100/70 mb-1" for="arrange_opponent_id">Aluno B</label>
+                            <select id="arrange_opponent_id" name="opponent_id" class="game-input w-full" required>
+                                <option value="">Selecione…</option>
+                                @foreach($arenaEligibleFighters as $fighter)
+                                    <option value="{{ $fighter->id }}" @selected((string) old('opponent_id') === (string) $fighter->id)>
+                                        {{ $fighter->name }}@if($fighter->arenaName()) · {{ $fighter->arenaName() }}@endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <button class="game-btn" type="submit">Marcar e resolver agora</button>
+                @endif
             </form>
 
             <div class="grid lg:grid-cols-2 gap-4">
@@ -118,6 +170,27 @@
                     @endforelse
                 </div>
             </div>
+
+            @if($class->arenaWeeklyQuota() > 0)
+                <div class="game-card p-5">
+                    <h3 class="font-display text-lg text-amber-200 mb-3">Cota semanal ({{ $class->arenaWeeklyQuota() }} duelos)</h3>
+                    @forelse($arenaQuotaProgress ?? [] as $row)
+                        <div class="flex justify-between py-2 border-b border-purple-900/40 text-sm">
+                            <span>
+                                <a class="hover:text-amber-300" href="{{ route('teacher.students.show', [$class, $row['student']]) }}">{{ $row['student']->name }}</a>
+                                @if($row['student']->arenaName())
+                                    <span class="text-amber-300"> · {{ $row['student']->arenaName() }}</span>
+                                @endif
+                            </span>
+                            <span class="{{ $row['count'] < $row['quota'] ? 'text-rose-300' : 'text-emerald-300' }}">
+                                {{ $row['count'] }}/{{ $row['quota'] }}
+                            </span>
+                        </div>
+                    @empty
+                        <p class="text-sm text-purple-200/60">Nenhum aluno com persona aprovada.</p>
+                    @endforelse
+                </div>
+            @endif
 
             <div class="game-card p-5">
                 <h3 class="font-display text-lg text-amber-200 mb-3">Histórico recente</h3>

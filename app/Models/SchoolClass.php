@@ -29,6 +29,8 @@ class SchoolClass extends Model
         'arena_schedule',
         'guild_arena_daily_limit',
         'guild_arena_schedule',
+        'arena_weekly_quota',
+        'arena_quota_settled_week',
     ];
 
     /**
@@ -39,6 +41,7 @@ class SchoolClass extends Model
         'arena_cooldown_minutes' => Duel::CHALLENGE_COOLDOWN_MINUTES,
         'arena_daily_limit' => Duel::DAILY_RESOLVED_LIMIT,
         'guild_arena_daily_limit' => TeamBattle::DAILY_RESOLVED_LIMIT,
+        'arena_weekly_quota' => Duel::WEEKLY_QUOTA_DEFAULT,
     ];
 
     protected function casts(): array
@@ -50,6 +53,7 @@ class SchoolClass extends Model
             'arena_schedule' => 'array',
             'guild_arena_daily_limit' => 'integer',
             'guild_arena_schedule' => 'array',
+            'arena_weekly_quota' => 'integer',
             'team_grade_weight' => 'integer',
             'behavior_grade_weight' => 'integer',
             'attendance_grade_weight' => 'integer',
@@ -271,6 +275,11 @@ class SchoolClass extends Model
     private function fallbackGuildArenaDailyLimit(): int
     {
         return max(1, (int) ($this->guild_arena_daily_limit ?? TeamBattle::DAILY_RESOLVED_LIMIT));
+    }
+
+    public function arenaWeeklyQuota(): int
+    {
+        return max(0, (int) ($this->arena_weekly_quota ?? Duel::WEEKLY_QUOTA_DEFAULT));
     }
 
     public function isRising(): bool

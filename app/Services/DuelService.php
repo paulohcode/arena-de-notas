@@ -105,63 +105,45 @@ class DuelService
                 ]);
             }
 
-            $seed = random_int(1, PHP_INT_MAX);
-            $result = $this->combat->resolve($locked->challenger, $opponent, $class, $seed);
-            $winnerId = $result['winner_id'];
-            $loserId = $winnerId === $locked->challenger_id
-                ? $locked->opponent_id
-                : $locked->challenger_id;
-
-            $locked->update([
-                'status' => Duel::STATUS_RESOLVED,
-                'seed' => $seed,
-                'log' => $result,
-                'winner_id' => $winnerId,
-                'glory_winner' => Duel::GLORY_WIN,
-                'glory_loser' => Duel::GLORY_LOSS,
-                'resolved_at' => now(),
-            ]);
-
-            $this->awardGlory($class, $winnerId, Duel::GLORY_WIN, won: true);
-            $this->awardGlory($class, $loserId, Duel::GLORY_LOSS, won: false);
-
-            $winner = User::query()->findOrFail($winnerId);
-            $loser = User::query()->findOrFail($loserId);
-            $winnerLabel = $winner->arenaName() ?: $winner->name;
-
-            $locked->challenger->notify(new GameAlert(
-                'duel_result',
-                'Duelo resolvido',
-                $winnerId === $locked->challenger_id
-                    ? 'Você venceu o duelo e ganhou '.Duel::GLORY_WIN.' de '.GameCurrency::label('glory').'!'
-                    : "{$winnerLabel} venceu o duelo. Você ganhou ".Duel::GLORY_LOSS.' de '.GameCurrency::label('glory').'.',
-                [
-                    'duel_id' => $locked->id,
-                    'class_id' => $class->id,
-                    'url' => ArenaUrl::route('student.arena.show', $locked).'?replay=1',
-                ],
-            ));
-
-            $opponent->notify(new GameAlert(
-                'duel_result',
-                'Duelo resolvido',
-                $winnerId === $opponent->id
-                    ? 'Você venceu o duelo e ganhou '.Duel::GLORY_WIN.' de '.GameCurrency::label('glory').'!'
-                    : "{$winnerLabel} venceu o duelo. Você ganhou ".Duel::GLORY_LOSS.' de '.GameCurrency::label('glory').'.',
-                [
-                    'duel_id' => $locked->id,
-                    'class_id' => $class->id,
-                    'url' => ArenaUrl::route('student.arena.show', $locked).'?replay=1',
-                ],
-            ));
-
-            return $locked->fresh(['challenger', 'opponent', 'winner']);
+            return $this->finalizeCombat($locked, $locked->challenger, $opponent, $class);
         });
 
         $this->expirePendingIncomingAtDailyLimit($resolved->challenger);
         $this->expirePendingIncomingAtDailyLimit($resolved->opponent);
 
         return $resolved;
+    }
+
+    /**
+     * Professor marca um duelo entre dois alunos; combate resolve na hora.
+     *
+     * @throws ValidationException
+     */
+    public function staffArrange(SchoolClass $class, User $fighterA, User $fighterB, User $teacher): Duel
+    {
+        $this->assertCanFight($class, $fighterA);
+        $this->assertCanFight($class, $fighterB);
+
+        if ($fighterA->id === $fighterB->id) {
+            throw ValidationException::withMessages([
+                'opponent_id' => 'Escolha dois alunos diferentes.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($class, $fighterA, $fighterB, $teacher) {
+            $duel = Duel::query()->create([
+                'class_id' => $class->id,
+                'challenger_id' => $fighterA->id,
+                'opponent_id' => $fighterB->id,
+                'arranged_by' => $teacher->id,
+                'status' => Duel::STATUS_PENDING,
+            ]);
+
+            /** @var Duel $locked */
+            $locked = Duel::query()->whereKey($duel->id)->lockForUpdate()->firstOrFail();
+
+            return $this->finalizeCombat($locked, $fighterA, $fighterB, $class);
+        });
     }
 
     /**
@@ -181,25 +163,64 @@ class DuelService
             ]);
         }
 
-        $duel->update([
-            'status' => Duel::STATUS_DECLINED,
-            'resolved_at' => now(),
-        ]);
+        return DB::transaction(function () use ($duel, $opponent) {
+            /** @var Duel $locked */
+            $locked = Duel::query()->whereKey($duel->id)->lockForUpdate()->firstOrFail();
 
-        $opponentLabel = $opponent->arenaName() ?: $opponent->name;
+            if (! $locked->isPending()) {
+                throw ValidationException::withMessages([
+                    'duel' => 'Este desafio não está mais pendente.',
+                ]);
+            }
 
-        $duel->challenger->notify(new GameAlert(
-            'duel_declined',
-            'Desafio recusado',
-            "{$opponentLabel} recusou o duelo. Sem punição.",
-            [
-                'duel_id' => $duel->id,
-                'class_id' => $duel->class_id,
-                'url' => ArenaUrl::route('student.arena.index'),
-            ],
-        ));
+            $locked->update([
+                'status' => Duel::STATUS_DECLINED,
+                'resolved_at' => now(),
+            ]);
 
-        return $duel->fresh(['challenger', 'opponent']);
+            $this->applyDeclinePenalty($locked->schoolClass, $opponent);
+
+            $opponentLabel = $opponent->arenaName() ?: $opponent->name;
+            $gloryLabel = GameCurrency::label('glory');
+            $relicsLabel = GameCurrency::label('relics');
+
+            $locked->challenger->notify(new GameAlert(
+                'duel_declined',
+                'Desafio recusado',
+                "{$opponentLabel} recusou o duelo (−".Duel::DECLINE_PENALTY_GLORY." {$gloryLabel} e −".Duel::DECLINE_PENALTY_RELICS." {$relicsLabel}).",
+                [
+                    'duel_id' => $locked->id,
+                    'class_id' => $locked->class_id,
+                    'url' => ArenaUrl::route('student.arena.index'),
+                ],
+            ));
+
+            $opponent->notify(new GameAlert(
+                'duel_declined_self',
+                'Você recusou o duelo',
+                'Recusar custa −'.Duel::DECLINE_PENALTY_GLORY." {$gloryLabel} e −".Duel::DECLINE_PENALTY_RELICS." {$relicsLabel}. Aceitar e perder ainda rende +".Duel::GLORY_LOSS.' de cada.',
+                [
+                    'duel_id' => $locked->id,
+                    'class_id' => $locked->class_id,
+                    'url' => ArenaUrl::route('student.arena.index'),
+                ],
+            ));
+
+            return $locked->fresh(['challenger', 'opponent']);
+        });
+    }
+
+    /**
+     * Multa por recusar ou deixar o desafio expirar (piso 0; não altera W/L).
+     */
+    public function applyDeclinePenalty(SchoolClass $class, User $student): void
+    {
+        $this->debitCurrencies(
+            $class,
+            $student->id,
+            Duel::DECLINE_PENALTY_GLORY,
+            Duel::DECLINE_PENALTY_RELICS,
+        );
     }
 
     public function toggleArena(SchoolClass $class, bool $open): SchoolClass
@@ -228,8 +249,12 @@ class DuelService
      * @param  array<int, array{open: bool, cooldown_minutes: int, daily_limit: int}>  $schedule
      * @param  array<int, array{daily_limit: int}>  $guildSchedule
      */
-    public function updateSettings(SchoolClass $class, array $schedule, array $guildSchedule): SchoolClass
-    {
+    public function updateSettings(
+        SchoolClass $class,
+        array $schedule,
+        array $guildSchedule,
+        ?int $weeklyQuota = null,
+    ): SchoolClass {
         $today = ArenaSchedule::forToday(
             $schedule,
             false,
@@ -237,7 +262,7 @@ class DuelService
             Duel::DAILY_RESOLVED_LIMIT,
         );
 
-        $class->update([
+        $payload = [
             'arena_schedule' => $schedule,
             'arena_open' => $today['open'],
             'arena_cooldown_minutes' => $today['cooldown_minutes'],
@@ -247,7 +272,13 @@ class DuelService
                 $guildSchedule,
                 TeamBattle::DAILY_RESOLVED_LIMIT,
             ),
-        ]);
+        ];
+
+        if ($weeklyQuota !== null) {
+            $payload['arena_weekly_quota'] = max(0, $weeklyQuota);
+        }
+
+        $class->update($payload);
 
         return $class->fresh();
     }
@@ -332,7 +363,7 @@ class DuelService
     {
         DB::transaction(function () use ($student) {
             $duels = Duel::query()
-                ->with(['challenger', 'schoolClass'])
+                ->with(['challenger', 'opponent', 'schoolClass'])
                 ->where('opponent_id', $student->id)
                 ->where('status', Duel::STATUS_PENDING)
                 ->lockForUpdate()
@@ -352,12 +383,16 @@ class DuelService
                         'resolved_at' => now(),
                     ]);
 
+                    $this->applyDeclinePenalty($class, $student);
+
                     $opponentLabel = $this->fighterLabel($student);
+                    $gloryLabel = GameCurrency::label('glory');
+                    $relicsLabel = GameCurrency::label('relics');
 
                     $duel->challenger->notify(new GameAlert(
                         'duel_expired',
                         'Desafio expirado',
-                        "{$opponentLabel} já atingiu o limite de duelos de hoje. Sem punição.",
+                        "{$opponentLabel} já atingiu o limite de duelos de hoje (−".Duel::DECLINE_PENALTY_GLORY." {$gloryLabel} e −".Duel::DECLINE_PENALTY_RELICS." {$relicsLabel} para quem não respondeu).",
                         [
                             'duel_id' => $duel->id,
                             'class_id' => $duel->class_id,
@@ -385,6 +420,245 @@ class DuelService
             ->count();
     }
 
+    /**
+     * Contagem de duelos resolvidos na semana civil (segunda–domingo).
+     */
+    public function resolvedInWeekCount(SchoolClass $class, User $student, ?Carbon $reference = null): int
+    {
+        $reference ??= now();
+        $start = $reference->copy()->startOfWeek(Carbon::MONDAY);
+        $end = $reference->copy()->endOfWeek(Carbon::SUNDAY);
+
+        return Duel::query()
+            ->where('class_id', $class->id)
+            ->where('status', Duel::STATUS_RESOLVED)
+            ->where(function ($query) use ($student) {
+                $query->where('challenger_id', $student->id)
+                    ->orWhere('opponent_id', $student->id);
+            })
+            ->whereBetween('resolved_at', [$start, $end])
+            ->count();
+    }
+
+    /**
+     * Chave ISO da semana (ex.: 2026-W38).
+     */
+    public function weekKey(?Carbon $reference = null): string
+    {
+        $reference ??= now();
+
+        return sprintf('%d-W%02d', (int) $reference->isoWeekYear, (int) $reference->isoWeek);
+    }
+
+    /**
+     * Aplica multa de cota da semana anterior (idempotente por turma).
+     */
+    public function settleWeeklyQuotas(): int
+    {
+        $previousWeek = now()->copy()->subWeek();
+        $previousWeekKey = $this->weekKey($previousWeek);
+        $penalized = 0;
+
+        $classes = SchoolClass::query()
+            ->where('arena_weekly_quota', '>', 0)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($classes as $class) {
+            $penalized += $this->settleWeeklyQuotaForClass($class, $previousWeek, $previousWeekKey);
+        }
+
+        return $penalized;
+    }
+
+    /**
+     * @return list<array{student: User, count: int, quota: int}>
+     */
+    public function weeklyQuotaProgress(SchoolClass $class): array
+    {
+        $quota = $class->arenaWeeklyQuota();
+
+        if ($quota <= 0) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($class->students()->orderBy('name')->get() as $student) {
+            if (! $student->hasApprovedPersona()) {
+                continue;
+            }
+
+            $rows[] = [
+                'student' => $student,
+                'count' => $this->resolvedInWeekCount($class, $student),
+                'quota' => $quota,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Bônus de zebra: vitória com poder base menor que o do rival.
+     */
+    public function upsetBonus(float $winnerPower, float $loserPower): int
+    {
+        if ($winnerPower <= 0 || $loserPower <= $winnerPower) {
+            return 0;
+        }
+
+        $ratio = $loserPower / $winnerPower;
+
+        if ($ratio >= 1.40) {
+            return 15;
+        }
+
+        if ($ratio >= 1.20) {
+            return 10;
+        }
+
+        if ($ratio >= 1.05) {
+            return 5;
+        }
+
+        return 0;
+    }
+
+    private function settleWeeklyQuotaForClass(SchoolClass $class, Carbon $previousWeek, string $previousWeekKey): int
+    {
+        return (int) DB::transaction(function () use ($class, $previousWeek, $previousWeekKey) {
+            /** @var SchoolClass $locked */
+            $locked = SchoolClass::query()->whereKey($class->id)->lockForUpdate()->firstOrFail();
+            $quota = $locked->arenaWeeklyQuota();
+
+            if ($quota <= 0) {
+                return 0;
+            }
+
+            if ($locked->arena_quota_settled_week === null) {
+                $locked->update(['arena_quota_settled_week' => $previousWeekKey]);
+
+                return 0;
+            }
+
+            if ($locked->arena_quota_settled_week === $previousWeekKey) {
+                return 0;
+            }
+
+            $penalized = 0;
+            $gloryLabel = GameCurrency::label('glory');
+            $relicsLabel = GameCurrency::label('relics');
+
+            foreach ($locked->students()->orderBy('name')->get() as $student) {
+                if (! $student->hasApprovedPersona()) {
+                    continue;
+                }
+
+                $count = $this->resolvedInWeekCount($locked, $student, $previousWeek);
+
+                if ($count >= $quota) {
+                    continue;
+                }
+
+                $this->debitCurrencies(
+                    $locked,
+                    $student->id,
+                    Duel::WEEKLY_QUOTA_PENALTY,
+                    Duel::WEEKLY_QUOTA_PENALTY,
+                );
+
+                $student->notify(new GameAlert(
+                    'duel_quota_penalty',
+                    'Cota semanal da arena',
+                    "Você fez {$count} de {$quota} duelos na semana passada. Multa: −".Duel::WEEKLY_QUOTA_PENALTY." {$gloryLabel} e −".Duel::WEEKLY_QUOTA_PENALTY." {$relicsLabel}.",
+                    [
+                        'class_id' => $locked->id,
+                        'url' => ArenaUrl::route('student.arena.index'),
+                    ],
+                ));
+
+                $penalized++;
+            }
+
+            $locked->update(['arena_quota_settled_week' => $previousWeekKey]);
+
+            return $penalized;
+        });
+    }
+
+    private function finalizeCombat(Duel $locked, User $challenger, User $opponent, SchoolClass $class): Duel
+    {
+        $seed = random_int(1, PHP_INT_MAX);
+        $challengerPower = (float) $this->combat->buildFighter($challenger, $class)['power'];
+        $opponentPower = (float) $this->combat->buildFighter($opponent, $class)['power'];
+        $result = $this->combat->resolve($challenger, $opponent, $class, $seed);
+        $winnerId = $result['winner_id'];
+        $loserId = $winnerId === $locked->challenger_id
+            ? $locked->opponent_id
+            : $locked->challenger_id;
+
+        $winnerPower = $winnerId === $challenger->id ? $challengerPower : $opponentPower;
+        $loserPower = $winnerId === $challenger->id ? $opponentPower : $challengerPower;
+        $upset = $this->upsetBonus($winnerPower, $loserPower);
+        $gloryWinner = Duel::GLORY_WIN + $upset;
+        $gloryLoser = Duel::GLORY_LOSS;
+
+        $result['upset_bonus'] = $upset;
+        $result['base_powers'] = [
+            'challenger' => $challengerPower,
+            'opponent' => $opponentPower,
+        ];
+
+        $locked->update([
+            'status' => Duel::STATUS_RESOLVED,
+            'seed' => $seed,
+            'log' => $result,
+            'winner_id' => $winnerId,
+            'glory_winner' => $gloryWinner,
+            'glory_loser' => $gloryLoser,
+            'resolved_at' => now(),
+        ]);
+
+        $this->awardGlory($class, $winnerId, $gloryWinner, won: true);
+        $this->awardGlory($class, $loserId, $gloryLoser, won: false);
+
+        $winner = User::query()->findOrFail($winnerId);
+        $winnerLabel = $winner->arenaName() ?: $winner->name;
+        $gloryLabel = GameCurrency::label('glory');
+        $upsetNote = $upset > 0
+            ? " (zebra +{$upset}!)"
+            : '';
+
+        $locked->challenger->notify(new GameAlert(
+            'duel_result',
+            'Duelo resolvido',
+            $winnerId === $locked->challenger_id
+                ? "Você venceu o duelo e ganhou {$gloryWinner} de {$gloryLabel}!{$upsetNote}"
+                : "{$winnerLabel} venceu o duelo. Você ganhou {$gloryLoser} de {$gloryLabel}.",
+            [
+                'duel_id' => $locked->id,
+                'class_id' => $class->id,
+                'url' => ArenaUrl::route('student.arena.show', $locked).'?replay=1',
+            ],
+        ));
+
+        $opponent->notify(new GameAlert(
+            'duel_result',
+            'Duelo resolvido',
+            $winnerId === $opponent->id
+                ? "Você venceu o duelo e ganhou {$gloryWinner} de {$gloryLabel}!{$upsetNote}"
+                : "{$winnerLabel} venceu o duelo. Você ganhou {$gloryLoser} de {$gloryLabel}.",
+            [
+                'duel_id' => $locked->id,
+                'class_id' => $class->id,
+                'url' => ArenaUrl::route('student.arena.show', $locked).'?replay=1',
+            ],
+        ));
+
+        return $locked->fresh(['challenger', 'opponent', 'winner', 'arrangedBy']);
+    }
+
     private function awardGlory(SchoolClass $class, int $studentId, int $amount, bool $won): void
     {
         $enrollment = Enrollment::query()
@@ -406,6 +680,23 @@ class DuelService
             $enrollment->arena_losses = (int) $enrollment->arena_losses + 1;
         }
 
+        $enrollment->save();
+    }
+
+    private function debitCurrencies(SchoolClass $class, int $studentId, int $glory, int $relics): void
+    {
+        $enrollment = Enrollment::query()
+            ->where('class_id', $class->id)
+            ->where('student_id', $studentId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $enrollment) {
+            throw new RuntimeException('Matrícula não encontrada para debitar moedas da arena.');
+        }
+
+        $enrollment->glory = max(0, (int) $enrollment->glory - $glory);
+        $enrollment->relics = max(0, (int) $enrollment->relics - $relics);
         $enrollment->save();
     }
 

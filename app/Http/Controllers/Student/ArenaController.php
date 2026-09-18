@@ -181,6 +181,8 @@ class ArenaController extends Controller
             'history' => $history,
             'hall' => $this->duels->hall($class, publicOnly: true),
             'resolvedToday' => $this->duels->resolvedTodayCount($class, $student),
+            'weeklyQuota' => $class->arenaWeeklyQuota(),
+            'weeklyResolved' => $this->duels->resolvedInWeekCount($class, $student),
             'dailyLimit' => $class->arenaDailyLimit(),
             'cooldownMinutes' => $class->arenaCooldownMinutes(),
             'cooldownLabel' => $class->arenaCooldownLabel(),

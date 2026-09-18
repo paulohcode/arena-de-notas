@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BossVigil;
 use App\Models\Duel;
+use App\Models\GameCurrency;
 use App\Models\RealmDuel;
 use App\Models\TeamBattle;
 use App\Models\User;
@@ -15,6 +16,10 @@ use Illuminate\Support\Facades\DB;
 class ChallengeExpiryService
 {
     public const PENDING_EXPIRES_HOURS = 24;
+
+    public function __construct(
+        private DuelService $duels,
+    ) {}
 
     public function expirePending(): int
     {
@@ -30,12 +35,18 @@ class ChallengeExpiryService
     {
         return (int) DB::transaction(function () use ($cutoff) {
             $duels = Duel::query()
-                ->with(['challenger', 'opponent'])
+                ->with(['challenger', 'opponent', 'schoolClass'])
                 ->where('status', Duel::STATUS_PENDING)
                 ->where('created_at', '<=', $cutoff)
                 ->lockForUpdate()
                 ->orderBy('id')
                 ->get();
+
+            $gloryLabel = GameCurrency::label('glory');
+            $relicsLabel = GameCurrency::label('relics');
+            $message = 'O duelo ficou pendente demais e expirou. Quem não respondeu perdeu −'
+                .Duel::DECLINE_PENALTY_GLORY." {$gloryLabel} e −"
+                .Duel::DECLINE_PENALTY_RELICS." {$relicsLabel}.";
 
             foreach ($duels as $duel) {
                 $duel->update([
@@ -43,11 +54,15 @@ class ChallengeExpiryService
                     'resolved_at' => now(),
                 ]);
 
+                if ($duel->opponent && $duel->schoolClass) {
+                    $this->duels->applyDeclinePenalty($duel->schoolClass, $duel->opponent);
+                }
+
                 $this->notifyExpired(
                     [$duel->challenger, $duel->opponent],
                     'duel_expired',
                     'Desafio expirado',
-                    'O duelo ficou pendente demais e expirou. Sem punição.',
+                    $message,
                     [
                         'duel_id' => $duel->id,
                         'class_id' => $duel->class_id,

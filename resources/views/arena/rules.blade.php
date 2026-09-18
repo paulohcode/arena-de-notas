@@ -115,11 +115,33 @@
             Derrota: <strong class="text-amber-200">+{{ $gloryLoss }}</strong> (também conta, só que menos).
         </p>
         <p class="text-lg text-amber-100/80 leading-relaxed">
+            Vencer alguém mais forte (pelo poder de combate) dá <strong class="text-emerald-200">bônus de zebra</strong> (+5, +10 ou +15).
+        </p>
+        <p class="text-lg text-amber-100/80 leading-relaxed">
             Entre turmas, a recompensa é <strong class="text-violet-200">{{ \App\Models\GameCurrency::label('auras') }}</strong>.
             Nas guerras de guilda, quem lutou também ganha {{ \App\Models\GameCurrency::label('glory') }} e {{ \App\Models\GameCurrency::label('relics') }}.
         </p>
     </div>
     <div class="game-card p-6 md:p-8 space-y-3 border-rose-400/30">
+        <h2 class="font-display text-3xl text-rose-200">Recusa, cota e professor</h2>
+        <p class="text-lg md:text-xl text-amber-50 leading-relaxed">
+            Recusar (ou deixar expirar) um duelo da turma custa
+            <strong class="text-rose-200">−{{ $declineGlory }} {{ \App\Models\GameCurrency::label('glory') }}</strong>
+            e <strong class="text-rose-200">−{{ $declineRelics }} {{ \App\Models\GameCurrency::label('relics') }}</strong>.
+            Aceitar e perder ainda rende +{{ $gloryLoss }} de cada.
+        </p>
+        <p class="text-lg md:text-xl text-amber-100/85 leading-relaxed">
+            Há uma <strong class="text-amber-200">cota semanal</strong> de duelos (padrão {{ $weeklyQuotaDefault }}; o professor pode ajustar ou desligar).
+            Ficar abaixo custa −{{ $weeklyQuotaPenalty }} de cada moeda.
+        </p>
+        <p class="text-lg md:text-xl text-amber-100/85 leading-relaxed">
+            O professor pode <strong class="text-cyan-200">marcar um duelo</strong> entre dois alunos — a luta resolve na hora.
+        </p>
+    </div>
+</section>
+
+<section class="grid md:grid-cols-2 gap-4 mb-10 reveal">
+    <div class="game-card p-6 md:p-8 space-y-3 border-rose-400/30 md:col-span-2">
         <h2 class="font-display text-3xl text-rose-200">O que a arena não muda</h2>
         <p class="text-lg md:text-xl text-amber-50 leading-relaxed">
             Duelo <strong class="text-rose-200">não altera a média</strong>.

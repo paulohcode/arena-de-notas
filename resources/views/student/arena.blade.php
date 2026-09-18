@@ -163,7 +163,7 @@
                     </form>
                     <form method="POST" action="{{ route('student.arena.decline', $duel) }}">
                         @csrf
-                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit">Recusar</button>
+                        <button class="game-btn-ghost !py-1 !px-3 text-sm" type="submit" title="Custa {{ \App\Models\Duel::DECLINE_PENALTY_GLORY }} {{ \App\Models\GameCurrency::label('glory') }} e {{ \App\Models\Duel::DECLINE_PENALTY_RELICS }} {{ \App\Models\GameCurrency::label('relics') }}">Recusar (−{{ \App\Models\Duel::DECLINE_PENALTY_GLORY }}/−{{ \App\Models\Duel::DECLINE_PENALTY_RELICS }})</button>
                     </form>
                 </div>
             </div>
@@ -234,7 +234,11 @@
     <div class="game-card p-5">
         <div class="flex items-center justify-between gap-3 mb-3">
             <h2 class="font-display text-xl text-amber-200">Desafiar colega</h2>
-            <p class="text-xs text-amber-100/50">{{ $resolvedToday }}/{{ $dailyLimit }} duelos hoje</p>
+            <p class="text-xs text-amber-100/50">{{ $resolvedToday }}/{{ $dailyLimit }} duelos hoje
+                @if($weeklyQuota > 0)
+                    · cota {{ $weeklyResolved }}/{{ $weeklyQuota }} na semana
+                @endif
+            </p>
         </div>
 
         <div class="mb-4 rounded-lg border border-amber-400/25 bg-amber-950/20 p-3 text-xs text-amber-100/75 space-y-1">
@@ -245,6 +249,11 @@
                 <p>Não há espera entre um desafio e outro.</p>
             @endif
             <p>Limite de <strong class="text-amber-200">{{ $dailyLimit }} {{ $dailyLimit === 1 ? 'duelo resolvido' : 'duelos resolvidos' }}</strong> por dia.</p>
+            @if($weeklyQuota > 0)
+                <p>Cota semanal: <strong class="text-amber-200">{{ $weeklyResolved }}/{{ $weeklyQuota }}</strong> duelos. Ficar abaixo custa {{ \App\Models\Duel::WEEKLY_QUOTA_PENALTY }} {{ \App\Models\GameCurrency::label('glory') }}/{{ \App\Models\GameCurrency::label('relics') }}.</p>
+            @endif
+            <p>Recusar um desafio custa <strong class="text-rose-200">−{{ \App\Models\Duel::DECLINE_PENALTY_GLORY }} {{ \App\Models\GameCurrency::label('glory') }}</strong> e <strong class="text-rose-200">−{{ \App\Models\Duel::DECLINE_PENALTY_RELICS }} {{ \App\Models\GameCurrency::label('relics') }}</strong>. Aceitar e perder ainda rende +{{ \App\Models\Duel::GLORY_LOSS }} de cada.</p>
+            <p>Vencer alguém mais forte dá <strong class="text-emerald-200">bônus de zebra</strong> (+5 a +15).</p>
         </div>
 
         @forelse($opponents as $peer)

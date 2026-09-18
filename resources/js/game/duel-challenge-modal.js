@@ -79,6 +79,9 @@ function openChallengeModal(challenge, csrf, onDone) {
         existing.remove();
     }
 
+    const isClassDuel = !challenge.kind || challenge.kind === 'duel';
+    const declineLabel = isClassDuel ? 'Recusar (−3/−3)' : 'Recusar';
+
     const layer = document.createElement('div');
     layer.className = 'modal-layer';
     layer.dataset.duelChallengeModal = 'true';
@@ -87,8 +90,9 @@ function openChallengeModal(challenge, csrf, onDone) {
             <p class="hero-kicker !mb-2">${challenge.kind === 'guild' ? 'Desafio de guilda' : (challenge.kind === 'realm' ? 'Desafio entre turmas' : (challenge.kind === 'boss' ? 'Provocação do chefão' : 'Desafio na arena'))}</p>
             <h2 id="duel-challenge-title" class="font-display text-2xl text-amber-300 mb-2">${challenge.kind === 'guild' ? 'Aceita a batalha?' : (challenge.kind === 'realm' ? 'Aceita o duelo por Aura?' : (challenge.kind === 'boss' ? 'Aceita enfrentar o chefão?' : 'Aceita o duelo?'))}</h2>
             <p class="text-amber-100/75 mb-6">${escapeHtml(challenge.message)}</p>
+            ${isClassDuel ? '<p class="text-xs text-rose-200/80 mb-4">Recusar custa −3 Glória e −3 Relíquias. Aceitar e perder ainda rende +2 de cada.</p>' : ''}
             <div class="flex flex-wrap gap-3 justify-end">
-                <button type="button" class="game-btn-ghost" data-duel-decline>Recusar</button>
+                <button type="button" class="game-btn-ghost" data-duel-decline>${declineLabel}</button>
                 <button type="button" class="game-btn" data-duel-accept>Aceitar batalha</button>
             </div>
             <p class="text-xs text-amber-100/55 mt-4 hidden" data-duel-loading>Preparando o combate…</p>
@@ -107,7 +111,7 @@ function openChallengeModal(challenge, csrf, onDone) {
         acceptBtn.disabled = loading;
         declineBtn.disabled = loading;
         acceptBtn.textContent = loading ? 'Entrando…' : 'Aceitar batalha';
-        declineBtn.textContent = loading ? '…' : 'Recusar';
+        declineBtn.textContent = loading ? '…' : declineLabel;
         if (loading) {
             loadingEl.textContent = label;
             loadingEl.classList.remove('hidden');

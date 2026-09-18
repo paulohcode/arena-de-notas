@@ -116,11 +116,12 @@ class ArenaDuelTest extends TestCase
         }
     }
 
-    public function test_decline_does_not_award_glory(): void
+    public function test_decline_penalizes_opponent_glory_and_relics(): void
     {
         Notification::fake();
 
         [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+        $opponent->enrollmentIn($class)->update(['glory' => 10, 'relics' => 10]);
 
         $this->actingAs($challenger)
             ->post(route('student.arena.challenge'), ['opponent_id' => $opponent->id]);
@@ -135,9 +136,10 @@ class ArenaDuelTest extends TestCase
         $this->assertSame(Duel::STATUS_DECLINED, $duel->status);
 
         $this->assertSame(0, (int) $challenger->enrollmentIn($class)->fresh()->glory);
-        $this->assertSame(0, (int) $opponent->enrollmentIn($class)->fresh()->glory);
-        $this->assertSame(0, (int) $challenger->enrollmentIn($class)->fresh()->relics);
-        $this->assertSame(0, (int) $opponent->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(7, (int) $opponent->enrollmentIn($class)->fresh()->glory);
+        $this->assertSame(7, (int) $opponent->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(0, (int) $opponent->enrollmentIn($class)->fresh()->arena_wins);
+        $this->assertSame(0, (int) $opponent->enrollmentIn($class)->fresh()->arena_losses);
 
         Notification::assertSentTo($challenger, GameAlert::class);
     }
@@ -817,6 +819,145 @@ class ArenaDuelTest extends TestCase
             ->assertSee('4 duelos resolvidos');
     }
 
+    public function test_upset_bonus_tiers_follow_power_ratio(): void
+    {
+        $duels = app(DuelService::class);
+
+        $this->assertSame(0, $duels->upsetBonus(1.2, 1.0));
+        $this->assertSame(0, $duels->upsetBonus(1.0, 1.04));
+        $this->assertSame(5, $duels->upsetBonus(1.0, 1.10));
+        $this->assertSame(10, $duels->upsetBonus(1.0, 1.25));
+        $this->assertSame(15, $duels->upsetBonus(1.0, 1.50));
+    }
+
+    public function test_accept_awards_upset_bonus_when_underdog_wins(): void
+    {
+        Notification::fake();
+
+        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: true);
+
+        $combat = \Mockery::mock(ArenaCombatService::class);
+        $combat->shouldReceive('buildFighter')
+            ->andReturnUsing(function (User $student) use ($challenger) {
+                return [
+                    'power' => $student->id === $challenger->id ? 1.0 : 1.5,
+                ];
+            });
+        $combat->shouldReceive('resolve')->once()->andReturn([
+            'winner_id' => $challenger->id,
+            'winner_reason' => 'ko',
+            'turns' => [],
+            'fighters' => [
+                'challenger' => ['id' => $challenger->id, 'hp' => 10],
+                'opponent' => ['id' => $opponent->id, 'hp' => 0],
+            ],
+        ]);
+        $this->instance(ArenaCombatService::class, $combat);
+
+        $this->actingAs($challenger)
+            ->post(route('student.arena.challenge'), ['opponent_id' => $opponent->id]);
+
+        $duel = Duel::query()->firstOrFail();
+
+        $this->actingAs($opponent)
+            ->post(route('student.arena.accept', $duel))
+            ->assertRedirect();
+
+        $duel->refresh();
+        $this->assertSame(Duel::STATUS_RESOLVED, $duel->status);
+        $this->assertSame(25, (int) $duel->glory_winner);
+        $this->assertSame(15, (int) ($duel->log['upset_bonus'] ?? 0));
+        $this->assertSame(25, (int) $challenger->enrollmentIn($class)->fresh()->glory);
+        $this->assertSame(2, (int) $opponent->enrollmentIn($class)->fresh()->glory);
+    }
+
+    public function test_teacher_can_arrange_immediate_duel(): void
+    {
+        Notification::fake();
+
+        [$class, $challenger, $opponent] = $this->readyPair(arenaOpen: false);
+        $teacher = $class->teacher;
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.arena.arrange', $class), [
+                'challenger_id' => $challenger->id,
+                'opponent_id' => $opponent->id,
+            ])
+            ->assertRedirect(route('teacher.classes.show', [
+                'schoolClass' => $class,
+                'tab' => 'arena',
+                'arena_tab' => 'turma',
+            ]))
+            ->assertSessionHas('success');
+
+        $duel = Duel::query()->firstOrFail();
+        $this->assertSame(Duel::STATUS_RESOLVED, $duel->status);
+        $this->assertSame($teacher->id, (int) $duel->arranged_by);
+        $this->assertNotNull($duel->winner_id);
+        $this->assertSame(1, app(DuelService::class)->resolvedInWeekCount($class, $challenger));
+        $this->assertSame(1, app(DuelService::class)->resolvedInWeekCount($class, $opponent));
+    }
+
+    public function test_student_cannot_arrange_duel(): void
+    {
+        [$class, $challenger, $opponent] = $this->readyPair();
+
+        $this->actingAs($challenger)
+            ->post(route('teacher.arena.arrange', $class), [
+                'challenger_id' => $challenger->id,
+                'opponent_id' => $opponent->id,
+            ])
+            ->assertRedirect(route('student.dashboard'));
+
+        $this->assertSame(0, Duel::query()->count());
+    }
+
+    public function test_weekly_quota_penalizes_once_on_week_rollover(): void
+    {
+        Notification::fake();
+
+        $this->travelTo('2026-09-14 10:00:00');
+
+        [$class, $challenger, $opponent] = $this->readyPair();
+        $class->update([
+            'arena_weekly_quota' => 2,
+            'arena_quota_settled_week' => null,
+        ]);
+        $challenger->enrollmentIn($class)->update(['glory' => 20, 'relics' => 20]);
+        $opponent->enrollmentIn($class)->update(['glory' => 20, 'relics' => 20]);
+
+        $duels = app(DuelService::class);
+        $this->assertSame(0, $duels->settleWeeklyQuotas());
+        $this->assertSame($duels->weekKey(now()->subWeek()), $class->fresh()->arena_quota_settled_week);
+        $this->assertSame(20, (int) $challenger->enrollmentIn($class)->fresh()->glory);
+
+        $class->update(['arena_quota_settled_week' => '2026-W35']);
+
+        $this->assertSame(2, $duels->settleWeeklyQuotas());
+        $this->assertSame(12, (int) $challenger->enrollmentIn($class)->fresh()->glory);
+        $this->assertSame(12, (int) $challenger->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(12, (int) $opponent->enrollmentIn($class)->fresh()->glory);
+        $this->assertSame($duels->weekKey(now()->subWeek()), $class->fresh()->arena_quota_settled_week);
+
+        $this->assertSame(0, $duels->settleWeeklyQuotas());
+        $this->assertSame(12, (int) $challenger->enrollmentIn($class)->fresh()->glory);
+    }
+
+    public function test_weekly_quota_zero_skips_penalty(): void
+    {
+        $this->travelTo('2026-09-14 10:00:00');
+
+        [$class, $challenger] = $this->readyPair();
+        $class->update([
+            'arena_weekly_quota' => 0,
+            'arena_quota_settled_week' => '2026-W35',
+        ]);
+        $challenger->enrollmentIn($class)->update(['glory' => 20, 'relics' => 20]);
+
+        $this->assertSame(0, app(DuelService::class)->settleWeeklyQuotas());
+        $this->assertSame(20, (int) $challenger->enrollmentIn($class)->fresh()->glory);
+    }
+
     /**
      * @return array{0: SchoolClass, 1: User, 2: User}
      */
@@ -880,6 +1021,7 @@ class ArenaDuelTest extends TestCase
         return [
             'days' => $days,
             'guild_days' => $guildDays,
+            'arena_weekly_quota' => $overrides['arena_weekly_quota'] ?? Duel::WEEKLY_QUOTA_DEFAULT,
         ];
     }
 

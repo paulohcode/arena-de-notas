@@ -177,6 +177,7 @@ Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('profess
     Route::post('/turmas/{schoolClass}/arena/abrir', [TeacherArenaController::class, 'open'])->name('arena.open');
     Route::post('/turmas/{schoolClass}/arena/fechar', [TeacherArenaController::class, 'close'])->name('arena.close');
     Route::put('/turmas/{schoolClass}/arena', [TeacherArenaController::class, 'update'])->name('arena.update');
+    Route::post('/turmas/{schoolClass}/arena/marcar-duelo', [TeacherArenaController::class, 'arrange'])->name('arena.arrange');
     Route::put('/turmas/{schoolClass}/arena/reino', [TeacherArenaController::class, 'updateRealm'])->name('arena.realm.update');
     Route::post('/turmas/{schoolClass}/arena/reino/{realmDuel}/cancelar', [TeacherArenaController::class, 'cancelRealm'])->name('arena.realm.cancel');
 

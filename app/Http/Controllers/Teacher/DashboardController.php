@@ -205,6 +205,11 @@ class DashboardController extends Controller
             'pendingRealmDuels' => $pendingRealmDuels,
             'recentRealmDuels' => $recentRealmDuels,
             'arenaHall' => $this->duels->hall($schoolClass),
+            'arenaQuotaProgress' => $this->duels->weeklyQuotaProgress($schoolClass),
+            'arenaEligibleFighters' => $schoolClass->students
+                ->filter(fn ($student) => $student->hasApprovedPersona() && $student->hasCharacterClass())
+                ->sortBy('name')
+                ->values(),
             'attendanceSessions' => $attendanceSessions,
             'activeAttendanceSession' => $activeAttendanceSession,
             'eventsTickStale' => $this->events->tickIsStale(),

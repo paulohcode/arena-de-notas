@@ -14,6 +14,10 @@ class ArenaRulesController extends Controller
             'roles' => User::characterClassesGroupedByRole(),
             'gloryWin' => Duel::GLORY_WIN,
             'gloryLoss' => Duel::GLORY_LOSS,
+            'declineGlory' => Duel::DECLINE_PENALTY_GLORY,
+            'declineRelics' => Duel::DECLINE_PENALTY_RELICS,
+            'weeklyQuotaDefault' => Duel::WEEKLY_QUOTA_DEFAULT,
+            'weeklyQuotaPenalty' => Duel::WEEKLY_QUOTA_PENALTY,
         ]);
     }
 }

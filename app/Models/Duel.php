@@ -11,6 +11,7 @@ class Duel extends Model
         'class_id',
         'challenger_id',
         'opponent_id',
+        'arranged_by',
         'status',
         'seed',
         'log',
@@ -33,6 +34,14 @@ class Duel extends Model
     public const GLORY_WIN = 10;
 
     public const GLORY_LOSS = 2;
+
+    public const DECLINE_PENALTY_GLORY = 3;
+
+    public const DECLINE_PENALTY_RELICS = 3;
+
+    public const WEEKLY_QUOTA_DEFAULT = 2;
+
+    public const WEEKLY_QUOTA_PENALTY = 8;
 
     public const DAILY_RESOLVED_LIMIT = 3;
 
@@ -75,9 +84,19 @@ class Duel extends Model
         return $this->belongsTo(User::class, 'opponent_id');
     }
 
+    public function arrangedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'arranged_by');
+    }
+
     public function winner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'winner_id');
+    }
+
+    public function isStaffArranged(): bool
+    {
+        return $this->arranged_by !== null;
     }
 
     public function isPending(): bool

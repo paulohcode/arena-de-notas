@@ -34,6 +34,7 @@ class ChallengeExpiryTest extends TestCase
             'status' => Duel::STATUS_PENDING,
         ]);
         $challenger->enrollmentIn($class)->update(['glory' => 4, 'relics' => 4]);
+        $opponent->enrollmentIn($class)->update(['glory' => 9, 'relics' => 9]);
 
         $alpha = Team::query()->create(['class_id' => $class->id, 'name' => 'Alpha', 'emblem' => 'shield']);
         $beta = Team::query()->create(['class_id' => $class->id, 'name' => 'Beta', 'emblem' => 'sword']);
@@ -72,6 +73,8 @@ class ChallengeExpiryTest extends TestCase
         $this->assertSame(TeamBattle::STATUS_EXPIRED, $battle->fresh()->status);
         $this->assertSame(RealmDuel::STATUS_EXPIRED, $realmDuel->fresh()->status);
         $this->assertSame(4, (int) $challenger->enrollmentIn($class)->fresh()->glory);
+        $this->assertSame(6, (int) $opponent->enrollmentIn($class)->fresh()->glory);
+        $this->assertSame(6, (int) $opponent->enrollmentIn($class)->fresh()->relics);
         $this->assertSame(now()->timestamp, (int) Cache::get(GameEventService::LAST_TICK_CACHE_KEY));
 
         Notification::assertSentTo($challenger, GameAlert::class);
