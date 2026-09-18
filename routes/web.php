@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\ArenaController as AdminArenaController;
 use App\Http\Controllers\Admin\CurrencyController as AdminCurrencyController;
 use App\Http\Controllers\Admin\DailyReportController as AdminDailyReportController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ExchangeController as AdminExchangeController;
 use App\Http\Controllers\Admin\GameEventController as AdminGameEventController;
 use App\Http\Controllers\Admin\ImpersonationController as AdminImpersonationController;
 use App\Http\Controllers\Admin\PetController as AdminPetController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\SeasonRankingController;
 use App\Http\Controllers\Student\ArenaController as StudentArenaController;
 use App\Http\Controllers\Student\BossRiteController as StudentBossRiteController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
+use App\Http\Controllers\Student\ExchangeController as StudentExchangeController;
 use App\Http\Controllers\Student\GameEventController as StudentGameEventController;
 use App\Http\Controllers\Student\PetController as StudentPetController;
 use App\Http\Controllers\Student\ShopController as StudentShopController;
@@ -113,6 +115,12 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
 
     Route::get('/moedas', [AdminCurrencyController::class, 'index'])->name('currencies.index');
     Route::put('/moedas', [AdminCurrencyController::class, 'update'])->name('currencies.update');
+
+    Route::get('/cambio', [AdminExchangeController::class, 'index'])->name('exchange.index');
+    Route::post('/cambio', [AdminExchangeController::class, 'store'])->name('exchange.store');
+    Route::get('/cambio/{exchangeRate}/editar', [AdminExchangeController::class, 'edit'])->name('exchange.edit');
+    Route::put('/cambio/{exchangeRate}', [AdminExchangeController::class, 'update'])->name('exchange.update');
+    Route::delete('/cambio/{exchangeRate}', [AdminExchangeController::class, 'destroy'])->name('exchange.destroy');
 });
 
 Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('professor')->name('teacher.')->group(function () {
@@ -237,6 +245,9 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::post('/arena/vigilia/{vigil}/aceitar', [StudentBossRiteController::class, 'acceptVigil'])->name('arena.vigil.accept');
         Route::post('/arena/vigilia/{vigil}/recusar', [StudentBossRiteController::class, 'declineVigil'])->name('arena.vigil.decline');
         Route::get('/arena/rito/{rite}', [StudentBossRiteController::class, 'showRite'])->name('arena.rite.show');
+
+        Route::get('/cambio', [StudentExchangeController::class, 'index'])->name('exchange.index');
+        Route::post('/cambio', [StudentExchangeController::class, 'trade'])->name('exchange.trade');
 
         Route::get('/loja', [StudentShopController::class, 'index'])->name('shop.index');
         Route::post('/loja/comprar', [StudentShopController::class, 'purchase'])->name('shop.purchase');

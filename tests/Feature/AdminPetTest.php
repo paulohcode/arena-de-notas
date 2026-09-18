@@ -55,6 +55,37 @@ class AdminPetTest extends TestCase
         $this->assertSame(count(PetCatalog::SPECIES) + 1, Pet::query()->where('class_id', $classA->id)->count());
     }
 
+    public function test_admin_recent_custom_pets_group_copies_of_the_same_name(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $this->createClassForTeacher($teacher, ['name' => 'SESI 2ªA']);
+        $this->createClassForTeacher($teacher, ['name' => 'SESI 2ªB']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.pets.store'), [
+                'scope' => 'all',
+                'name' => 'Tigre Solar',
+                'description' => 'Ruge ao meio-dia',
+                'rarity' => 'epic',
+                'sprite_key' => 'dragon',
+                'price_relics' => 900,
+                'price_seals' => 120,
+                'price_auras' => 900,
+                'combat_bonus_percent' => 6,
+                'stock' => 2,
+            ])
+            ->assertRedirect(route('admin.pets.index'));
+
+        $this->actingAs($admin)
+            ->get(route('admin.pets.index'))
+            ->assertOk()
+            ->assertSee('Tigre Solar')
+            ->assertSee('2 turmas')
+            ->assertSee('SESI 2ªA')
+            ->assertSee('SESI 2ªB');
+    }
+
     public function test_admin_can_create_pet_for_a_single_class(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);

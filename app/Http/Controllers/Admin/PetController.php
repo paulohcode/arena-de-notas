@@ -9,6 +9,7 @@ use App\Services\PetShopService;
 use App\Support\PetCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class PetController extends Controller
@@ -26,12 +27,7 @@ class PetController extends Controller
         return view('admin.pets.index', [
             'classes' => $classes,
             'overview' => $this->pets->overviewForClasses($classes),
-            'customPets' => Pet::query()
-                ->with('schoolClass')
-                ->whereNull('species_key')
-                ->orderByDesc('id')
-                ->limit(40)
-                ->get(),
+            'customPets' => $this->recentCustomPets(),
             'rarities' => PetCatalog::RARITIES,
             'spriteKeys' => PetCatalog::spriteKeys(),
             'scopeClasses' => $classes,
@@ -104,5 +100,34 @@ class PetController extends Controller
         return redirect()
             ->route('admin.pets.index')
             ->with('success', $updated->name.' atualizado.');
+    }
+
+    /**
+     * @return Collection<int, array{pet: Pet, count: int, classes: Collection<int, string>}>
+     */
+    private function recentCustomPets(): Collection
+    {
+        return Pet::query()
+            ->with('schoolClass')
+            ->whereNull('species_key')
+            ->orderByDesc('id')
+            ->limit(80)
+            ->get()
+            ->groupBy('name')
+            ->map(function (Collection $copies): array {
+                $pet = $copies->first();
+
+                return [
+                    'pet' => $pet,
+                    'count' => $copies->count(),
+                    'classes' => $copies
+                        ->map(fn (Pet $copy): ?string => $copy->schoolClass?->name)
+                        ->filter()
+                        ->unique()
+                        ->values(),
+                ];
+            })
+            ->take(12)
+            ->values();
     }
 }

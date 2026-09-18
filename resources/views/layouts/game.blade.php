@@ -44,6 +44,7 @@
                         <a class="game-btn-ghost" href="{{ route('admin.arena') }}">Arena</a>
                         <a class="game-btn-ghost" href="{{ route('admin.shop.index') }}">Loja</a>
                         <a class="game-btn-ghost" href="{{ route('admin.pets.index') }}">Mascotes</a>
+                        <a class="game-btn-ghost" href="{{ route('admin.exchange.index') }}">Casa de Câmbio</a>
                         <a class="game-btn-ghost" href="{{ route('admin.currencies.index') }}">Moedas</a>
                         <a class="game-btn-ghost" href="{{ route('teacher.dashboard') }}">Turmas</a>
                         <a class="game-btn-ghost" href="{{ route('teacher.seasons.index') }}">Campanhas</a>
@@ -55,6 +56,7 @@
                         <a class="game-btn-ghost" href="{{ route('student.arena.index') }}">Arena</a>
                         <a class="game-btn-ghost" href="{{ route('student.events.index') }}">Eventos</a>
                         <a class="game-btn-ghost" href="{{ route('student.shop.index') }}">Loja</a>
+                        <a class="game-btn-ghost" href="{{ route('student.exchange.index') }}">Câmbio</a>
                         <a class="game-btn-ghost" href="{{ route('student.pets.index') }}">Mascotes</a>
                     @endif
                     <form method="POST" action="{{ route('logout') }}">
