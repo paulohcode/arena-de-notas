@@ -18,12 +18,15 @@ class ExchangeCatalog
     }
 
     /**
+     * Na edição o par de moedas fica travado — só quantidades e status.
+     *
      * @return array<string, list<string|object>>
      */
     public static function updateRules(): array
     {
         return [
-            ...self::baseRules(),
+            'receive_amount' => ['required', 'integer', 'min:1', 'max:99999'],
+            'pay_amount' => ['required', 'integer', 'min:1', 'max:99999'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
@@ -60,6 +63,9 @@ class ExchangeCatalog
     }
 
     /**
+     * Uma oferta por combinação pagar→receber.
+     * Ex.: não pode existir 100 Relíquias por 10 Selos e outra 120 Relíquias por 15 Selos.
+     *
      * @return list<\Closure(Validator): void>
      */
     public static function uniqueOfferAfter(?ExchangeRate $except = null): array
@@ -81,14 +87,18 @@ class ExchangeCatalog
                     $query->whereKeyNot($except->id);
                 }
 
-                if ($query->exists()) {
+                $existing = $query->first();
+
+                if ($existing) {
                     $validator->errors()->add(
                         'pay_currency',
-                        'Já existe uma oferta para comprar '
-                        .GameCurrency::label($receiveCurrency)
-                        .' pagando '
+                        'Já existe câmbio de '
                         .GameCurrency::label($payCurrency)
-                        .'.',
+                        .' → '
+                        .GameCurrency::label($receiveCurrency)
+                        .' ('
+                        .$existing->offerLabel()
+                        .'). Edite essa oferta em vez de cadastrar outra com valores diferentes.',
                     );
                 }
             },

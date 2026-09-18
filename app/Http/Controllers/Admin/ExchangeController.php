@@ -50,13 +50,10 @@ class ExchangeController extends Controller
 
     public function update(Request $request, ExchangeRate $exchangeRate): RedirectResponse
     {
-        $validator = validator(
-            $request->all(),
+        $data = $request->validate(
             ExchangeCatalog::updateRules(),
             ExchangeCatalog::messages(),
         );
-        $validator->after(ExchangeCatalog::uniqueOfferAfter($exchangeRate));
-        $data = $validator->validate();
         $data['is_active'] = $request->boolean('is_active');
 
         $rate = $this->exchange->updateRate($exchangeRate, $data);

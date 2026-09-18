@@ -158,13 +158,47 @@ class AdminExchangeTest extends TestCase
         $this->actingAs($admin)
             ->from(route('admin.exchange.index'))
             ->post(route('admin.exchange.store'), [
-                'receive_currency' => 'auras',
-                'receive_amount' => 50,
-                'pay_currency' => 'relics',
-                'pay_amount' => 8,
+                'receive_currency' => 'relics',
+                'receive_amount' => 120,
+                'pay_currency' => 'seals',
+                'pay_amount' => 15,
             ])
             ->assertRedirect(route('admin.exchange.index'))
-            ->assertSessionHasErrors(['pay_currency']);
+            ->assertSessionHasErrors('pay_currency');
+
+        $errors = session('errors');
+        $this->assertNotNull($errors);
+        $this->assertStringContainsString('Já existe câmbio', $errors->first('pay_currency'));
+        $this->assertStringContainsString('Edite essa oferta', $errors->first('pay_currency'));
+        $this->assertSame(6, ExchangeRate::query()->count());
+    }
+
+    public function test_admin_updates_amounts_without_changing_currency_pair(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        ExchangeRate::ensureShopOffers();
+        $rate = ExchangeRate::query()
+            ->where('pay_currency', 'seals')
+            ->where('receive_currency', 'relics')
+            ->firstOrFail();
+
+        $this->actingAs($admin)
+            ->put(route('admin.exchange.update', $rate), [
+                'receive_currency' => 'auras',
+                'receive_amount' => 120,
+                'pay_currency' => 'relics',
+                'pay_amount' => 15,
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('admin.exchange.index'))
+            ->assertSessionHas('success');
+
+        $rate->refresh();
+        $this->assertSame('seals', $rate->pay_currency);
+        $this->assertSame('relics', $rate->receive_currency);
+        $this->assertSame(15, (int) $rate->pay_amount);
+        $this->assertSame(120, (int) $rate->receive_amount);
+        $this->assertTrue($rate->is_active);
     }
 
     public function test_admin_updates_and_deactivates_offer(): void
@@ -178,9 +212,7 @@ class AdminExchangeTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.exchange.update', $rate), [
-                'receive_currency' => 'auras',
                 'receive_amount' => 120,
-                'pay_currency' => 'relics',
                 'pay_amount' => 18,
             ])
             ->assertRedirect(route('admin.exchange.index'))

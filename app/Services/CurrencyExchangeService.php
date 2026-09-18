@@ -44,9 +44,7 @@ class CurrencyExchangeService
     public function updateRate(ExchangeRate $rate, array $data): ExchangeRate
     {
         $rate->fill([
-            'pay_currency' => (string) $data['pay_currency'],
             'pay_amount' => (int) $data['pay_amount'],
-            'receive_currency' => (string) $data['receive_currency'],
             'receive_amount' => (int) $data['receive_amount'],
             'is_active' => (bool) ($data['is_active'] ?? $rate->is_active),
         ]);

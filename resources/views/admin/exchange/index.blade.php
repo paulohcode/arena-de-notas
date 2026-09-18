@@ -9,8 +9,9 @@
         <p class="hero-kicker !mb-1">Economia da arena</p>
         <h1 class="font-display text-4xl text-amber-300">Casa de Câmbio</h1>
         <p class="text-amber-100/65 mt-1 max-w-2xl">
-            Cadastre ofertas de compra. Ex.: comprar 100 Aura pagando 15 Relíquias
-            <em>ou</em> 5 Selos. Glória não entra no câmbio.
+            Cada combinação de moedas tem uma única oferta. Ex.: comprar Relíquias pagando Selos
+            existe só uma vez — se quiser mudar de 100/10 para 120/15, edite a oferta.
+            Glória não entra no câmbio.
         </p>
     </div>
 </div>
@@ -19,7 +20,7 @@
     <div>
         <h2 class="font-display text-xl text-amber-200">Nova oferta</h2>
         <p class="text-sm text-amber-100/60 mt-1">
-            Defina quanto o aluno recebe e com qual moeda ele paga. Cada combinação (pagar X → receber Y) é única.
+            Não cadastre o mesmo par duas vezes com valores diferentes. Ajuste a oferta existente.
         </p>
     </div>
     <form method="POST" action="{{ route('admin.exchange.store') }}" class="space-y-4">
