@@ -37,7 +37,7 @@ class ImpersonationService
         return is_string($url) && $url !== '' ? $url : null;
     }
 
-    public function start(User $admin, User $student, SchoolClass $class): void
+    public function start(User $admin, User $student, SchoolClass $class, ?string $returnUrl = null): void
     {
         if (! $admin->isAdmin()) {
             abort(403);
@@ -55,13 +55,11 @@ class ImpersonationService
 
         abort_unless($class->students()->where('users.id', $student->id)->exists(), 404);
 
-        $returnUrl = route('teacher.students.show', [$class, $student]);
-
         Auth::login($student);
 
         session([
             self::SESSION_IMPERSONATOR_ID => $admin->id,
-            self::SESSION_RETURN_URL => $returnUrl,
+            self::SESSION_RETURN_URL => $this->safeReturnUrl($returnUrl) ?? route('admin.impersonate.index'),
             'current_class_id' => $class->id,
         ]);
 
@@ -110,5 +108,24 @@ class ImpersonationService
             'logout',
             'student.notifications.read',
         );
+    }
+
+    public function safeReturnUrl(?string $url): ?string
+    {
+        if (! is_string($url) || $url === '') {
+            return null;
+        }
+
+        if (str_starts_with($url, '/') && ! str_starts_with($url, '//')) {
+            return $url;
+        }
+
+        $appUrl = rtrim((string) config('app.url'), '/');
+
+        if ($appUrl !== '' && str_starts_with($url, $appUrl.'/')) {
+            return $url;
+        }
+
+        return null;
     }
 }

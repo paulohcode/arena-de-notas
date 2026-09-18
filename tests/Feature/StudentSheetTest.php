@@ -441,7 +441,7 @@ class StudentSheetTest extends TestCase
             ->assertSee('Ver ranking da turma')
             ->assertDontSee('Liga de jogadores')
             ->assertDontSee('Hall das Guildas')
-            ->assertDontSee('Ver como aluno');
+            ->assertDontSee('Visão de aluno');
     }
 
     public function test_admin_sheet_shows_owned_and_equipped_items(): void
@@ -461,7 +461,7 @@ class StudentSheetTest extends TestCase
         $this->actingAs($admin)
             ->get(route('teacher.students.show', [$class, $student]))
             ->assertOk()
-            ->assertSee('Ver como aluno')
+            ->assertSee('Visão de aluno')
             ->assertSee('Anel de Bronze')
             ->assertSee('Equipado')
             ->assertSee('Molduras')

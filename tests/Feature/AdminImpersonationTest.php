@@ -29,10 +29,62 @@ class AdminImpersonationTest extends TestCase
         $this->get(route('student.dashboard'))
             ->assertOk()
             ->assertSee('Ana Vista')
-            ->assertSee('Vendo como Ana Vista')
+            ->assertSee('Visão de aluno · Ana Vista')
             ->assertSee('Alterações estão bloqueadas')
-            ->assertSee('Voltar ao admin')
+            ->assertSee('Visão de admin')
             ->assertDontSee('Nenhuma turma ainda');
+    }
+
+    public function test_admin_can_open_student_view_picker(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher, ['name' => 'Turma Picker']);
+        $this->enrollStudent($class, 'Carla Picker');
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.impersonate.index'))
+            ->assertOk()
+            ->assertSee('Visão de aluno')
+            ->assertSee('Turma Picker')
+            ->assertSee('Carla Picker')
+            ->assertSee('Entrar na visão');
+    }
+
+    public function test_picker_search_filters_students(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $this->enrollStudent($class, 'Ana Encontrada');
+        $this->enrollStudent($class, 'Bruno Oculto');
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.impersonate.index', ['q' => 'Ana']))
+            ->assertOk()
+            ->assertSee('Ana Encontrada')
+            ->assertDontSee('Bruno Oculto');
+    }
+
+    public function test_start_from_picker_returns_to_picker_on_stop(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Diana Return');
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $returnUrl = route('admin.impersonate.index', ['q' => 'Diana']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.impersonate.start', [$class, $student]), [
+                'return_url' => $returnUrl,
+            ])
+            ->assertRedirect(route('student.dashboard'));
+
+        $this->post(route('admin.impersonate.stop'))
+            ->assertRedirect($returnUrl);
+
+        $this->assertAuthenticatedAs($admin);
+        $this->assertFalse(app(ImpersonationService::class)->isActive());
     }
 
     public function test_teacher_cannot_start_impersonation(): void
@@ -126,16 +178,36 @@ class AdminImpersonationTest extends TestCase
         $class = $this->createClassForTeacher($teacher);
         $student = $this->enrollStudent($class, 'Bruno Stop');
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        $sheetUrl = route('teacher.students.show', [$class, $student]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.impersonate.start', [$class, $student]), [
+                'return_url' => $sheetUrl,
+            ])
+            ->assertRedirect(route('student.dashboard'));
+
+        $this->post(route('admin.impersonate.stop'))
+            ->assertRedirect($sheetUrl);
+
+        $this->assertAuthenticatedAs($admin);
+        $this->assertFalse(app(ImpersonationService::class)->isActive());
+    }
+
+    public function test_stop_without_return_url_goes_to_student_view_picker(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher);
+        $student = $this->enrollStudent($class, 'Eva Default');
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
 
         $this->actingAs($admin)
             ->post(route('admin.impersonate.start', [$class, $student]))
             ->assertRedirect(route('student.dashboard'));
 
         $this->post(route('admin.impersonate.stop'))
-            ->assertRedirect(route('teacher.students.show', [$class, $student]));
+            ->assertRedirect(route('admin.impersonate.index'));
 
         $this->assertAuthenticatedAs($admin);
-        $this->assertFalse(app(ImpersonationService::class)->isActive());
     }
 
     public function test_impersonation_does_not_update_student_last_accessed_at(): void

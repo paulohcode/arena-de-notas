@@ -12,6 +12,11 @@
 </div>
 
 <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <a href="{{ route('admin.impersonate.index') }}" class="game-card game-card-glow p-6 block reveal">
+        <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Troca de visão</p>
+        <h2 class="font-display text-3xl text-amber-200">Visão aluno</h2>
+        <p class="text-sm text-amber-100/60 mt-2">Ver a arena como um aluno, sem pedir login →</p>
+    </a>
     <a href="{{ route('admin.areas.index') }}" class="game-card game-card-glow p-6 block reveal">
         <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Reinos</p>
         <h2 class="font-display text-3xl text-amber-200">{{ $areasCount }}</h2>

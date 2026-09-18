@@ -77,6 +77,7 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
     Route::get('/relatorio/cambio', [AdminExchangeReportController::class, 'show'])->name('reports.exchange');
     Route::get('/arena', [AdminArenaController::class, 'index'])->name('arena');
 
+    Route::get('/visao-aluno', [AdminImpersonationController::class, 'index'])->name('impersonate.index');
     Route::post('/impersonar/{schoolClass}/{student}', [AdminImpersonationController::class, 'start'])->name('impersonate.start');
 
     Route::get('/reinos', [AdminAreaController::class, 'index'])->name('areas.index');

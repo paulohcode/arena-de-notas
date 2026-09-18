@@ -113,6 +113,13 @@
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <button class="game-btn-ghost !px-2 !py-1 text-xs" type="button" @click="editing = true">Editar cadastro</button>
                                                 <a class="game-btn-ghost !px-2 !py-1 text-xs" href="{{ route('teacher.students.show', [$class, $student]) }}">Ficha</a>
+                                                @if(auth()->user()?->isAdmin())
+                                                    <form method="POST" action="{{ route('admin.impersonate.start', [$class, $student]) }}">
+                                                        @csrf
+                                                        <input type="hidden" name="return_url" value="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'alunos']) }}">
+                                                        <button class="game-btn !px-2 !py-1 text-xs" type="submit">Visão aluno</button>
+                                                    </form>
+                                                @endif
                                                 @include('partials.reset-student-password')
                                             </div>
                                             <form

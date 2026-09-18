@@ -66,7 +66,8 @@
         @if(auth()->user()?->isAdmin())
             <form method="POST" action="{{ route('admin.impersonate.start', [$class, $student]) }}">
                 @csrf
-                <button class="game-btn !py-1 !px-3 text-sm" type="submit">Ver como aluno</button>
+                <input type="hidden" name="return_url" value="{{ route('teacher.students.show', [$class, $student]) }}">
+                <button class="game-btn !py-1 !px-3 text-sm" type="submit">Visão de aluno</button>
             </form>
         @endif
         <a class="game-btn-ghost" href="{{ route('ranking.show', $class) }}">Voltar ao ranking</a>
