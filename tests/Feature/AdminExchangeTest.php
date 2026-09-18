@@ -54,28 +54,82 @@ class AdminExchangeTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.exchange.index'))
             ->assertOk()
-            ->assertSee('Casa de Câmbio');
+            ->assertSee('Casa de Câmbio')
+            ->assertSee('Comprar')
+            ->assertSee('Aura');
     }
 
-    public function test_admin_creates_exchange_rate_and_normalizes_pair_order(): void
+    public function test_admin_index_ensures_default_offers_for_all_shop_currencies(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
 
         $this->actingAs($admin)
+            ->get(route('admin.exchange.index'))
+            ->assertOk();
+
+        $this->assertSame(6, ExchangeRate::query()->count());
+        $this->assertTrue(
+            ExchangeRate::query()
+                ->where('pay_currency', 'relics')
+                ->where('receive_currency', 'auras')
+                ->where('pay_amount', 15)
+                ->where('receive_amount', 100)
+                ->exists()
+        );
+        $this->assertTrue(
+            ExchangeRate::query()
+                ->where('pay_currency', 'seals')
+                ->where('receive_currency', 'auras')
+                ->where('pay_amount', 5)
+                ->where('receive_amount', 100)
+                ->exists()
+        );
+        $this->assertTrue(
+            ExchangeRate::query()
+                ->where('pay_currency', 'seals')
+                ->where('receive_currency', 'relics')
+                ->exists()
+        );
+        $this->assertTrue(
+            ExchangeRate::query()
+                ->where('pay_currency', 'auras')
+                ->where('receive_currency', 'relics')
+                ->exists()
+        );
+        $this->assertTrue(
+            ExchangeRate::query()
+                ->where('pay_currency', 'relics')
+                ->where('receive_currency', 'seals')
+                ->exists()
+        );
+        $this->assertTrue(
+            ExchangeRate::query()
+                ->where('pay_currency', 'auras')
+                ->where('receive_currency', 'seals')
+                ->exists()
+        );
+    }
+
+    public function test_admin_creates_custom_offer(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
+        ExchangeRate::query()->delete();
+
+        $this->actingAs($admin)
             ->post(route('admin.exchange.store'), [
-                'currency_a' => 'seals',
-                'currency_b' => 'relics',
-                'amount_a' => 10,
-                'amount_b' => 17,
+                'receive_currency' => 'auras',
+                'receive_amount' => 100,
+                'pay_currency' => 'relics',
+                'pay_amount' => 15,
             ])
             ->assertRedirect(route('admin.exchange.index'))
             ->assertSessionHas('success');
 
         $rate = ExchangeRate::query()->firstOrFail();
-        $this->assertSame('relics', $rate->currency_a);
-        $this->assertSame('seals', $rate->currency_b);
-        $this->assertSame(17, (int) $rate->amount_a);
-        $this->assertSame(10, (int) $rate->amount_b);
+        $this->assertSame('relics', $rate->pay_currency);
+        $this->assertSame(15, (int) $rate->pay_amount);
+        $this->assertSame('auras', $rate->receive_currency);
+        $this->assertSame(100, (int) $rate->receive_amount);
         $this->assertTrue($rate->is_active);
     }
 
@@ -86,88 +140,73 @@ class AdminExchangeTest extends TestCase
         $this->actingAs($admin)
             ->from(route('admin.exchange.index'))
             ->post(route('admin.exchange.store'), [
-                'currency_a' => 'relics',
-                'currency_b' => 'relics',
-                'amount_a' => 10,
-                'amount_b' => 10,
+                'receive_currency' => 'relics',
+                'receive_amount' => 10,
+                'pay_currency' => 'relics',
+                'pay_amount' => 10,
             ])
             ->assertRedirect(route('admin.exchange.index'))
-            ->assertSessionHasErrors(['currency_b']);
-
-        $this->assertSame(0, ExchangeRate::query()->count());
+            ->assertSessionHasErrors(['pay_currency']);
     }
 
-    public function test_admin_rejects_duplicate_pair_even_when_inverted(): void
+    public function test_admin_rejects_duplicate_pay_receive_pair(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
 
-        ExchangeRate::query()->create([
-            'currency_a' => 'relics',
-            'currency_b' => 'seals',
-            'amount_a' => 17,
-            'amount_b' => 10,
-            'is_active' => true,
-        ]);
+        ExchangeRate::ensureShopOffers();
 
         $this->actingAs($admin)
             ->from(route('admin.exchange.index'))
             ->post(route('admin.exchange.store'), [
-                'currency_a' => 'seals',
-                'currency_b' => 'relics',
-                'amount_a' => 5,
-                'amount_b' => 8,
+                'receive_currency' => 'auras',
+                'receive_amount' => 50,
+                'pay_currency' => 'relics',
+                'pay_amount' => 8,
             ])
             ->assertRedirect(route('admin.exchange.index'))
-            ->assertSessionHasErrors([
-                'currency_b' => 'Já existe uma cotação para este par de moedas.',
-            ]);
-
-        $this->assertSame(1, ExchangeRate::query()->count());
+            ->assertSessionHasErrors(['pay_currency']);
     }
 
-    public function test_admin_updates_and_deactivates_exchange_rate(): void
+    public function test_admin_updates_and_deactivates_offer(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
-        $rate = ExchangeRate::query()->create([
-            'currency_a' => 'relics',
-            'currency_b' => 'seals',
-            'amount_a' => 17,
-            'amount_b' => 10,
-            'is_active' => true,
-        ]);
+        ExchangeRate::ensureShopOffers();
+        $rate = ExchangeRate::query()
+            ->where('pay_currency', 'relics')
+            ->where('receive_currency', 'auras')
+            ->firstOrFail();
 
         $this->actingAs($admin)
             ->put(route('admin.exchange.update', $rate), [
-                'currency_a' => 'relics',
-                'currency_b' => 'seals',
-                'amount_a' => 12,
-                'amount_b' => 10,
+                'receive_currency' => 'auras',
+                'receive_amount' => 120,
+                'pay_currency' => 'relics',
+                'pay_amount' => 18,
             ])
             ->assertRedirect(route('admin.exchange.index'))
             ->assertSessionHas('success');
 
         $rate->refresh();
-        $this->assertSame(12, (int) $rate->amount_a);
+        $this->assertSame(18, (int) $rate->pay_amount);
+        $this->assertSame(120, (int) $rate->receive_amount);
         $this->assertFalse($rate->is_active);
     }
 
-    public function test_admin_deletes_exchange_rate(): void
+    public function test_admin_deletes_offer(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
-        $rate = ExchangeRate::query()->create([
-            'currency_a' => 'auras',
-            'currency_b' => 'seals',
-            'amount_a' => 6,
-            'amount_b' => 5,
-            'is_active' => true,
-        ]);
+        ExchangeRate::ensureShopOffers();
+        $rate = ExchangeRate::query()
+            ->where('pay_currency', 'seals')
+            ->where('receive_currency', 'auras')
+            ->firstOrFail();
 
         $this->actingAs($admin)
             ->delete(route('admin.exchange.destroy', $rate))
             ->assertRedirect(route('admin.exchange.index'))
             ->assertSessionHas('success');
 
-        $this->assertSame(0, ExchangeRate::query()->count());
+        $this->assertDatabaseMissing('exchange_rates', ['id' => $rate->id]);
     }
 
     private function enrollStudent(SchoolClass $class, string $name): User

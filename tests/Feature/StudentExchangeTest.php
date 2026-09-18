@@ -38,184 +38,181 @@ class StudentExchangeTest extends TestCase
             ->assertOk();
     }
 
-    public function test_student_exchanges_two_lots_relics_to_seals(): void
+    public function test_student_buys_two_lots_of_auras_with_relics(): void
     {
-        [$class, $student] = $this->readyStudent(relics: 50, seals: 0);
-        $rate = $this->createRelicsSealsRate();
+        [$class, $student] = $this->readyStudent(relics: 40, seals: 0, auras: 0);
+        $rate = $this->offer(
+            payCurrency: 'relics',
+            payAmount: 15,
+            receiveCurrency: 'auras',
+            receiveAmount: 100,
+        );
 
         $this->actingAs($student)
             ->post(route('student.exchange.trade'), [
                 'exchange_rate_id' => $rate->id,
-                'direction' => ExchangeRate::DIRECTION_A_TO_B,
                 'lots' => 2,
             ])
             ->assertRedirect(route('student.exchange.index'))
             ->assertSessionHas('success');
 
         $enrollment = $student->enrollmentIn($class)->fresh();
-        $this->assertSame(16, (int) $enrollment->relics);
-        $this->assertSame(20, (int) $enrollment->seals);
+        $this->assertSame(10, (int) $enrollment->relics);
+        $this->assertSame(200, $this->auras($student, $class));
 
         $log = CurrencyExchange::query()->firstOrFail();
-        $this->assertSame($student->id, (int) $log->student_id);
-        $this->assertSame($class->id, (int) $log->class_id);
         $this->assertSame('relics', $log->pay_currency);
-        $this->assertSame('seals', $log->receive_currency);
-        $this->assertSame(34, (int) $log->pay_amount);
-        $this->assertSame(20, (int) $log->receive_amount);
+        $this->assertSame('auras', $log->receive_currency);
+        $this->assertSame(30, (int) $log->pay_amount);
+        $this->assertSame(200, (int) $log->receive_amount);
         $this->assertSame(2, (int) $log->lots);
     }
 
-    public function test_same_rate_accepts_reverse_direction(): void
+    public function test_student_can_buy_same_currency_with_alternative_payment(): void
     {
-        [$class, $student] = $this->readyStudent(relics: 0, seals: 20);
-        $rate = $this->createRelicsSealsRate();
+        [$class, $student] = $this->readyStudent(relics: 0, seals: 10, auras: 0);
+        $this->offer('relics', 15, 'auras', 100);
+        $withSeals = $this->offer('seals', 5, 'auras', 100);
 
         $this->actingAs($student)
             ->post(route('student.exchange.trade'), [
-                'exchange_rate_id' => $rate->id,
-                'direction' => ExchangeRate::DIRECTION_B_TO_A,
+                'exchange_rate_id' => $withSeals->id,
                 'lots' => 1,
             ])
             ->assertRedirect(route('student.exchange.index'))
             ->assertSessionHas('success');
 
-        $enrollment = $student->enrollmentIn($class)->fresh();
-        $this->assertSame(17, (int) $enrollment->relics);
-        $this->assertSame(10, (int) $enrollment->seals);
+        $this->assertSame(5, (int) $student->enrollmentIn($class)->fresh()->seals);
+        $this->assertSame(100, $this->auras($student, $class));
+    }
 
-        $log = CurrencyExchange::query()->firstOrFail();
-        $this->assertSame('seals', $log->pay_currency);
-        $this->assertSame('relics', $log->receive_currency);
-        $this->assertSame(10, (int) $log->pay_amount);
-        $this->assertSame(17, (int) $log->receive_amount);
+    public function test_student_buys_relics_paying_seals_or_auras(): void
+    {
+        [$class, $student] = $this->readyStudent(relics: 0, seals: 50, auras: 400);
+        $withSeals = $this->offer('seals', 50, 'relics', 500);
+        $withAuras = $this->offer('auras', 400, 'relics', 500);
+
+        $this->actingAs($student)
+            ->post(route('student.exchange.trade'), [
+                'exchange_rate_id' => $withSeals->id,
+                'lots' => 1,
+            ])
+            ->assertRedirect(route('student.exchange.index'));
+
+        $this->assertSame(500, (int) $student->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(0, (int) $student->enrollmentIn($class)->fresh()->seals);
+
+        $this->actingAs($student)
+            ->post(route('student.exchange.trade'), [
+                'exchange_rate_id' => $withAuras->id,
+                'lots' => 1,
+            ])
+            ->assertRedirect(route('student.exchange.index'));
+
+        $this->assertSame(1000, (int) $student->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(0, $this->auras($student, $class));
     }
 
     public function test_insufficient_balance_rejects_trade_without_changes(): void
     {
-        [$class, $student] = $this->readyStudent(relics: 10, seals: 0);
-        $rate = $this->createRelicsSealsRate();
+        [$class, $student] = $this->readyStudent(relics: 10, seals: 0, auras: 0);
+        $rate = $this->offer('relics', 15, 'auras', 100);
 
         $this->actingAs($student)
             ->from(route('student.exchange.index'))
             ->post(route('student.exchange.trade'), [
                 'exchange_rate_id' => $rate->id,
-                'direction' => ExchangeRate::DIRECTION_A_TO_B,
                 'lots' => 1,
             ])
             ->assertRedirect(route('student.exchange.index'))
             ->assertSessionHasErrors('lots');
 
-        $enrollment = $student->enrollmentIn($class)->fresh();
-        $this->assertSame(10, (int) $enrollment->relics);
-        $this->assertSame(0, (int) $enrollment->seals);
+        $this->assertSame(10, (int) $student->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(0, $this->auras($student, $class));
         $this->assertSame(0, CurrencyExchange::query()->count());
     }
 
-    public function test_inactive_rate_rejects_both_directions(): void
+    public function test_inactive_offer_is_rejected(): void
     {
-        [$class, $student] = $this->readyStudent(relics: 50, seals: 50);
-        $rate = $this->createRelicsSealsRate(active: false);
-
-        foreach ([ExchangeRate::DIRECTION_A_TO_B, ExchangeRate::DIRECTION_B_TO_A] as $direction) {
-            $this->actingAs($student)
-                ->from(route('student.exchange.index'))
-                ->post(route('student.exchange.trade'), [
-                    'exchange_rate_id' => $rate->id,
-                    'direction' => $direction,
-                    'lots' => 1,
-                ])
-                ->assertRedirect(route('student.exchange.index'))
-                ->assertSessionHasErrors('exchange_rate_id');
-        }
-
-        $enrollment = $student->enrollmentIn($class)->fresh();
-        $this->assertSame(50, (int) $enrollment->relics);
-        $this->assertSame(50, (int) $enrollment->seals);
-        $this->assertSame(0, CurrencyExchange::query()->count());
-    }
-
-    public function test_aura_trade_updates_area_balance(): void
-    {
-        [$class, $student] = $this->readyStudent(relics: 0, seals: 0, auras: 12);
-        $rate = ExchangeRate::query()->create([
-            'currency_a' => 'auras',
-            'currency_b' => 'seals',
-            'amount_a' => 6,
-            'amount_b' => 5,
-            'is_active' => true,
-        ]);
-
-        $this->actingAs($student)
-            ->post(route('student.exchange.trade'), [
-                'exchange_rate_id' => $rate->id,
-                'direction' => ExchangeRate::DIRECTION_A_TO_B,
-                'lots' => 1,
-            ])
-            ->assertRedirect(route('student.exchange.index'))
-            ->assertSessionHas('success');
-
-        $this->assertSame(6, $this->auras($student, $class));
-        $this->assertSame(5, (int) $student->enrollmentIn($class)->fresh()->seals);
-    }
-
-    public function test_class_without_area_hides_and_blocks_aura_rates(): void
-    {
-        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
-        $class = $this->createClassForTeacher($teacher, ['area_id' => null]);
-        $student = $this->enrollStudent($class, 'Ana Souza', relics: 0, seals: 20);
-
-        $auraRate = ExchangeRate::query()->create([
-            'currency_a' => 'auras',
-            'currency_b' => 'seals',
-            'amount_a' => 6,
-            'amount_b' => 5,
-            'is_active' => true,
-        ]);
-        $this->createRelicsSealsRate();
-
-        $this->actingAs($student)
-            ->get(route('student.exchange.index'))
-            ->assertOk()
-            ->assertSee('Relíquias')
-            ->assertDontSee('6 Aura');
+        [$class, $student] = $this->readyStudent(relics: 50, seals: 0, auras: 0);
+        $rate = $this->offer('relics', 15, 'auras', 100, active: false);
 
         $this->actingAs($student)
             ->from(route('student.exchange.index'))
             ->post(route('student.exchange.trade'), [
-                'exchange_rate_id' => $auraRate->id,
-                'direction' => ExchangeRate::DIRECTION_B_TO_A,
+                'exchange_rate_id' => $rate->id,
                 'lots' => 1,
             ])
             ->assertRedirect(route('student.exchange.index'))
             ->assertSessionHasErrors('exchange_rate_id');
 
-        $this->assertSame(20, (int) $student->enrollmentIn($class)->fresh()->seals);
+        $this->assertSame(50, (int) $student->enrollmentIn($class)->fresh()->relics);
         $this->assertSame(0, CurrencyExchange::query()->count());
     }
 
-    public function test_student_sees_active_rates_on_exchange_page(): void
+    public function test_class_without_area_hides_and_blocks_aura_offers(): void
     {
-        [$class, $student] = $this->readyStudent(relics: 17, seals: 10);
-        $this->createRelicsSealsRate();
+        $teacher = User::factory()->create(['role' => 'teacher', 'must_change_password' => false]);
+        $class = $this->createClassForTeacher($teacher, ['area_id' => null]);
+        $student = $this->enrollStudent($class, 'Ana Souza', relics: 100, seals: 20);
+
+        $auraOffer = $this->offer('relics', 15, 'auras', 100);
+        $this->offer('relics', 100, 'seals', 50);
+
+        $this->actingAs($student)
+            ->get(route('student.exchange.index'))
+            ->assertOk()
+            ->assertSee('Selos')
+            ->assertDontSee('100 Aura');
+
+        $this->actingAs($student)
+            ->from(route('student.exchange.index'))
+            ->post(route('student.exchange.trade'), [
+                'exchange_rate_id' => $auraOffer->id,
+                'lots' => 1,
+            ])
+            ->assertRedirect(route('student.exchange.index'))
+            ->assertSessionHasErrors('exchange_rate_id');
+
+        $this->assertSame(100, (int) $student->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(0, CurrencyExchange::query()->count());
+    }
+
+    public function test_student_sees_default_offers_grouped_by_currency(): void
+    {
+        [$class, $student] = $this->readyStudent(relics: 100, seals: 50, auras: 50);
 
         $this->actingAs($student)
             ->get(route('student.exchange.index'))
             ->assertOk()
             ->assertSee('Casa de Câmbio')
-            ->assertSee('17 Relíquias')
-            ->assertSee('10 Selos');
+            ->assertSee('100 Aura')
+            ->assertSee('15 Relíquias')
+            ->assertSee('5 Selos')
+            ->assertSee('500 Relíquias')
+            ->assertSee('50 Selos');
     }
 
-    private function createRelicsSealsRate(bool $active = true): ExchangeRate
-    {
-        return ExchangeRate::query()->create([
-            'currency_a' => 'relics',
-            'currency_b' => 'seals',
-            'amount_a' => 17,
-            'amount_b' => 10,
-            'is_active' => $active,
-        ]);
+    private function offer(
+        string $payCurrency,
+        int $payAmount,
+        string $receiveCurrency,
+        int $receiveAmount,
+        bool $active = true,
+    ): ExchangeRate {
+        $rate = ExchangeRate::query()->updateOrCreate(
+            [
+                'pay_currency' => $payCurrency,
+                'receive_currency' => $receiveCurrency,
+            ],
+            [
+                'pay_amount' => $payAmount,
+                'receive_amount' => $receiveAmount,
+                'is_active' => $active,
+            ],
+        );
+
+        return $rate->fresh();
     }
 
     /**

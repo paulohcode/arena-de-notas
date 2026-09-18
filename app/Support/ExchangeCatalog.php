@@ -34,10 +34,10 @@ class ExchangeCatalog
     private static function baseRules(): array
     {
         return [
-            'currency_a' => ['required', 'string', Rule::in(GameCurrency::SHOP_KEYS)],
-            'currency_b' => ['required', 'string', Rule::in(GameCurrency::SHOP_KEYS), 'different:currency_a'],
-            'amount_a' => ['required', 'integer', 'min:1', 'max:99999'],
-            'amount_b' => ['required', 'integer', 'min:1', 'max:99999'],
+            'receive_currency' => ['required', 'string', Rule::in(GameCurrency::SHOP_KEYS)],
+            'receive_amount' => ['required', 'integer', 'min:1', 'max:99999'],
+            'pay_currency' => ['required', 'string', Rule::in(GameCurrency::SHOP_KEYS), 'different:receive_currency'],
+            'pay_amount' => ['required', 'integer', 'min:1', 'max:99999'],
         ];
     }
 
@@ -47,22 +47,22 @@ class ExchangeCatalog
     public static function messages(): array
     {
         return [
-            'currency_a.required' => 'Escolha a primeira moeda do par.',
-            'currency_a.in' => 'A primeira moeda do par é inválida.',
-            'currency_b.required' => 'Escolha a segunda moeda do par.',
-            'currency_b.in' => 'A segunda moeda do par é inválida.',
-            'currency_b.different' => 'As moedas do par precisam ser diferentes.',
-            'amount_a.required' => 'Informe a quantidade da primeira moeda.',
-            'amount_a.min' => 'A quantidade da primeira moeda deve ser pelo menos 1.',
-            'amount_b.required' => 'Informe a quantidade da segunda moeda.',
-            'amount_b.min' => 'A quantidade da segunda moeda deve ser pelo menos 1.',
+            'receive_currency.required' => 'Escolha a moeda que o aluno compra.',
+            'receive_currency.in' => 'A moeda comprada é inválida.',
+            'receive_amount.required' => 'Informe quanto o aluno recebe.',
+            'receive_amount.min' => 'A quantidade recebida deve ser pelo menos 1.',
+            'pay_currency.required' => 'Escolha a moeda de pagamento.',
+            'pay_currency.in' => 'A moeda de pagamento é inválida.',
+            'pay_currency.different' => 'A moeda de pagamento precisa ser diferente da moeda comprada.',
+            'pay_amount.required' => 'Informe quanto o aluno paga.',
+            'pay_amount.min' => 'A quantidade paga deve ser pelo menos 1.',
         ];
     }
 
     /**
      * @return list<\Closure(Validator): void>
      */
-    public static function uniquePairAfter(?ExchangeRate $except = null): array
+    public static function uniqueOfferAfter(?ExchangeRate $except = null): array
     {
         return [
             function (Validator $validator) use ($except): void {
@@ -70,13 +70,12 @@ class ExchangeCatalog
                     return;
                 }
 
-                $currencyA = (string) $validator->getData()['currency_a'];
-                $currencyB = (string) $validator->getData()['currency_b'];
-                $normalized = ExchangeRate::normalizePair($currencyA, $currencyB, 1, 1);
+                $payCurrency = (string) $validator->getData()['pay_currency'];
+                $receiveCurrency = (string) $validator->getData()['receive_currency'];
 
                 $query = ExchangeRate::query()
-                    ->where('currency_a', $normalized['currency_a'])
-                    ->where('currency_b', $normalized['currency_b']);
+                    ->where('pay_currency', $payCurrency)
+                    ->where('receive_currency', $receiveCurrency);
 
                 if ($except) {
                     $query->whereKeyNot($except->id);
@@ -84,8 +83,12 @@ class ExchangeCatalog
 
                 if ($query->exists()) {
                     $validator->errors()->add(
-                        'currency_b',
-                        'Já existe uma cotação para este par de moedas.',
+                        'pay_currency',
+                        'Já existe uma oferta para comprar '
+                        .GameCurrency::label($receiveCurrency)
+                        .' pagando '
+                        .GameCurrency::label($payCurrency)
+                        .'.',
                     );
                 }
             },
@@ -99,10 +102,6 @@ class ExchangeCatalog
     {
         return [
             'exchange_rate_id' => ['required', 'integer', 'exists:exchange_rates,id'],
-            'direction' => ['required', 'string', Rule::in([
-                ExchangeRate::DIRECTION_A_TO_B,
-                ExchangeRate::DIRECTION_B_TO_A,
-            ])],
             'lots' => ['required', 'integer', 'min:1', 'max:999'],
         ];
     }
@@ -113,13 +112,11 @@ class ExchangeCatalog
     public static function tradeMessages(): array
     {
         return [
-            'exchange_rate_id.required' => 'Escolha uma cotação.',
-            'exchange_rate_id.exists' => 'A cotação escolhida não existe.',
-            'direction.required' => 'Escolha o sentido da troca.',
-            'direction.in' => 'O sentido da troca é inválido.',
-            'lots.required' => 'Informe quantos lotes deseja trocar.',
-            'lots.min' => 'Troque pelo menos 1 lote.',
-            'lots.max' => 'Você pode trocar no máximo 999 lotes de uma vez.',
+            'exchange_rate_id.required' => 'Escolha uma oferta.',
+            'exchange_rate_id.exists' => 'A oferta escolhida não existe.',
+            'lots.required' => 'Informe quantos lotes deseja comprar.',
+            'lots.min' => 'Compre pelo menos 1 lote.',
+            'lots.max' => 'Você pode comprar no máximo 999 lotes de uma vez.',
         ];
     }
 }

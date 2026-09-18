@@ -10,14 +10,14 @@ return new class extends Migration
     {
         Schema::create('exchange_rates', function (Blueprint $table) {
             $table->id();
-            $table->string('currency_a', 20);
-            $table->string('currency_b', 20);
-            $table->unsignedInteger('amount_a');
-            $table->unsignedInteger('amount_b');
+            $table->string('pay_currency', 20);
+            $table->string('receive_currency', 20);
+            $table->unsignedInteger('pay_amount');
+            $table->unsignedInteger('receive_amount');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->unique(['currency_a', 'currency_b']);
+            $table->unique(['pay_currency', 'receive_currency']);
         });
     }
 

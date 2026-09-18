@@ -33,7 +33,7 @@ class ExchangeController extends Controller
             'student' => $student,
             'enrollment' => $data['enrollment'],
             'auras' => $data['auras'],
-            'rates' => $data['rates'],
+            'offers' => $data['offers'],
         ]);
     }
 
@@ -53,7 +53,6 @@ class ExchangeController extends Controller
                 $request->user(),
                 $class,
                 (int) $data['exchange_rate_id'],
-                (string) $data['direction'],
                 (int) $data['lots'],
             );
         } catch (ValidationException $exception) {
@@ -66,10 +65,10 @@ class ExchangeController extends Controller
             ->route('student.exchange.index')
             ->with(
                 'success',
-                'Troca concluída: '
-                .GameCurrency::format($trade->pay_currency, $trade->pay_amount)
-                .' → '
+                'Compra concluída: '
                 .GameCurrency::format($trade->receive_currency, $trade->receive_amount)
+                .' por '
+                .GameCurrency::format($trade->pay_currency, $trade->pay_amount)
                 .'.',
             );
     }

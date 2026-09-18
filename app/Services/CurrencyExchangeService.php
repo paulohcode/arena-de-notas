@@ -21,39 +21,33 @@ class CurrencyExchangeService
      */
     public function ratesForAdmin(): Collection
     {
+        ExchangeRate::ensureShopOffers();
+
         return ExchangeRate::query()
-            ->orderBy('currency_a')
-            ->orderBy('currency_b')
+            ->orderBy('receive_currency')
+            ->orderBy('pay_currency')
             ->orderBy('id')
             ->get();
     }
 
     public function createRate(array $data): ExchangeRate
     {
-        $normalized = ExchangeRate::normalizePair(
-            (string) $data['currency_a'],
-            (string) $data['currency_b'],
-            (int) $data['amount_a'],
-            (int) $data['amount_b'],
-        );
-
         return ExchangeRate::query()->create([
-            ...$normalized,
+            'pay_currency' => (string) $data['pay_currency'],
+            'pay_amount' => (int) $data['pay_amount'],
+            'receive_currency' => (string) $data['receive_currency'],
+            'receive_amount' => (int) $data['receive_amount'],
             'is_active' => true,
         ]);
     }
 
     public function updateRate(ExchangeRate $rate, array $data): ExchangeRate
     {
-        $normalized = ExchangeRate::normalizePair(
-            (string) $data['currency_a'],
-            (string) $data['currency_b'],
-            (int) $data['amount_a'],
-            (int) $data['amount_b'],
-        );
-
         $rate->fill([
-            ...$normalized,
+            'pay_currency' => (string) $data['pay_currency'],
+            'pay_amount' => (int) $data['pay_amount'],
+            'receive_currency' => (string) $data['receive_currency'],
+            'receive_amount' => (int) $data['receive_amount'],
             'is_active' => (bool) ($data['is_active'] ?? $rate->is_active),
         ]);
         $rate->save();
@@ -70,14 +64,14 @@ class CurrencyExchangeService
      * @return array{
      *     enrollment: Enrollment,
      *     auras: int,
-     *     rates: list<array{
-     *         id: int,
-     *         parity: string,
-     *         directions: list<array{
-     *             direction: string,
+     *     offers: list<array{
+     *         receive_currency: string,
+     *         receive_label: string,
+     *         options: list<array{
+     *             id: int,
      *             pay_currency: string,
-     *             receive_currency: string,
      *             pay_amount: int,
+     *             receive_currency: string,
      *             receive_amount: int,
      *             label: string
      *         }>
@@ -102,27 +96,50 @@ class CurrencyExchangeService
                 ->value('auras');
         }
 
-        $rates = ExchangeRate::query()
+        ExchangeRate::ensureShopOffers();
+
+        $grouped = [];
+        foreach (GameCurrency::SHOP_KEYS as $receiveCurrency) {
+            $grouped[$receiveCurrency] = [
+                'receive_currency' => $receiveCurrency,
+                'receive_label' => GameCurrency::format($receiveCurrency),
+                'options' => [],
+            ];
+        }
+
+        ExchangeRate::query()
             ->active()
-            ->orderBy('currency_a')
-            ->orderBy('currency_b')
+            ->orderBy('receive_currency')
+            ->orderBy('pay_currency')
             ->orderBy('id')
             ->get()
             ->filter(fn (ExchangeRate $rate): bool => $this->rateAvailableForClass($rate, $class))
-            ->map(fn (ExchangeRate $rate): array => $this->presentRate($rate))
+            ->each(function (ExchangeRate $rate) use (&$grouped): void {
+                $grouped[$rate->receive_currency]['options'][] = [
+                    'id' => $rate->id,
+                    'pay_currency' => $rate->pay_currency,
+                    'pay_amount' => (int) $rate->pay_amount,
+                    'receive_currency' => $rate->receive_currency,
+                    'receive_amount' => (int) $rate->receive_amount,
+                    'label' => $rate->offerLabel(),
+                ];
+            });
+
+        $offers = collect($grouped)
+            ->filter(fn (array $group): bool => count($group['options']) > 0)
             ->values()
             ->all();
 
         return [
             'enrollment' => $enrollment,
             'auras' => $auras,
-            'rates' => $rates,
+            'offers' => $offers,
         ];
     }
 
-    public function trade(User $student, SchoolClass $class, int $rateId, string $direction, int $lots): CurrencyExchange
+    public function trade(User $student, SchoolClass $class, int $rateId, int $lots): CurrencyExchange
     {
-        return DB::transaction(function () use ($student, $class, $rateId, $direction, $lots) {
+        return DB::transaction(function () use ($student, $class, $rateId, $lots) {
             $rate = ExchangeRate::query()
                 ->whereKey($rateId)
                 ->lockForUpdate()
@@ -130,25 +147,18 @@ class CurrencyExchangeService
 
             if (! $rate || ! $rate->is_active) {
                 throw ValidationException::withMessages([
-                    'exchange_rate_id' => 'Esta cotação não está disponível.',
+                    'exchange_rate_id' => 'Esta oferta não está disponível.',
                 ]);
             }
 
             if (! $this->rateAvailableForClass($rate, $class)) {
                 throw ValidationException::withMessages([
-                    'exchange_rate_id' => 'Esta cotação precisa de um reino (Aura).',
+                    'exchange_rate_id' => 'Esta oferta precisa de um reino (Aura).',
                 ]);
             }
 
-            $resolved = $rate->resolveDirection($direction);
-            if ($resolved === null) {
-                throw ValidationException::withMessages([
-                    'direction' => 'O sentido da troca é inválido.',
-                ]);
-            }
-
-            $payTotal = $resolved['pay_amount'] * $lots;
-            $receiveTotal = $resolved['receive_amount'] * $lots;
+            $payTotal = (int) $rate->pay_amount * $lots;
+            $receiveTotal = (int) $rate->receive_amount * $lots;
 
             $enrollment = Enrollment::query()
                 ->where('class_id', $class->id)
@@ -162,8 +172,8 @@ class CurrencyExchangeService
                 ]);
             }
 
-            $this->debitCurrency($student, $class, $enrollment, $resolved['pay_currency'], $payTotal);
-            $this->creditCurrency($student, $class, $enrollment, $resolved['receive_currency'], $receiveTotal);
+            $this->debitCurrency($student, $class, $enrollment, $rate->pay_currency, $payTotal);
+            $this->creditCurrency($student, $class, $enrollment, $rate->receive_currency, $receiveTotal);
             $enrollment->save();
 
             return CurrencyExchange::query()->create([
@@ -171,8 +181,8 @@ class CurrencyExchangeService
                 'class_id' => $class->id,
                 'area_id' => $class->area_id,
                 'exchange_rate_id' => $rate->id,
-                'pay_currency' => $resolved['pay_currency'],
-                'receive_currency' => $resolved['receive_currency'],
+                'pay_currency' => $rate->pay_currency,
+                'receive_currency' => $rate->receive_currency,
                 'pay_amount' => $payTotal,
                 'receive_amount' => $receiveTotal,
                 'lots' => $lots,
@@ -190,47 +200,6 @@ class CurrencyExchangeService
         return true;
     }
 
-    /**
-     * @return array{
-     *     id: int,
-     *     parity: string,
-     *     directions: list<array{
-     *         direction: string,
-     *         pay_currency: string,
-     *         receive_currency: string,
-     *         pay_amount: int,
-     *         receive_amount: int,
-     *         label: string
-     *     }>
-     * }
-     */
-    private function presentRate(ExchangeRate $rate): array
-    {
-        $directions = [];
-
-        foreach ([ExchangeRate::DIRECTION_A_TO_B, ExchangeRate::DIRECTION_B_TO_A] as $direction) {
-            $resolved = $rate->resolveDirection($direction);
-            if ($resolved === null) {
-                continue;
-            }
-
-            $directions[] = [
-                ...$resolved,
-                'direction' => $direction,
-                'label' => 'Pagar '
-                    .GameCurrency::format($resolved['pay_currency'], $resolved['pay_amount'])
-                    .' → receber '
-                    .GameCurrency::format($resolved['receive_currency'], $resolved['receive_amount']),
-            ];
-        }
-
-        return [
-            'id' => $rate->id,
-            'parity' => $rate->parityLabel(),
-            'directions' => $directions,
-        ];
-    }
-
     private function debitCurrency(
         User $student,
         SchoolClass $class,
@@ -242,7 +211,7 @@ class CurrencyExchangeService
             $balance = $this->lockedAreaBalance($student, $class);
             if ((int) $balance->auras < $amount) {
                 throw ValidationException::withMessages([
-                    'lots' => GameCurrency::label(GameCurrency::KEY_AURAS).' insuficientes para esta troca.',
+                    'lots' => GameCurrency::label(GameCurrency::KEY_AURAS).' insuficientes para esta compra.',
                 ]);
             }
 
@@ -255,7 +224,7 @@ class CurrencyExchangeService
         $current = (int) $enrollment->{$currency};
         if ($current < $amount) {
             throw ValidationException::withMessages([
-                'lots' => GameCurrency::label($currency).' insuficientes para esta troca.',
+                'lots' => GameCurrency::label($currency).' insuficientes para esta compra.',
             ]);
         }
 

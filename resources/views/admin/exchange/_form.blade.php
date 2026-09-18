@@ -1,46 +1,46 @@
 @php
-    $currencyA = old('currency_a', $rate?->currency_a ?? 'relics');
-    $currencyB = old('currency_b', $rate?->currency_b ?? 'seals');
-    $amountA = old('amount_a', $rate?->amount_a ?? 17);
-    $amountB = old('amount_b', $rate?->amount_b ?? 10);
+    $receiveCurrency = old('receive_currency', $rate?->receive_currency ?? 'auras');
+    $receiveAmount = old('receive_amount', $rate?->receive_amount ?? 100);
+    $payCurrency = old('pay_currency', $rate?->pay_currency ?? 'relics');
+    $payAmount = old('pay_amount', $rate?->pay_amount ?? 15);
 @endphp
 
 <div class="grid sm:grid-cols-2 gap-4">
     <label class="block">
-        <span class="text-sm">Moeda A</span>
-        <select class="game-select mt-1 w-full" name="currency_a" required>
+        <span class="text-sm">Moeda que o aluno compra</span>
+        <select class="game-select mt-1 w-full" name="receive_currency" required>
             @foreach($currencyOptions as $key => $label)
-                <option value="{{ $key }}" @selected($currencyA === $key)>{{ $label }}</option>
+                <option value="{{ $key }}" @selected($receiveCurrency === $key)>{{ $label }}</option>
             @endforeach
         </select>
-        @error('currency_a')
+        @error('receive_currency')
             <p class="text-sm text-rose-300 mt-1">{{ $message }}</p>
         @enderror
     </label>
     <label class="block">
-        <span class="text-sm">Quantidade A</span>
-        <input class="game-input mt-1 w-full" type="number" name="amount_a" min="1" max="99999" value="{{ $amountA }}" required>
-        @error('amount_a')
+        <span class="text-sm">Quantidade recebida</span>
+        <input class="game-input mt-1 w-full" type="number" name="receive_amount" min="1" max="99999" value="{{ $receiveAmount }}" required>
+        @error('receive_amount')
             <p class="text-sm text-rose-300 mt-1">{{ $message }}</p>
         @enderror
     </label>
     <label class="block">
-        <span class="text-sm">Moeda B</span>
-        <select class="game-select mt-1 w-full" name="currency_b" required>
+        <span class="text-sm">Moeda de pagamento</span>
+        <select class="game-select mt-1 w-full" name="pay_currency" required>
             @foreach($currencyOptions as $key => $label)
-                <option value="{{ $key }}" @selected($currencyB === $key)>{{ $label }}</option>
+                <option value="{{ $key }}" @selected($payCurrency === $key)>{{ $label }}</option>
             @endforeach
         </select>
-        @error('currency_b')
+        @error('pay_currency')
             <p class="text-sm text-rose-300 mt-1">{{ $message }}</p>
         @enderror
     </label>
     <label class="block">
-        <span class="text-sm">Quantidade B</span>
-        <input class="game-input mt-1 w-full" type="number" name="amount_b" min="1" max="99999" value="{{ $amountB }}" required>
-        @error('amount_b')
+        <span class="text-sm">Quantidade paga</span>
+        <input class="game-input mt-1 w-full" type="number" name="pay_amount" min="1" max="99999" value="{{ $payAmount }}" required>
+        @error('pay_amount')
             <p class="text-sm text-rose-300 mt-1">{{ $message }}</p>
         @enderror
     </label>
 </div>
-<p class="text-sm text-amber-100/50">Ex.: 17 Relíquias = 10 Selos. A ordem das moedas é normalizada automaticamente.</p>
+<p class="text-sm text-amber-100/50">Ex.: comprar 100 Aura pagando 15 Relíquias — ou outra oferta com 5 Selos.</p>

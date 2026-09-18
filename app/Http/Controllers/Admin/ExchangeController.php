@@ -30,14 +30,14 @@ class ExchangeController extends Controller
             ExchangeCatalog::storeRules(),
             ExchangeCatalog::messages(),
         );
-        $validator->after(ExchangeCatalog::uniquePairAfter());
+        $validator->after(ExchangeCatalog::uniqueOfferAfter());
         $data = $validator->validate();
 
         $rate = $this->exchange->createRate($data);
 
         return redirect()
             ->route('admin.exchange.index')
-            ->with('success', 'Cotação cadastrada: '.$rate->parityLabel().'.');
+            ->with('success', 'Oferta cadastrada: '.$rate->offerLabel().'.');
     }
 
     public function edit(ExchangeRate $exchangeRate): View
@@ -55,7 +55,7 @@ class ExchangeController extends Controller
             ExchangeCatalog::updateRules(),
             ExchangeCatalog::messages(),
         );
-        $validator->after(ExchangeCatalog::uniquePairAfter($exchangeRate));
+        $validator->after(ExchangeCatalog::uniqueOfferAfter($exchangeRate));
         $data = $validator->validate();
         $data['is_active'] = $request->boolean('is_active');
 
@@ -63,16 +63,16 @@ class ExchangeController extends Controller
 
         return redirect()
             ->route('admin.exchange.index')
-            ->with('success', 'Cotação atualizada: '.$rate->parityLabel().'.');
+            ->with('success', 'Oferta atualizada: '.$rate->offerLabel().'.');
     }
 
     public function destroy(ExchangeRate $exchangeRate): RedirectResponse
     {
-        $label = $exchangeRate->parityLabel();
+        $label = $exchangeRate->offerLabel();
         $this->exchange->deleteRate($exchangeRate);
 
         return redirect()
             ->route('admin.exchange.index')
-            ->with('success', 'Cotação removida: '.$label.'.');
+            ->with('success', 'Oferta removida: '.$label.'.');
     }
 }

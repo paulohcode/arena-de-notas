@@ -8,15 +8,55 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ExchangeRate extends Model
 {
-    public const DIRECTION_A_TO_B = 'a_to_b';
-
-    public const DIRECTION_B_TO_A = 'b_to_a';
+    /**
+     * Ofertas padrão: comprar X de uma moeda pagando Y de outra.
+     *
+     * @var list<array{pay_currency: string, pay_amount: int, receive_currency: string, receive_amount: int}>
+     */
+    public const SHOP_OFFERS = [
+        [
+            'pay_currency' => GameCurrency::KEY_RELICS,
+            'pay_amount' => 15,
+            'receive_currency' => GameCurrency::KEY_AURAS,
+            'receive_amount' => 100,
+        ],
+        [
+            'pay_currency' => GameCurrency::KEY_SEALS,
+            'pay_amount' => 5,
+            'receive_currency' => GameCurrency::KEY_AURAS,
+            'receive_amount' => 100,
+        ],
+        [
+            'pay_currency' => GameCurrency::KEY_SEALS,
+            'pay_amount' => 50,
+            'receive_currency' => GameCurrency::KEY_RELICS,
+            'receive_amount' => 500,
+        ],
+        [
+            'pay_currency' => GameCurrency::KEY_AURAS,
+            'pay_amount' => 400,
+            'receive_currency' => GameCurrency::KEY_RELICS,
+            'receive_amount' => 500,
+        ],
+        [
+            'pay_currency' => GameCurrency::KEY_RELICS,
+            'pay_amount' => 100,
+            'receive_currency' => GameCurrency::KEY_SEALS,
+            'receive_amount' => 50,
+        ],
+        [
+            'pay_currency' => GameCurrency::KEY_AURAS,
+            'pay_amount' => 300,
+            'receive_currency' => GameCurrency::KEY_SEALS,
+            'receive_amount' => 50,
+        ],
+    ];
 
     protected $fillable = [
-        'currency_a',
-        'currency_b',
-        'amount_a',
-        'amount_b',
+        'pay_currency',
+        'receive_currency',
+        'pay_amount',
+        'receive_amount',
         'is_active',
     ];
 
@@ -30,8 +70,8 @@ class ExchangeRate extends Model
     protected function casts(): array
     {
         return [
-            'amount_a' => 'integer',
-            'amount_b' => 'integer',
+            'pay_amount' => 'integer',
+            'receive_amount' => 'integer',
             'is_active' => 'boolean',
         ];
     }
@@ -51,67 +91,35 @@ class ExchangeRate extends Model
     }
 
     /**
-     * @return array{currency_a: string, currency_b: string, amount_a: int, amount_b: int}
+     * Garante as 6 ofertas padrão (cada moeda comprável com as outras duas).
      */
-    public static function normalizePair(string $currencyOne, string $currencyTwo, int $amountOne, int $amountTwo): array
+    public static function ensureShopOffers(): void
     {
-        if ($currencyOne === $currencyTwo) {
-            return [
-                'currency_a' => $currencyOne,
-                'currency_b' => $currencyTwo,
-                'amount_a' => $amountOne,
-                'amount_b' => $amountTwo,
-            ];
+        foreach (self::SHOP_OFFERS as $offer) {
+            self::query()->firstOrCreate(
+                [
+                    'pay_currency' => $offer['pay_currency'],
+                    'receive_currency' => $offer['receive_currency'],
+                ],
+                [
+                    'pay_amount' => $offer['pay_amount'],
+                    'receive_amount' => $offer['receive_amount'],
+                    'is_active' => true,
+                ],
+            );
         }
-
-        if ($currencyOne < $currencyTwo) {
-            return [
-                'currency_a' => $currencyOne,
-                'currency_b' => $currencyTwo,
-                'amount_a' => $amountOne,
-                'amount_b' => $amountTwo,
-            ];
-        }
-
-        return [
-            'currency_a' => $currencyTwo,
-            'currency_b' => $currencyOne,
-            'amount_a' => $amountTwo,
-            'amount_b' => $amountOne,
-        ];
     }
 
     public function usesCurrency(string $key): bool
     {
-        return $this->currency_a === $key || $this->currency_b === $key;
+        return $this->pay_currency === $key || $this->receive_currency === $key;
     }
 
-    /**
-     * @return array{pay_currency: string, receive_currency: string, pay_amount: int, receive_amount: int}|null
-     */
-    public function resolveDirection(string $direction): ?array
+    public function offerLabel(): string
     {
-        return match ($direction) {
-            self::DIRECTION_A_TO_B => [
-                'pay_currency' => $this->currency_a,
-                'receive_currency' => $this->currency_b,
-                'pay_amount' => (int) $this->amount_a,
-                'receive_amount' => (int) $this->amount_b,
-            ],
-            self::DIRECTION_B_TO_A => [
-                'pay_currency' => $this->currency_b,
-                'receive_currency' => $this->currency_a,
-                'pay_amount' => (int) $this->amount_b,
-                'receive_amount' => (int) $this->amount_a,
-            ],
-            default => null,
-        };
-    }
-
-    public function parityLabel(): string
-    {
-        return GameCurrency::format($this->currency_a, $this->amount_a)
-            .' = '
-            .GameCurrency::format($this->currency_b, $this->amount_b);
+        return 'Comprar '
+            .GameCurrency::format($this->receive_currency, $this->receive_amount)
+            .' pagando '
+            .GameCurrency::format($this->pay_currency, $this->pay_amount);
     }
 }

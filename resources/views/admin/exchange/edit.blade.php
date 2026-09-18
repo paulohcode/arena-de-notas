@@ -1,12 +1,12 @@
 @extends('layouts.game')
 
-@section('title', 'Editar cotação — Admin')
+@section('title', 'Editar oferta — Admin')
 
 @section('content')
 <div class="mb-8 reveal">
     <a href="{{ route('admin.exchange.index') }}" class="game-btn-ghost text-sm">← Casa de Câmbio</a>
-    <h1 class="font-display text-4xl text-amber-300 mt-3">Editar cotação</h1>
-    <p class="text-amber-100/60 mt-1">{{ $rate->parityLabel() }}</p>
+    <h1 class="font-display text-4xl text-amber-300 mt-3">Editar oferta</h1>
+    <p class="text-amber-100/60 mt-1">{{ $rate->offerLabel() }}</p>
 </div>
 
 <div class="game-card p-5 reveal">
@@ -25,10 +25,10 @@
                 class="rounded border-amber-500/40"
                 @checked(old('is_active', $rate->is_active))
             >
-            Cotação ativa (visível para os alunos)
+            Oferta ativa (visível para os alunos)
         </label>
         <div class="flex flex-wrap gap-3">
-            <button class="game-btn" type="submit">Salvar cotação</button>
+            <button class="game-btn" type="submit">Salvar oferta</button>
             <a class="game-btn-ghost" href="{{ route('admin.exchange.index') }}">Cancelar</a>
         </div>
     </form>
