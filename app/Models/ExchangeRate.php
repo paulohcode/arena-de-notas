@@ -91,22 +91,23 @@ class ExchangeRate extends Model
     }
 
     /**
-     * Garante as 6 ofertas padrão (cada moeda comprável com as outras duas).
+     * Semear as 6 ofertas padrão só na primeira carga (tabela vazia).
+     * Não recria ofertas que o admin removeu de propósito.
      */
     public static function ensureShopOffers(): void
     {
+        if (self::query()->exists()) {
+            return;
+        }
+
         foreach (self::SHOP_OFFERS as $offer) {
-            self::query()->firstOrCreate(
-                [
-                    'pay_currency' => $offer['pay_currency'],
-                    'receive_currency' => $offer['receive_currency'],
-                ],
-                [
-                    'pay_amount' => $offer['pay_amount'],
-                    'receive_amount' => $offer['receive_amount'],
-                    'is_active' => true,
-                ],
-            );
+            self::query()->create([
+                'pay_currency' => $offer['pay_currency'],
+                'pay_amount' => $offer['pay_amount'],
+                'receive_currency' => $offer['receive_currency'],
+                'receive_amount' => $offer['receive_amount'],
+                'is_active' => true,
+            ]);
         }
     }
 

@@ -207,6 +207,21 @@ class AdminExchangeTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertDatabaseMissing('exchange_rates', ['id' => $rate->id]);
+        $this->assertDatabaseMissing('exchange_rates', [
+            'pay_currency' => 'seals',
+            'receive_currency' => 'auras',
+        ]);
+        $this->assertSame(count(ExchangeRate::SHOP_OFFERS) - 1, ExchangeRate::query()->count());
+
+        $this->actingAs($admin)
+            ->get(route('admin.exchange.index'))
+            ->assertOk();
+
+        $this->assertDatabaseMissing('exchange_rates', [
+            'pay_currency' => 'seals',
+            'receive_currency' => 'auras',
+        ]);
+        $this->assertSame(count(ExchangeRate::SHOP_OFFERS) - 1, ExchangeRate::query()->count());
     }
 
     private function enrollStudent(SchoolClass $class, string $name): User
