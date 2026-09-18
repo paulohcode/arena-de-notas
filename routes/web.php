@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CurrencyController as AdminCurrencyController;
 use App\Http\Controllers\Admin\DailyReportController as AdminDailyReportController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ExchangeController as AdminExchangeController;
+use App\Http\Controllers\Admin\ExchangeReportController as AdminExchangeReportController;
 use App\Http\Controllers\Admin\GameEventController as AdminGameEventController;
 use App\Http\Controllers\Admin\ImpersonationController as AdminImpersonationController;
 use App\Http\Controllers\Admin\PetController as AdminPetController;
@@ -73,6 +74,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/relatorio', [AdminDailyReportController::class, 'show'])->name('reports.daily');
+    Route::get('/relatorio/cambio', [AdminExchangeReportController::class, 'show'])->name('reports.exchange');
     Route::get('/arena', [AdminArenaController::class, 'index'])->name('arena');
 
     Route::post('/impersonar/{schoolClass}/{student}', [AdminImpersonationController::class, 'start'])->name('impersonate.start');

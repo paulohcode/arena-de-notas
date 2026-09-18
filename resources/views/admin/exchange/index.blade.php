@@ -12,6 +12,7 @@
             Ofertas oficiais, cofre das taxas P2P (10% do comprador) e sorteio do pote entre quem negociou.
         </p>
     </div>
+    <a class="game-btn" href="{{ route('admin.reports.exchange') }}">Relatório do câmbio</a>
 </div>
 
 @error('raffle')

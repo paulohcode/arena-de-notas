@@ -23,6 +23,7 @@
             @endif.
         </p>
     </div>
+    <a class="game-btn-ghost" href="{{ route('admin.reports.exchange', ['date' => $selectedDate, 'area' => $selectedAreaId]) }}">Relatório do câmbio</a>
 </div>
 
 <form method="GET" action="{{ route('admin.reports.daily') }}" class="game-card p-5 mb-8 reveal flex flex-wrap items-end gap-4">

@@ -40,7 +40,12 @@
     <a href="{{ route('admin.exchange.index') }}" class="game-card game-card-glow p-6 block reveal reveal-delay-4">
         <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Economia</p>
         <h2 class="font-display text-3xl text-amber-200">Casa de Câmbio</h2>
-        <p class="text-sm text-amber-100/60 mt-2">Cotações entre {{ \App\Models\GameCurrency::label('relics') }}, {{ \App\Models\GameCurrency::label('seals') }} e {{ \App\Models\GameCurrency::label('auras') }} →</p>
+        <p class="text-sm text-amber-100/60 mt-2">Cotações, cofre e sorteio →</p>
+    </a>
+    <a href="{{ route('admin.reports.exchange') }}" class="game-card game-card-glow p-6 block reveal reveal-delay-4">
+        <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Economia</p>
+        <h2 class="font-display text-3xl text-amber-200">Relatório câmbio</h2>
+        <p class="text-sm text-amber-100/60 mt-2">Compras oficiais e negociações entre alunos →</p>
     </a>
     <a href="{{ route('admin.currencies.index') }}" class="game-card game-card-glow p-6 block reveal reveal-delay-4">
         <p class="text-xs uppercase tracking-[0.2em] text-orange-300/80 mb-2">Economia</p>
