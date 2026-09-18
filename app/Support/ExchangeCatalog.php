@@ -108,6 +108,37 @@ class ExchangeCatalog
     /**
      * @return array<string, list<string|object>>
      */
+    public static function listingRules(): array
+    {
+        return [
+            'offer_currency' => ['required', 'string', Rule::in(GameCurrency::SHOP_KEYS)],
+            'offer_amount' => ['required', 'integer', 'min:1', 'max:99999'],
+            'ask_currency' => ['required', 'string', Rule::in(GameCurrency::SHOP_KEYS), 'different:offer_currency'],
+            'ask_amount' => ['required', 'integer', 'min:1', 'max:99999'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function listingMessages(): array
+    {
+        return [
+            'offer_currency.required' => 'Escolha a moeda que você oferece.',
+            'offer_currency.in' => 'A moeda oferecida é inválida.',
+            'offer_amount.required' => 'Informe quanto você oferece.',
+            'offer_amount.min' => 'Ofereça pelo menos 1.',
+            'ask_currency.required' => 'Escolha a moeda que você pede.',
+            'ask_currency.in' => 'A moeda pedida é inválida.',
+            'ask_currency.different' => 'Ofereça e peça moedas diferentes.',
+            'ask_amount.required' => 'Informe quanto você pede.',
+            'ask_amount.min' => 'Peça pelo menos 1.',
+        ];
+    }
+
+    /**
+     * @return array<string, list<string|object>>
+     */
     public static function tradeRules(): array
     {
         return [

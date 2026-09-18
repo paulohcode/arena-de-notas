@@ -121,6 +121,7 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
     Route::get('/cambio/{exchangeRate}/editar', [AdminExchangeController::class, 'edit'])->name('exchange.edit');
     Route::put('/cambio/{exchangeRate}', [AdminExchangeController::class, 'update'])->name('exchange.update');
     Route::delete('/cambio/{exchangeRate}', [AdminExchangeController::class, 'destroy'])->name('exchange.destroy');
+    Route::post('/cambio/reinos/{area}/sortear', [AdminExchangeController::class, 'raffle'])->name('exchange.raffle');
 });
 
 Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('professor')->name('teacher.')->group(function () {
@@ -248,6 +249,9 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
 
         Route::get('/cambio', [StudentExchangeController::class, 'index'])->name('exchange.index');
         Route::post('/cambio', [StudentExchangeController::class, 'trade'])->name('exchange.trade');
+        Route::post('/cambio/anuncios', [StudentExchangeController::class, 'storeListing'])->name('exchange.listings.store');
+        Route::post('/cambio/anuncios/{listing}/cancelar', [StudentExchangeController::class, 'cancelListing'])->name('exchange.listings.cancel');
+        Route::post('/cambio/anuncios/{listing}/aceitar', [StudentExchangeController::class, 'acceptListing'])->name('exchange.listings.accept');
 
         Route::get('/loja', [StudentShopController::class, 'index'])->name('shop.index');
         Route::post('/loja/comprar', [StudentShopController::class, 'purchase'])->name('shop.purchase');

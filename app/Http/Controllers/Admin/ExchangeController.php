@@ -3,23 +3,30 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Area;
 use App\Models\ExchangeRate;
 use App\Models\GameCurrency;
 use App\Services\CurrencyExchangeService;
+use App\Services\PeerCurrencyTradeService;
 use App\Support\ExchangeCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ExchangeController extends Controller
 {
-    public function __construct(private CurrencyExchangeService $exchange) {}
+    public function __construct(
+        private CurrencyExchangeService $exchange,
+        private PeerCurrencyTradeService $peerTrades,
+    ) {}
 
     public function index(): View
     {
         return view('admin.exchange.index', [
             'rates' => $this->exchange->ratesForAdmin(),
             'currencyOptions' => GameCurrency::shopLabels(),
+            'vaults' => $this->peerTrades->vaultsForAdmin(),
         ]);
     }
 
@@ -71,5 +78,38 @@ class ExchangeController extends Controller
         return redirect()
             ->route('admin.exchange.index')
             ->with('success', 'Oferta removida: '.$label.'.');
+    }
+
+    public function raffle(Request $request, Area $area): RedirectResponse
+    {
+        try {
+            $raffle = $this->peerTrades->raffle($area, $request->user());
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('admin.exchange.index')
+                ->withErrors($exception->errors());
+        }
+
+        $parts = [];
+        if ($raffle->relics > 0) {
+            $parts[] = GameCurrency::format('relics', $raffle->relics);
+        }
+        if ($raffle->seals > 0) {
+            $parts[] = GameCurrency::format('seals', $raffle->seals);
+        }
+        if ($raffle->auras > 0) {
+            $parts[] = GameCurrency::format('auras', $raffle->auras);
+        }
+
+        return redirect()
+            ->route('admin.exchange.index')
+            ->with(
+                'success',
+                'Sorteio em '.$area->name.': '
+                .($raffle->winner?->name ?? 'aluno')
+                .' ganhou '
+                .implode(' + ', $parts)
+                .'.',
+            );
     }
 }
