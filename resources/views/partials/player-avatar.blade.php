@@ -14,8 +14,18 @@
     $accessoryKey = $loadout['accessory'] ?? null;
     $auraKey = $loadout['aura'] ?? null;
 
-    $frameCss = filled($frameKey) ? (CosmeticCatalog::item($frameKey)['css'] ?? null) : null;
-    $auraCss = filled($auraKey) ? (CosmeticCatalog::item($auraKey)['css'] ?? null) : null;
+    $frameCss = null;
+    $auraCss = null;
+    if (isset($enrollment) && is_object($enrollment)) {
+        $frameCss = CosmeticCatalog::equippedCssTone($enrollment, 'frame');
+        $auraCss = CosmeticCatalog::equippedCssTone($enrollment, 'aura');
+    }
+    if (! filled($frameCss) && filled($frameKey)) {
+        $frameCss = CosmeticCatalog::item($frameKey)['css'] ?? null;
+    }
+    if (! filled($auraCss) && filled($auraKey)) {
+        $auraCss = CosmeticCatalog::item($auraKey)['css'] ?? null;
+    }
     $accessoryIcon = filled($accessoryKey) ? (CosmeticCatalog::item($accessoryKey)['icon'] ?? null) : null;
 
     if (! isset($equippedPet) && isset($enrollment) && $enrollment?->equipped_pet_id) {

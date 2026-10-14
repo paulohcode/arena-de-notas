@@ -452,11 +452,11 @@ class StudentSheetTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'must_change_password' => false]);
 
         $enrollment = $student->enrollmentIn($class);
-        EnrollmentCosmetic::query()->create([
+        $cosmetic = EnrollmentCosmetic::query()->create([
             'enrollment_id' => $enrollment->id,
             'item_key' => 'frame_bronze',
         ]);
-        $enrollment->update(['equipped_frame' => 'frame_bronze']);
+        $enrollment->update(['equipped_frame_id' => $cosmetic->id]);
 
         $this->actingAs($admin)
             ->get(route('teacher.students.show', [$class, $student]))

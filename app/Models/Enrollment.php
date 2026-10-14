@@ -20,10 +20,10 @@ class Enrollment extends Model
         'arena_wins',
         'arena_losses',
         'behavior_score',
-        'equipped_frame',
-        'equipped_accessory',
-        'equipped_title',
-        'equipped_aura',
+        'equipped_frame_id',
+        'equipped_accessory_id',
+        'equipped_title_id',
+        'equipped_aura_id',
         'equipped_pet_id',
     ];
 
@@ -38,6 +38,10 @@ class Enrollment extends Model
             'arena_wins' => 'integer',
             'arena_losses' => 'integer',
             'behavior_score' => 'float',
+            'equipped_frame_id' => 'integer',
+            'equipped_accessory_id' => 'integer',
+            'equipped_title_id' => 'integer',
+            'equipped_aura_id' => 'integer',
             'equipped_pet_id' => 'integer',
         ];
     }
@@ -67,6 +71,26 @@ class Enrollment extends Model
         return $this->belongsTo(EnrollmentPet::class, 'equipped_pet_id');
     }
 
+    public function equippedFrameCosmetic(): BelongsTo
+    {
+        return $this->belongsTo(EnrollmentCosmetic::class, 'equipped_frame_id');
+    }
+
+    public function equippedAccessoryCosmetic(): BelongsTo
+    {
+        return $this->belongsTo(EnrollmentCosmetic::class, 'equipped_accessory_id');
+    }
+
+    public function equippedTitleCosmetic(): BelongsTo
+    {
+        return $this->belongsTo(EnrollmentCosmetic::class, 'equipped_title_id');
+    }
+
+    public function equippedAuraCosmetic(): BelongsTo
+    {
+        return $this->belongsTo(EnrollmentCosmetic::class, 'equipped_aura_id');
+    }
+
     public function listings(): HasMany
     {
         return $this->hasMany(CosmeticListing::class);
@@ -87,6 +111,35 @@ class Enrollment extends Model
 
     public function equippedTitleLabel(): ?string
     {
-        return CosmeticCatalog::titleLabel($this->equipped_title);
+        $title = $this->relationLoaded('equippedTitleCosmetic')
+            ? $this->equippedTitleCosmetic
+            : $this->equippedTitleCosmetic()->first();
+
+        if ($title) {
+            $item = CosmeticCatalog::item($title->item_key);
+
+            return $item['label'] ?? $item['name'] ?? null;
+        }
+
+        return null;
+    }
+
+    public function isCosmeticEquipped(int $enrollmentCosmeticId): bool
+    {
+        return in_array($enrollmentCosmeticId, [
+            (int) ($this->equipped_frame_id ?? 0),
+            (int) ($this->equipped_accessory_id ?? 0),
+            (int) ($this->equipped_title_id ?? 0),
+            (int) ($this->equipped_aura_id ?? 0),
+        ], true);
+    }
+
+    public function clearEquippedCosmeticId(int $enrollmentCosmeticId): void
+    {
+        foreach (['equipped_frame_id', 'equipped_accessory_id', 'equipped_title_id', 'equipped_aura_id'] as $column) {
+            if ((int) ($this->{$column} ?? 0) === $enrollmentCosmeticId) {
+                $this->{$column} = null;
+            }
+        }
     }
 }

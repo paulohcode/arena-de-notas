@@ -198,11 +198,11 @@ class ArenaCombatTest extends TestCase
         $before = $combat->buildFighter($student, $class);
 
         $enrollment = $student->enrollmentIn($class);
-        EnrollmentCosmetic::query()->create([
+        $cosmetic = EnrollmentCosmetic::query()->create([
             'enrollment_id' => $enrollment->id,
             'item_key' => 'frame_gold',
         ]);
-        $enrollment->update(['equipped_frame' => 'frame_gold']);
+        $enrollment->update(['equipped_frame_id' => $cosmetic->id]);
 
         $after = $combat->buildFighter($student->fresh(), $class);
 
@@ -221,11 +221,11 @@ class ArenaCombatTest extends TestCase
             'combat_bonus' => 0.05,
         ]);
         $enrollment = $student->enrollmentIn($class);
-        EnrollmentCosmetic::query()->create([
+        $cosmetic = EnrollmentCosmetic::query()->create([
             'enrollment_id' => $enrollment->id,
             'item_key' => $item->item_key,
         ]);
-        $enrollment->update(['equipped_accessory' => $item->item_key]);
+        $enrollment->update(['equipped_accessory_id' => $cosmetic->id]);
 
         $fighter = app(ArenaCombatService::class)->buildFighter($student->fresh(), $class);
 
@@ -256,18 +256,19 @@ class ArenaCombatTest extends TestCase
         [$class, $student] = $this->readyStudent();
         $enrollment = $student->enrollmentIn($class);
 
+        $ids = [];
         foreach (['frame_rune', 'acc_wings', 'title_legend', 'aura_storm'] as $itemKey) {
-            EnrollmentCosmetic::query()->create([
+            $ids[$itemKey] = EnrollmentCosmetic::query()->create([
                 'enrollment_id' => $enrollment->id,
                 'item_key' => $itemKey,
-            ]);
+            ])->id;
         }
 
         $enrollment->update([
-            'equipped_frame' => 'frame_rune',
-            'equipped_accessory' => 'acc_wings',
-            'equipped_title' => 'title_legend',
-            'equipped_aura' => 'aura_storm',
+            'equipped_frame_id' => $ids['frame_rune'],
+            'equipped_accessory_id' => $ids['acc_wings'],
+            'equipped_title_id' => $ids['title_legend'],
+            'equipped_aura_id' => $ids['aura_storm'],
         ]);
 
         $fighter = app(ArenaCombatService::class)->buildFighter($student->fresh(), $class);

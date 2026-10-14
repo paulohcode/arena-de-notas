@@ -10,6 +10,7 @@ class CosmeticListing extends Model
     protected $fillable = [
         'class_id',
         'enrollment_id',
+        'enrollment_cosmetic_id',
         'item_key',
         'price',
     ];
@@ -18,6 +19,7 @@ class CosmeticListing extends Model
     {
         return [
             'price' => 'integer',
+            'enrollment_cosmetic_id' => 'integer',
         ];
     }
 
@@ -29,5 +31,10 @@ class CosmeticListing extends Model
     public function enrollment(): BelongsTo
     {
         return $this->belongsTo(Enrollment::class);
+    }
+
+    public function cosmetic(): BelongsTo
+    {
+        return $this->belongsTo(EnrollmentCosmetic::class, 'enrollment_cosmetic_id');
     }
 }

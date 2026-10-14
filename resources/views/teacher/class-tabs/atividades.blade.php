@@ -1,6 +1,9 @@
     <div class="space-y-6"
          x-data="{ type: '{{ old('type', $editingActivity->type ?? 'individual') }}' }">
         <form method="POST"
+              action="{{ $editingActivity
+                  ? route('teacher.activities.update', [$class, $editingActivity])
+                  : route('teacher.activities.store', $class) }}"
               :action="type === 'event'
                   ? '{{ route('teacher.activities.event.store', $class) }}'
                   : '{{ $editingActivity
@@ -58,7 +61,8 @@
                 </label>
             </div>
 
-            <div x-show="type === 'event'" class="space-y-4 border-t border-purple-800/40 pt-4">
+            <template x-if="type === 'event'">
+            <div class="space-y-4 border-t border-purple-800/40 pt-4">
                 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <label class="space-y-1">
                         <span class="text-xs uppercase tracking-wide text-purple-200/70">Modo</span>
@@ -96,6 +100,7 @@
                 </div>
                 @include('partials.quiz-questions-form')
             </div>
+            </template>
 
             <button class="game-btn" type="submit">
                 {{ $editingActivity ? 'Salvar alterações' : 'Cadastrar atividade' }}

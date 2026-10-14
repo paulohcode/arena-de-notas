@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DailyReportController as AdminDailyReportControll
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ExchangeController as AdminExchangeController;
 use App\Http\Controllers\Admin\ExchangeReportController as AdminExchangeReportController;
+use App\Http\Controllers\Admin\ForgeController as AdminForgeController;
 use App\Http\Controllers\Admin\GameEventController as AdminGameEventController;
 use App\Http\Controllers\Admin\ImpersonationController as AdminImpersonationController;
 use App\Http\Controllers\Admin\PetController as AdminPetController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Student\ArenaController as StudentArenaController;
 use App\Http\Controllers\Student\BossRiteController as StudentBossRiteController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\Student\ExchangeController as StudentExchangeController;
+use App\Http\Controllers\Student\ForgeController as StudentForgeController;
 use App\Http\Controllers\Student\GameEventController as StudentGameEventController;
 use App\Http\Controllers\Student\PetController as StudentPetController;
 use App\Http\Controllers\Student\ShopController as StudentShopController;
@@ -125,6 +127,9 @@ Route::middleware(['auth', 'password.changed', 'role:admin'])->prefix('admin')->
     Route::put('/cambio/{exchangeRate}', [AdminExchangeController::class, 'update'])->name('exchange.update');
     Route::delete('/cambio/{exchangeRate}', [AdminExchangeController::class, 'destroy'])->name('exchange.destroy');
     Route::post('/cambio/reinos/{area}/sortear', [AdminExchangeController::class, 'raffle'])->name('exchange.raffle');
+
+    Route::get('/forja', [AdminForgeController::class, 'index'])->name('forge.index');
+    Route::post('/forja/reinos/{area}/sortear', [AdminForgeController::class, 'raffle'])->name('forge.raffle');
 });
 
 Route::middleware(['auth', 'password.changed', 'role:teacher'])->prefix('professor')->name('teacher.')->group(function () {
@@ -264,6 +269,10 @@ Route::middleware(['auth', 'password.changed', 'role:student'])->prefix('aluno')
         Route::post('/loja/anuncios/{listing}/comprar', [StudentShopController::class, 'buyListing'])->name('shop.listings.buy');
         Route::post('/loja/equipar', [StudentShopController::class, 'equip'])->name('shop.equip');
         Route::post('/loja/desequipar', [StudentShopController::class, 'unequip'])->name('shop.unequip');
+
+        Route::get('/forja', [StudentForgeController::class, 'index'])->name('forge.index');
+        Route::post('/forja/cosmeticos', [StudentForgeController::class, 'forgeCosmetic'])->name('forge.cosmetics');
+        Route::post('/forja/mascotes', [StudentForgeController::class, 'forgePet'])->name('forge.pets');
 
         Route::get('/mascotes', [StudentPetController::class, 'index'])->name('pets.index');
         Route::post('/mascotes/comprar', [StudentPetController::class, 'purchase'])->name('pets.purchase');

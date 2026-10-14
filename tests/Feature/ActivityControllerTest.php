@@ -148,7 +148,7 @@ class ActivityControllerTest extends TestCase
         $class = $this->makeClassFor($teacher);
         $this->makeActivityFor($class, 'Trabalho em dupla');
 
-        $this->actingAs($teacher)
+        $html = $this->actingAs($teacher)
             ->get(route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'atividades']))
             ->assertOk()
             ->assertSee('Nova atividade')
@@ -157,7 +157,17 @@ class ActivityControllerTest extends TestCase
             ->assertSee('Trabalho em dupla')
             ->assertSee('Editar')
             ->assertSee('Avisar pendentes')
-            ->assertSee('Excluir');
+            ->assertSee('Excluir')
+            ->getContent();
+
+        $this->assertStringContainsString(
+            'action="'.route('teacher.activities.store', $class).'"',
+            $html,
+        );
+        $this->assertMatchesRegularExpression(
+            '/<template[^>]*x-if="type === \'event\'"[^>]*>[\s\S]*name="question_seconds"/',
+            $html,
+        );
     }
 
     public function test_edit_link_fills_the_activity_form(): void

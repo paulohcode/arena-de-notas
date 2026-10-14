@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ClassCosmeticStock;
 use App\Models\Duel;
 use App\Models\Enrollment;
 use App\Models\EnrollmentCosmetic;
@@ -86,7 +87,8 @@ class CosmeticShopTest extends TestCase
             ->assertRedirect(route('student.shop.index'));
 
         $enrollment->refresh();
-        $this->assertSame($itemKey, $enrollment->equipped_accessory);
+        $this->assertNotNull($enrollment->equipped_accessory_id);
+        $this->assertSame($itemKey, $enrollment->equippedAccessoryCosmetic?->item_key);
     }
 
     public function test_purchase_rejects_insufficient_relics(): void
@@ -103,27 +105,33 @@ class CosmeticShopTest extends TestCase
         $this->assertSame(0, EnrollmentCosmetic::query()->count());
     }
 
-    public function test_purchase_rejects_duplicate_item(): void
+    public function test_purchase_allows_duplicate_item_copies(): void
     {
         [$class, $student] = $this->readyStudent(relics: 200);
         $itemKey = 'title_duelist';
         $enrollment = $student->enrollmentIn($class);
+        $price = CosmeticCatalog::item($itemKey)['price'];
 
         EnrollmentCosmetic::query()->create([
             'enrollment_id' => $enrollment->id,
             'item_key' => $itemKey,
         ]);
 
+        // Estoque default é 1; repor para permitir segunda compra.
+        ClassCosmeticStock::query()
+            ->where('class_id', $class->id)
+            ->where('item_key', $itemKey)
+            ->update(['quantity' => 2]);
+
         $before = (int) $enrollment->fresh()->relics;
 
         $this->actingAs($student)
-            ->from(route('student.shop.index'))
             ->post(route('student.shop.purchase'), ['item' => $itemKey])
             ->assertRedirect(route('student.shop.index'))
-            ->assertSessionHasErrors('item');
+            ->assertSessionHas('success');
 
-        $this->assertSame($before, (int) $student->enrollmentIn($class)->fresh()->relics);
-        $this->assertSame(1, EnrollmentCosmetic::query()->where('enrollment_id', $enrollment->id)->count());
+        $this->assertSame($before - $price, (int) $student->enrollmentIn($class)->fresh()->relics);
+        $this->assertSame(2, EnrollmentCosmetic::query()->where('enrollment_id', $enrollment->id)->where('item_key', $itemKey)->count());
     }
 
     public function test_cannot_equip_unowned_item(): void
@@ -136,7 +144,7 @@ class CosmeticShopTest extends TestCase
             ->assertRedirect(route('student.shop.index'))
             ->assertSessionHasErrors('item');
 
-        $this->assertNull($student->enrollmentIn($class)->fresh()->equipped_aura);
+        $this->assertNull($student->enrollmentIn($class)->fresh()->equipped_aura_id);
     }
 
     public function test_unequip_clears_slot(): void
@@ -144,17 +152,17 @@ class CosmeticShopTest extends TestCase
         [$class, $student] = $this->readyStudent(relics: 50);
         $enrollment = $student->enrollmentIn($class);
 
-        EnrollmentCosmetic::query()->create([
+        $cosmetic = EnrollmentCosmetic::query()->create([
             'enrollment_id' => $enrollment->id,
             'item_key' => 'title_champion',
         ]);
-        $enrollment->update(['equipped_title' => 'title_champion']);
+        $enrollment->update(['equipped_title_id' => $cosmetic->id]);
 
         $this->actingAs($student)
             ->post(route('student.shop.unequip'), ['slot' => 'title'])
             ->assertRedirect(route('student.shop.index'));
 
-        $this->assertNull($enrollment->fresh()->equipped_title);
+        $this->assertNull($enrollment->fresh()->equipped_title_id);
     }
 
     public function test_cosmetics_are_scoped_per_class(): void
@@ -181,9 +189,9 @@ class CosmeticShopTest extends TestCase
         $enrollmentB = $student->enrollmentIn($classB)->fresh();
 
         $this->assertTrue($enrollmentA->ownsCosmetic($itemKey));
-        $this->assertSame($itemKey, $enrollmentA->equipped_accessory);
+        $this->assertSame($itemKey, $enrollmentA->equippedAccessoryCosmetic?->item_key);
         $this->assertFalse($enrollmentB->ownsCosmetic($itemKey));
-        $this->assertNull($enrollmentB->equipped_accessory);
+        $this->assertNull($enrollmentB->equipped_accessory_id);
         $this->assertSame(0, (int) $enrollmentB->relics);
     }
 
@@ -217,7 +225,7 @@ class CosmeticShopTest extends TestCase
         $price = CosmeticCatalog::item('acc_star')['price'];
 
         $this->assertFalse($sellerEnrollment->ownsCosmetic('acc_star'));
-        $this->assertNull($sellerEnrollment->equipped_accessory);
+        $this->assertNull($sellerEnrollment->equipped_accessory_id);
         $this->assertSame(100 - $price + 40, (int) $sellerEnrollment->relics);
         $this->assertTrue($buyerEnrollment->ownsCosmetic('acc_star'));
         $this->assertSame(80 - 40, (int) $buyerEnrollment->relics);
@@ -436,8 +444,8 @@ class CosmeticShopTest extends TestCase
             ->post(route('student.shop.equip'), ['item' => 'title_legend'])
             ->assertRedirect(route('student.shop.index'));
 
-        $this->assertSame('title_legend', $owner->enrollmentIn($class)->fresh()->equipped_title);
-        $this->assertNull($classmate->enrollmentIn($class)->fresh()->equipped_title);
+        $this->assertSame('title_legend', $owner->enrollmentIn($class)->fresh()->equippedTitleCosmetic?->item_key);
+        $this->assertNull($classmate->enrollmentIn($class)->fresh()->equipped_title_id);
     }
 
     public function test_ranking_shows_legend_title_only_on_the_student_who_equipped_it(): void
@@ -560,14 +568,10 @@ class CosmeticShopTest extends TestCase
     private function giveAndEquip(User $student, SchoolClass $class, string $itemKey): void
     {
         $enrollment = $student->enrollmentIn($class);
-        $item = CosmeticCatalog::item($itemKey);
-        $column = CosmeticCatalog::slotColumn($item['slot']);
-
-        EnrollmentCosmetic::query()->create([
+        $cosmetic = EnrollmentCosmetic::query()->create([
             'enrollment_id' => $enrollment->id,
             'item_key' => $itemKey,
         ]);
-
-        $enrollment->update([$column => $itemKey]);
+        $this->equipCosmeticInstance($enrollment, $cosmetic);
     }
 }

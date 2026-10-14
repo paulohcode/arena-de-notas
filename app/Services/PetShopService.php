@@ -427,17 +427,6 @@ class PetShopService
                 ]);
             }
 
-            $alreadyOwned = EnrollmentPet::query()
-                ->where('enrollment_id', $enrollment->id)
-                ->where('pet_id', $pet->id)
-                ->exists();
-
-            if ($alreadyOwned) {
-                throw ValidationException::withMessages([
-                    'pet_id' => 'Você já possui este mascote.',
-                ]);
-            }
-
             $this->debitPrices($student, $class, $enrollment, $pet);
 
             $pet->stock = (int) $pet->stock - 1;
@@ -448,6 +437,8 @@ class PetShopService
                 'pet_id' => $pet->id,
                 'custom_name' => $customName,
                 'aura_color' => $auraColor,
+                'forge_level' => 1,
+                'combat_bonus' => null,
             ]);
         });
     }
@@ -712,7 +703,7 @@ class PetShopService
         }
 
         return [
-            'bonus' => round((float) $pet->combat_bonus, 4),
+            'bonus' => $owned->effectiveCombatBonus(),
             'name' => $owned->custom_name,
             'aura_color' => $owned->aura_color,
             'sprite_key' => $pet->spriteKey(),

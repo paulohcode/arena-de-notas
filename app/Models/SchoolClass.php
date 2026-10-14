@@ -87,10 +87,10 @@ class SchoolClass extends Model
                 'arena_wins',
                 'arena_losses',
                 'behavior_score',
-                'equipped_frame',
-                'equipped_accessory',
-                'equipped_title',
-                'equipped_aura',
+                'equipped_frame_id',
+                'equipped_accessory_id',
+                'equipped_title_id',
+                'equipped_aura_id',
                 'equipped_pet_id',
             ])
             ->withTimestamps();

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\EnrollmentCosmetic;
 use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\ShopItem;
@@ -445,10 +446,10 @@ class CosmeticCatalog
     public static function slotColumn(string $slot): ?string
     {
         return match ($slot) {
-            self::SLOT_FRAME => 'equipped_frame',
-            self::SLOT_ACCESSORY => 'equipped_accessory',
-            self::SLOT_TITLE => 'equipped_title',
-            self::SLOT_AURA => 'equipped_aura',
+            self::SLOT_FRAME => 'equipped_frame_id',
+            self::SLOT_ACCESSORY => 'equipped_accessory_id',
+            self::SLOT_TITLE => 'equipped_title_id',
+            self::SLOT_AURA => 'equipped_aura_id',
             default => null,
         };
     }
@@ -476,11 +477,53 @@ class CosmeticCatalog
     public static function loadoutFromEnrollment(object $source): array
     {
         return [
-            'frame' => $source->equipped_frame ?? null,
-            'accessory' => $source->equipped_accessory ?? null,
-            'title' => $source->equipped_title ?? null,
-            'aura' => $source->equipped_aura ?? null,
+            'frame' => self::itemKeyFromEquippedId($source, 'equipped_frame_id', 'equippedFrameCosmetic'),
+            'accessory' => self::itemKeyFromEquippedId($source, 'equipped_accessory_id', 'equippedAccessoryCosmetic'),
+            'title' => self::itemKeyFromEquippedId($source, 'equipped_title_id', 'equippedTitleCosmetic'),
+            'aura' => self::itemKeyFromEquippedId($source, 'equipped_aura_id', 'equippedAuraCosmetic'),
         ];
+    }
+
+    /**
+     * @return array{frame: ?EnrollmentCosmetic, accessory: ?EnrollmentCosmetic, title: ?EnrollmentCosmetic, aura: ?EnrollmentCosmetic}
+     */
+    public static function equippedInstances(object $enrollment): array
+    {
+        return [
+            'frame' => self::equippedInstance($enrollment, 'equipped_frame_id', 'equippedFrameCosmetic'),
+            'accessory' => self::equippedInstance($enrollment, 'equipped_accessory_id', 'equippedAccessoryCosmetic'),
+            'title' => self::equippedInstance($enrollment, 'equipped_title_id', 'equippedTitleCosmetic'),
+            'aura' => self::equippedInstance($enrollment, 'equipped_aura_id', 'equippedAuraCosmetic'),
+        ];
+    }
+
+    private static function itemKeyFromEquippedId(object $source, string $idColumn, string $relation): ?string
+    {
+        $instance = self::equippedInstance($source, $idColumn, $relation);
+
+        return $instance?->item_key;
+    }
+
+    private static function equippedInstance(object $source, string $idColumn, string $relation): ?EnrollmentCosmetic
+    {
+        if (method_exists($source, 'relationLoaded') && $source->relationLoaded($relation)) {
+            $related = $source->{$relation};
+
+            return $related instanceof EnrollmentCosmetic ? $related : null;
+        }
+
+        $id = $source->{$idColumn} ?? null;
+        if (! filled($id)) {
+            return null;
+        }
+
+        if (method_exists($source, $relation)) {
+            $related = $source->{$relation}()->first();
+
+            return $related instanceof EnrollmentCosmetic ? $related : null;
+        }
+
+        return EnrollmentCosmetic::query()->find($id);
     }
 
     /**
@@ -592,19 +635,24 @@ class CosmeticCatalog
     }
 
     /**
-     * @return array{bonus: float, items: list<array{key: string, name: string, bonus: float}>}
+     * @return array{bonus: float, items: list<array{key: string, name: string, bonus: float, forge_level: int}>}
      */
     public static function equippedCombatBonus(object $enrollment): array
     {
         $bonus = 0.0;
         $items = [];
 
-        foreach (self::loadoutFromEnrollment($enrollment) as $key) {
-            if (! filled($key) || ! self::has($key)) {
+        foreach (self::equippedInstances($enrollment) as $instance) {
+            if (! $instance) {
                 continue;
             }
 
-            $amount = self::combatBonusForKey($key);
+            $key = $instance->item_key;
+            if (! self::has($key)) {
+                continue;
+            }
+
+            $amount = $instance->effectiveCombatBonus();
             if ($amount <= 0) {
                 continue;
             }
@@ -615,6 +663,7 @@ class CosmeticCatalog
                 'key' => $key,
                 'name' => $item['name'],
                 'bonus' => $amount,
+                'forge_level' => (int) $instance->forge_level,
             ];
         }
 
@@ -622,5 +671,24 @@ class CosmeticCatalog
             'bonus' => round(min(self::COMBAT_BONUS_CAP, $bonus), 4),
             'items' => $items,
         ];
+    }
+
+    /**
+     * Resolve CSS tone for an equipped slot, preferring forged instance tone.
+     */
+    public static function equippedCssTone(object $enrollment, string $slot): ?string
+    {
+        $instances = self::equippedInstances($enrollment);
+        $instance = $instances[$slot] ?? null;
+        if ($instance) {
+            return $instance->visualTone();
+        }
+
+        $key = self::loadoutFromEnrollment($enrollment)[$slot] ?? null;
+        if (! filled($key)) {
+            return null;
+        }
+
+        return self::item($key)['css'] ?? null;
     }
 }

@@ -614,7 +614,7 @@ class AdminShopTest extends TestCase
             ->post(route('student.shop.equip'), ['item' => $item->item_key])
             ->assertRedirect(route('student.shop.index'));
 
-        $this->assertSame($item->item_key, $student->enrollmentIn($class)->fresh()->equipped_accessory);
+        $this->assertSame($item->item_key, $student->enrollmentIn($class)->fresh()->equippedAccessoryCosmetic?->item_key);
 
         $this->actingAs($teacher)
             ->put(route('teacher.shop.items.update', [$class, $item]), $this->itemPayload([
@@ -626,8 +626,8 @@ class AdminShopTest extends TestCase
             ->assertRedirect(route('teacher.shop.show', $class));
 
         $enrollment = $student->enrollmentIn($class)->fresh();
-        $this->assertNull($enrollment->equipped_accessory);
-        $this->assertNull($enrollment->equipped_frame);
+        $this->assertNull($enrollment->equipped_accessory_id);
+        $this->assertNull($enrollment->equipped_frame_id);
         $this->assertTrue($enrollment->ownsCosmetic($item->item_key));
         $this->assertSame(CosmeticCatalog::SLOT_FRAME, $item->fresh()->slot);
     }

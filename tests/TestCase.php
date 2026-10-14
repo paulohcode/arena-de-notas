@@ -3,6 +3,8 @@
 namespace Tests;
 
 use App\Models\Area;
+use App\Models\Enrollment;
+use App\Models\EnrollmentCosmetic;
 use App\Models\GameCurrency;
 use App\Models\SchoolClass;
 use App\Models\User;
@@ -74,5 +76,34 @@ abstract class TestCase extends BaseTestCase
         app(PetShopService::class)->seedForClass($class);
 
         return $class;
+    }
+
+    protected function giveCosmetic(
+        Enrollment $enrollment,
+        string $itemKey,
+        int $forgeLevel = 1,
+        ?float $combatBonus = null,
+        ?string $forgeTone = null,
+    ): EnrollmentCosmetic {
+        return EnrollmentCosmetic::query()->create([
+            'enrollment_id' => $enrollment->id,
+            'item_key' => $itemKey,
+            'forge_level' => $forgeLevel,
+            'combat_bonus' => $combatBonus,
+            'forge_tone' => $forgeTone,
+        ]);
+    }
+
+    protected function equipCosmeticInstance(
+        Enrollment $enrollment,
+        EnrollmentCosmetic $cosmetic,
+    ): void {
+        $item = CosmeticCatalog::item($cosmetic->item_key);
+        $column = CosmeticCatalog::slotColumn($item['slot'] ?? '');
+        if (! $column) {
+            return;
+        }
+
+        $enrollment->update([$column => $cosmetic->id]);
     }
 }

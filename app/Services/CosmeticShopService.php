@@ -89,9 +89,6 @@ class CosmeticShopService
                 continue;
             }
 
-            $column = CosmeticCatalog::slotColumn($slot);
-            $equippedKey = $column ? ($enrollment->{$column} ?? null) : null;
-
             $catalog[$slot][] = [
                 'key' => $key,
                 'slot' => $item['slot'],
@@ -106,7 +103,8 @@ class CosmeticShopService
                 'css' => $item['css'] ?? null,
                 'label' => $item['label'] ?? null,
                 'owned' => isset($ownedSet[$key]),
-                'equipped' => $equippedKey === $key,
+                'owned_count' => collect($owned)->filter(fn (string $ownedKey) => $ownedKey === $key)->count(),
+                'equipped' => ($loadout[$slot] ?? null) === $key,
                 'stock' => CosmeticCatalog::usesAuras($key)
                     ? (int) ($areaStockByKey[$key] ?? 0)
                     : (int) ($stockByKey[$key] ?? 0),
@@ -594,18 +592,6 @@ class CosmeticShopService
                 ]);
             }
 
-            $alreadyOwned = $usesAuras && $class->area_id
-                ? $this->studentOwnsItemInArea($student, (int) $class->area_id, $itemKey)
-                : $enrollment->ownsCosmetic($itemKey);
-
-            if ($alreadyOwned) {
-                throw ValidationException::withMessages([
-                    'item' => $usesAuras
-                        ? 'Você já possui este item neste reino.'
-                        : 'Você já possui este item.',
-                ]);
-            }
-
             $price = (int) $item['price'];
             $currency = CosmeticCatalog::currency($itemKey);
 
@@ -667,6 +653,9 @@ class CosmeticShopService
             EnrollmentCosmetic::query()->create([
                 'enrollment_id' => $enrollment->id,
                 'item_key' => $itemKey,
+                'forge_level' => 1,
+                'combat_bonus' => null,
+                'forge_tone' => null,
             ]);
 
             return $enrollment->fresh(['cosmetics']);
@@ -700,15 +689,22 @@ class CosmeticShopService
                 ]);
             }
 
-            if (! $enrollment->ownsCosmetic($itemKey)) {
+            $owned = EnrollmentCosmetic::query()
+                ->where('enrollment_id', $enrollment->id)
+                ->where('item_key', $itemKey)
+                ->whereDoesntHave('listing')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $owned) {
                 throw ValidationException::withMessages([
-                    'item' => 'Você só pode vender um item que já possui.',
+                    'item' => 'Você só pode vender um item que já possui e não está anunciado.',
                 ]);
             }
 
             $existing = CosmeticListing::query()
-                ->where('enrollment_id', $enrollment->id)
-                ->where('item_key', $itemKey)
+                ->where('enrollment_cosmetic_id', $owned->id)
                 ->lockForUpdate()
                 ->first();
 
@@ -722,6 +718,7 @@ class CosmeticShopService
             return CosmeticListing::query()->create([
                 'class_id' => $class->id,
                 'enrollment_id' => $enrollment->id,
+                'enrollment_cosmetic_id' => $owned->id,
                 'item_key' => $itemKey,
                 'price' => $price,
             ]);
@@ -741,6 +738,7 @@ class CosmeticShopService
         $deleted = CosmeticListing::query()
             ->where('enrollment_id', $enrollment->id)
             ->where('item_key', $itemKey)
+            ->limit(1)
             ->delete();
 
         if ($deleted === 0) {
@@ -804,7 +802,7 @@ class CosmeticShopService
 
             $owned = EnrollmentCosmetic::query()
                 ->where('enrollment_id', $sellerEnrollment->id)
-                ->where('item_key', $itemKey)
+                ->whereKey($lockedListing->enrollment_cosmetic_id)
                 ->lockForUpdate()
                 ->first();
 
@@ -813,12 +811,6 @@ class CosmeticShopService
 
                 throw ValidationException::withMessages([
                     'listing' => 'O vendedor não possui mais este item.',
-                ]);
-            }
-
-            if ($buyerEnrollment->ownsCosmetic($itemKey)) {
-                throw ValidationException::withMessages([
-                    'listing' => 'Você já possui este item.',
                 ]);
             }
 
@@ -833,7 +825,7 @@ class CosmeticShopService
             $buyerEnrollment->save();
 
             $sellerEnrollment->relics = (int) $sellerEnrollment->relics + $price;
-            $this->clearEquippedSlot($sellerEnrollment, $itemKey);
+            $sellerEnrollment->clearEquippedCosmeticId((int) $owned->id);
             $sellerEnrollment->save();
 
             $owned->enrollment_id = $buyerEnrollment->id;
@@ -875,13 +867,27 @@ class CosmeticShopService
                 ]);
             }
 
-            if (! $enrollment->ownsCosmetic($itemKey)) {
+            $owned = EnrollmentCosmetic::query()
+                ->where('enrollment_id', $enrollment->id)
+                ->where('item_key', $itemKey)
+                ->orderByDesc('forge_level')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $owned) {
                 throw ValidationException::withMessages([
                     'item' => 'Compre o item antes de equipar.',
                 ]);
             }
 
-            $enrollment->{$column} = $itemKey;
+            if (CosmeticListing::query()->where('enrollment_cosmetic_id', $owned->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'item' => 'Retire o anúncio antes de equipar este item.',
+                ]);
+            }
+
+            $enrollment->{$column} = $owned->id;
             $enrollment->save();
 
             return $enrollment->fresh();
@@ -918,16 +924,6 @@ class CosmeticShopService
         });
     }
 
-    private function clearEquippedSlot(Enrollment $enrollment, string $itemKey): void
-    {
-        $item = CosmeticCatalog::item($itemKey);
-        $column = $item ? CosmeticCatalog::slotColumn($item['slot']) : null;
-
-        if ($column && $enrollment->{$column} === $itemKey) {
-            $enrollment->{$column} = null;
-        }
-    }
-
     private function clearEquippedForItemKey(ShopItem $item, string $previousSlot): void
     {
         $column = CosmeticCatalog::slotColumn($previousSlot);
@@ -936,15 +932,23 @@ class CosmeticShopService
             return;
         }
 
-        $query = Enrollment::query()->where($column, $item->item_key);
+        $cosmeticIds = EnrollmentCosmetic::query()
+            ->where('item_key', $item->item_key)
+            ->when($item->class_id, function ($query) use ($item) {
+                $query->whereHas('enrollment', fn ($enrollment) => $enrollment->where('class_id', $item->class_id));
+            })
+            ->when($item->area_id && ! $item->class_id, function ($query) use ($item) {
+                $query->whereHas('enrollment.schoolClass', fn ($classQuery) => $classQuery->where('area_id', $item->area_id));
+            })
+            ->pluck('id');
 
-        if ($item->class_id) {
-            $query->where('class_id', $item->class_id);
-        } elseif ($item->area_id) {
-            $query->whereIn('class_id', SchoolClass::query()->where('area_id', $item->area_id)->select('id'));
+        if ($cosmeticIds->isEmpty()) {
+            return;
         }
 
-        $query->update([$column => null]);
+        Enrollment::query()
+            ->whereIn($column, $cosmeticIds->all())
+            ->update([$column => null]);
     }
 
     /**
@@ -1046,7 +1050,6 @@ class CosmeticShopService
      */
     private function appendOwners(array &$ownersByKey, Enrollment $enrollment, bool $auraOnly = false): void
     {
-        $loadout = $enrollment->cosmeticLoadout();
         $student = $enrollment->student;
         $displayName = $student?->name ?? 'Aluno';
         $character = $student?->arenaName();
@@ -1059,7 +1062,7 @@ class CosmeticShopService
             $ownersByKey[$cosmetic->item_key][] = [
                 'name' => $displayName,
                 'character' => $character,
-                'equipped' => in_array($cosmetic->item_key, $loadout, true),
+                'equipped' => $enrollment->isCosmeticEquipped((int) $cosmetic->id),
             ];
         }
     }
