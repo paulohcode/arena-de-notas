@@ -185,6 +185,44 @@ class AttendanceTest extends TestCase
             ->assertSee('Bruno');
     }
 
+    public function test_attendance_history_groups_sessions_by_month_newest_first(): void
+    {
+        [$teacher, $class] = $this->readyClassWithStudents();
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.attendance.store', $class), ['held_on' => '2026-09-08']);
+        $this->actingAs($teacher)
+            ->post(route('teacher.attendance.store', $class), ['held_on' => '2026-09-15']);
+        $this->actingAs($teacher)
+            ->post(route('teacher.attendance.store', $class), ['held_on' => '2026-10-02']);
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', [
+                'schoolClass' => $class,
+                'tab' => 'chamada',
+            ]))
+            ->assertOk()
+            ->assertSee('Outubro 2026')
+            ->assertSee('Setembro 2026')
+            ->assertSee('02/10/2026')
+            ->assertSee('15/09/2026')
+            ->assertSee('08/09/2026')
+            ->getContent();
+
+        $history = substr($html, (int) strpos($html, 'Histórico'));
+        $october = strpos($history, 'Outubro 2026');
+        $octoberDay = strpos($history, '02/10/2026');
+        $september = strpos($history, 'Setembro 2026');
+        $septemberDay = strpos($history, '15/09/2026');
+        $earlierSeptemberDay = strpos($history, '08/09/2026');
+
+        $this->assertNotFalse($october);
+        $this->assertLessThan($octoberDay, $october);
+        $this->assertLessThan($september, $octoberDay);
+        $this->assertLessThan($septemberDay, $september);
+        $this->assertLessThan($earlierSeptemberDay, $septemberDay);
+    }
+
     public function test_saved_attendance_keeps_absent_status_on_the_toggle(): void
     {
         [$teacher, $class, $studentA, $studentB] = $this->readyClassWithStudents();

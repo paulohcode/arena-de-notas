@@ -18,21 +18,28 @@
         </div>
 
         @if($attendanceSessions->isNotEmpty())
-            <div class="game-card p-5">
-                <h3 class="font-display text-lg text-amber-200 mb-3">Histórico</h3>
-                <div class="flex flex-wrap gap-2">
-                    @foreach($attendanceSessions as $session)
-                        <a
-                            class="game-btn-ghost !py-1 !px-3 text-sm {{ $activeAttendanceSession && $activeAttendanceSession->id === $session->id ? 'border-amber-400/50' : '' }}"
-                            href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'chamada', 'session' => $session->id]) }}"
-                        >
-                            {{ $session->held_on->format('d/m/Y') }}
-                            @if($session->records->whereNotNull('status')->isEmpty())
-                                <span class="text-amber-100/40">· rascunho</span>
-                            @endif
-                        </a>
-                    @endforeach
-                </div>
+            <div class="game-card p-5 space-y-4">
+                <h3 class="font-display text-lg text-amber-200">Histórico</h3>
+                @foreach($attendanceSessions->groupBy(fn ($session) => $session->held_on->format('Y-m')) as $sessions)
+                    <div class="space-y-2">
+                        <h4 class="text-xs uppercase tracking-wide text-purple-200/70">
+                            {{ \Illuminate\Support\Str::ucfirst($sessions->first()->held_on->copy()->locale('pt_BR')->translatedFormat('F Y')) }}
+                        </h4>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($sessions as $session)
+                                <a
+                                    class="game-btn-ghost !py-1 !px-3 text-sm {{ $activeAttendanceSession && $activeAttendanceSession->id === $session->id ? 'border-amber-400/50' : '' }}"
+                                    href="{{ route('teacher.classes.show', ['schoolClass' => $class, 'tab' => 'chamada', 'session' => $session->id]) }}"
+                                >
+                                    {{ $session->held_on->format('d/m/Y') }}
+                                    @if($session->records->whereNotNull('status')->isEmpty())
+                                        <span class="text-amber-100/40">· rascunho</span>
+                                    @endif
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
             </div>
         @endif
 
