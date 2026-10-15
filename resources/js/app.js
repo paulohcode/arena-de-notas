@@ -10,6 +10,7 @@ import { riteBattleSeries } from './game/rite-battle';
 import { goToBattle } from './game/battle-nav';
 import { bindArenaSoundToggles, unlockArenaAudio } from './game/sound';
 import { quizQuestionBuilder, quizEventPlayer } from './game/quiz-event';
+import { miniDatePicker } from './game/date-picker';
 import { bindStudentRoster } from './game/student-roster';
 
 window.Alpine = Alpine;
@@ -20,6 +21,7 @@ Alpine.data('teamBattleSeries', teamBattleSeries);
 Alpine.data('riteBattleSeries', riteBattleSeries);
 Alpine.data('quizQuestionBuilder', quizQuestionBuilder);
 Alpine.data('quizEventPlayer', quizEventPlayer);
+Alpine.data('miniDatePicker', miniDatePicker);
 Alpine.start();
 
 document.addEventListener('DOMContentLoaded', () => {

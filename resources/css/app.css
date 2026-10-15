@@ -133,6 +133,10 @@ body.game-body::after {
     overflow: hidden;
 }
 
+.game-card.game-card--overflow {
+    overflow: visible;
+}
+
 .game-card::before {
     content: '';
     position: absolute;

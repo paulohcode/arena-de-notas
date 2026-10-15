@@ -27,11 +27,7 @@ class AttendanceController extends Controller
         $session = $this->attendance->generate($schoolClass, $data['held_on'], $request->user());
 
         return redirect()
-            ->route('teacher.classes.show', [
-                'schoolClass' => $schoolClass,
-                'tab' => 'chamada',
-                'session' => $session->id,
-            ])
+            ->route('teacher.classes.show', $this->attendanceTabParameters($schoolClass, $request, $session->id))
             ->with('success', 'Chamada gerada para '.$session->held_on->format('d/m/Y').'.');
     }
 
@@ -48,15 +44,11 @@ class AttendanceController extends Controller
         $this->attendance->saveStatuses($schoolClass, $attendanceSession, $data['statuses']);
 
         return redirect()
-            ->route('teacher.classes.show', [
-                'schoolClass' => $schoolClass,
-                'tab' => 'chamada',
-                'session' => $attendanceSession->id,
-            ])
+            ->route('teacher.classes.show', $this->attendanceTabParameters($schoolClass, $request, $attendanceSession->id))
             ->with('success', 'Chamada salva. A frequência e '.GameCurrency::label('seals').' foram atualizados.');
     }
 
-    public function destroy(SchoolClass $schoolClass, AttendanceSession $attendanceSession): RedirectResponse
+    public function destroy(Request $request, SchoolClass $schoolClass, AttendanceSession $attendanceSession): RedirectResponse
     {
         $this->authorize('manage', $schoolClass);
         abort_unless((int) $attendanceSession->class_id === (int) $schoolClass->id, 404);
@@ -65,10 +57,28 @@ class AttendanceController extends Controller
         $this->attendance->destroy($schoolClass, $attendanceSession);
 
         return redirect()
-            ->route('teacher.classes.show', [
-                'schoolClass' => $schoolClass,
-                'tab' => 'chamada',
-            ])
+            ->route('teacher.classes.show', $this->attendanceTabParameters($schoolClass, $request))
             ->with('success', 'Chamada de '.$date.' removida.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function attendanceTabParameters(SchoolClass $schoolClass, Request $request, ?int $sessionId = null): array
+    {
+        $parameters = [
+            'schoolClass' => $schoolClass,
+            'tab' => 'chamada',
+        ];
+
+        if ($sessionId !== null) {
+            $parameters['session'] = $sessionId;
+        }
+
+        if ($request->input('order') === 'team') {
+            $parameters['order'] = 'team';
+        }
+
+        return $parameters;
     }
 }

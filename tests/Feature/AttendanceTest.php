@@ -159,6 +159,22 @@ class AttendanceTest extends TestCase
         $this->assertFalse(app(GradeCalculator::class)->hasGradedAttendance($class));
     }
 
+    public function test_attendance_date_field_offers_a_calendar_picker(): void
+    {
+        [$teacher, $class] = $this->readyClassWithStudents();
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', [
+                'schoolClass' => $class,
+                'tab' => 'chamada',
+            ]))
+            ->assertOk()
+            ->assertSee('miniDatePicker', false)
+            ->assertSee('aria-label="Calendário"', false)
+            ->assertSee('name="held_on"', false)
+            ->assertDontSee('type="date"', false);
+    }
+
     public function test_teacher_can_open_attendance_tab_after_generating(): void
     {
         [$teacher, $class, $studentA, $studentB] = $this->readyClassWithStudents();
@@ -283,6 +299,109 @@ class AttendanceTest extends TestCase
             ])
             ->assertRedirect()
             ->assertSessionHasErrors('statuses');
+    }
+
+    public function test_attendance_list_sorts_students_alphabetically_by_default(): void
+    {
+        [$teacher, $class, $session] = $this->attendanceClassWithTeams();
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', [
+                'schoolClass' => $class,
+                'tab' => 'chamada',
+                'session' => $session->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Alfabética')
+            ->assertSee('Por equipe')
+            ->assertDontSee('Sem guilda')
+            ->getContent();
+
+        $list = substr($html, (int) strpos($html, 'data-attendance-list'));
+
+        $this->assertLessThan(strpos($list, 'Bruno'), strpos($list, 'Ana'));
+        $this->assertLessThan(strpos($list, 'Carla'), strpos($list, 'Bruno'));
+        $this->assertLessThan(strpos($list, 'Diego'), strpos($list, 'Carla'));
+    }
+
+    public function test_attendance_list_sorts_students_by_team_and_keeps_names_alphabetical(): void
+    {
+        [$teacher, $class, $session] = $this->attendanceClassWithTeams();
+
+        $html = $this->actingAs($teacher)
+            ->get(route('teacher.classes.show', [
+                'schoolClass' => $class,
+                'tab' => 'chamada',
+                'session' => $session->id,
+                'order' => 'team',
+            ]))
+            ->assertOk()
+            ->assertSee('name="order" value="team"', false)
+            ->getContent();
+
+        $list = substr($html, (int) strpos($html, 'data-attendance-list'));
+        $alpha = strpos($list, 'Alpha');
+        $carla = strpos($list, 'Carla');
+        $zeta = strpos($list, 'Zeta');
+        $ana = strpos($list, 'Ana');
+        $bruno = strpos($list, 'Bruno');
+        $unguilded = strpos($list, 'Sem guilda');
+        $diego = strpos($list, 'Diego');
+
+        $this->assertLessThan($carla, $alpha);
+        $this->assertLessThan($zeta, $carla);
+        $this->assertLessThan($ana, $zeta);
+        $this->assertLessThan($bruno, $ana);
+        $this->assertLessThan($unguilded, $bruno);
+        $this->assertLessThan($diego, $unguilded);
+    }
+
+    /**
+     * @return array{0: User, 1: SchoolClass, 2: AttendanceSession}
+     */
+    private function attendanceClassWithTeams(): array
+    {
+        [$teacher, $class, $ana, $bruno] = $this->readyClassWithStudents();
+        $carla = $this->enrollStudent($class, 'Carla');
+        $this->enrollStudent($class, 'Diego');
+
+        $zeta = $class->teams()->create([
+            'name' => 'Zeta',
+            'color' => '#7c3aed',
+            'emblem' => 'wolf',
+        ]);
+        $alpha = $class->teams()->create([
+            'name' => 'Alpha',
+            'color' => '#7c3aed',
+            'emblem' => 'shield',
+        ]);
+        $zeta->members()->attach([$ana->id, $bruno->id]);
+        $alpha->members()->attach($carla->id);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.attendance.store', $class), ['held_on' => '2026-10-15']);
+
+        $session = AttendanceSession::query()->where('class_id', $class->id)->firstOrFail();
+
+        return [$teacher, $class, $session];
+    }
+
+    private function enrollStudent(SchoolClass $class, string $name): User
+    {
+        $student = User::factory()->create([
+            'name' => $name,
+            'role' => 'student',
+            'must_change_password' => false,
+        ]);
+
+        $class->students()->attach($student->id, [
+            'ranking_visible' => true,
+            'xp' => 0,
+            'behavior_score' => 100,
+            'seals' => 0,
+        ]);
+
+        return $student;
     }
 
     /**
