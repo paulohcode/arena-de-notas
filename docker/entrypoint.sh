@@ -20,7 +20,7 @@ php artisan optimize
 
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
     echo "Rodando migrations..."
-    php artisan migrate --force --isolated
+    php artisan migrate --force
 fi
 
 exec "$@"

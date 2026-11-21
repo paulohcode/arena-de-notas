@@ -24,3 +24,5 @@ docker-compose*.yml
 compose*.yml
 Dockerfile
 *.log
+*.sql
+*.sql.gz
