@@ -1,0 +1,85 @@
+name: arena-de-notas
+
+x-app: &app
+  build:
+    context: .
+    target: app
+  image: arena-de-notas-app:latest
+  env_file: .env
+  restart: unless-stopped
+  volumes:
+    - storage:/var/www/html/storage
+  depends_on:
+    mysql:
+      condition: service_healthy
+      required: false
+
+services:
+  app:
+    <<: *app
+    environment:
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+    networks:
+      default:
+        aliases:
+          - arena-app
+
+  scheduler:
+    <<: *app
+    command: ["php", "artisan", "schedule:work"]
+    environment:
+      RUN_MIGRATIONS: "false"
+
+  web:
+    build:
+      context: .
+      target: web
+    image: arena-de-notas-web:latest
+    restart: unless-stopped
+    depends_on:
+      - app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.arena-de-notas.rule=Host(`${APP_DOMAIN:-arena.versumtech.com.br}`)"
+      - "traefik.http.routers.arena-de-notas.entrypoints=web"
+      - "traefik.http.services.arena-de-notas.loadbalancer.server.port=80"
+    networks:
+      - default
+      - proxy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      
+  mysql:
+    image: mysql:8.4
+    profiles: ["mysql"]
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: America/Sao_Paulo
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+networks:
+  proxy:
+    external: true
+
+volumes:
+  storage:
+  mysql-data:
